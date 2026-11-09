@@ -5868,519 +5868,434 @@ Una red social le sugiere a cada persona alguien que todavía no es su amigo:
 la persona con más **amigos en común** con ella. Un amigo en común de dos
 personas es alguien que es amigo de las dos.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
-<NodeGraph
-  cols={6}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  tones={{ ana: 'mark', diego: 'keep' }}
-  caption="para ana: diego, con 2 amigos en común"
-  label="Cinco personas: ana, destacada, es amiga de beto y de carla; beto y carla son amigos entre sí y de diego; diego es amigo de elena. diego, sugerido, comparte dos amigos con ana, beto y carla; elena no comparte ninguno."
-/>
-<NodeGraph
-  cols={4}
-  rows={3}
-  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }]}
-  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-  tones={{ ana: 'mark' }}
-  caption="para ana: nadie, todos son sus amigos"
-  label="Tres personas, todas amigas entre sí: ana, destacada, no tiene a quién sugerir."
-/>
+<div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', gap: '0 1.5rem', alignItems: 'center' }}>
+  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+  <InputLines head="user" lines={['ana']} read={1} label="El usuario que recibe la sugerencia: ana." />
+  <ArrayRows
+    rows={[{ name: 'amigos de beto', cells: ['ana', 'carla', 'diego'], head: ['', '', ''] }, { name: 'amigos de carla', cells: ['ana', 'beto', 'diego'], head: ['', '', ''] }]}
+    mark={[[0, 0], [0, 2], [1, 0], [1, 2]]}
+    cols={3}
+    caption="ana y diego: los amigos en común de beto y carla"
+    label="Los amigos de beto son ana, carla y diego; los de carla, ana, beto y diego. Marcados, ana y diego, que son amigos de los dos."
+  />
 </div>
 
-El programa recibe las amistades, una por línea con los nombres de usuario de
-las dos personas, y el usuario que recibe la sugerencia. Responde el nombre
-de la persona sugerida, o `null` si nadie tiene un amigo en común con él:
+</Slide>
 
+<Slide title="Sugerir amigos · entrada y salida">
 <SourceFile src="./26-grafos-tda-modelado.code/amigos/Solution.java" range="7-7" />
 
-**Entrada.** A lo más $$10^5$$ amistades, sin repetir. Los nombres no tienen
-espacios, y `user` aparece en alguna amistad.
+| Recibe          | Qué es                                                                    | En el ejemplo            |
+| --------------- | ------------------------------------------------------------------------- | ------------------------ |
+| `friendships`   | las amistades de la red: cada `String` es una amistad, los nombres de las dos personas separados por un espacio. A lo más $$10^5$$, sin repetir | `"ana beto"`, `"ana carla"`, … |
+| `user`          | el nombre de quien recibe la sugerencia; aparece en alguna amistad        | `"ana"`                  |
 
-**Salida.** La persona que no es `user` ni su amiga con más amigos en común
-con `user` —si hay empate, la que aparece primero en las amistades—, o
-`null`.
+**Retorna** el nombre de la persona que se le sugiere a `user`, en tres pasos:
+
+1. **Las candidatas** son todas las personas menos `user` y sus amigos: a
+   ellos no hay nada que sugerirles.
+2. **De cada candidata se cuentan los amigos en común con `user`.**
+3. **Gana la que tiene más.** Si dos empatan, gana la que aparece primero en
+   `friendships`. Si ninguna tiene un amigo en común, retorna `null`.
 
 </Slide>
 
 <Slide title="Sugerir amigos · el modelo">
-- **Los vértices** son las personas, numeradas en el orden en que aparecen.
-- **Las aristas** son las amistades, sin dirección: si una persona es amiga de
-  otra, la otra es amiga de ella. No tienen peso: el grafo es **no dirigido y
-  no ponderado**.
-- **La pregunta**: el vértice que no es `user` ni su vecino y que comparte
-  más vecinos con `user`.
-- **El tamaño**: $$E \le 10^5$$, y $$V \le 2E = 2 \cdot 10^5$$ porque la
-  entrada es la lista de amistades. Es disperso: se guarda en listas.
+| Decisión                 | En este problema                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| La pregunta              | ¿A quién le sugiero a `user`?                                                     |
+| Los vértices             | las personas: cada nombre recibe un número, en el orden en que aparece             |
+| Las aristas              | las amistades: cada línea de `friendships` une a dos personas                     |
+| El tipo                  | **no dirigido**, porque la amistad va en los dos sentidos; **no ponderado**, porque no trae un número |
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'center' }}>
-<div>
+<Pair>
+  <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+  <NodeGraph
+    cols={6}
+    rows={3}
+    nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
+    edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '4 elena']]}
+    caption="cada línea, una arista; cada nombre, un número"
+    label="El grafo de la entrada: ana es el 0, beto el 1, carla el 2, diego el 3 y elena el 4, numerados en el orden en que aparecen, con una arista por línea."
+  />
+</Pair>
 
-```text
-ana beto
-ana carla
-beto carla
-beto diego
-carla diego
-diego elena
-```
+</Slide>
 
-</div>
+<Slide title="Sugerir amigos · la pregunta en el grafo">
+En el grafo, un amigo en común de dos personas es un **vecino que comparten**.
+La pregunta se escribe así: entre los vértices que no son `user` ni sus
+vecinos, ¿cuál comparte más vecinos con `user`? Con el grafo dibujado, se
+responde mirándolo:
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
   cols={6}
   rows={3}
-  nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
-  edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '4 elena']]}
-  caption="cada línea, una arista; cada nombre, un número"
-  label="Las seis líneas de amistades y su grafo: ana es el 0, beto el 1, carla el 2, diego el 3 y elena el 4, numerados en el orden en que aparecen, con una arista por línea."
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  caption="1. fuera ana y sus vecinos: las candidatas son diego y elena"
+  label="ana, destacada, y sus vecinos beto y carla quedan fuera. Las candidatas son diego y elena."
+/>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'diego'], ['carla', 'diego']]}
+  tones={{ 'ana': 'mark', 'diego': 'mark' }}
+  notes={{ 'diego': 2 }}
+  caption="2. diego comparte con ana a beto y a carla: 2"
+  label="diego y ana comparten dos vecinos, beto y carla: marcados los caminos ana-beto-diego y ana-carla-diego."
+/>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['diego', 'elena']]}
+  tones={{ 'ana': 'mark', 'elena': 'mark' }}
+  notes={{ 'elena': 0, 'diego': 2 }}
+  caption="3. el único vecino de elena, diego, no es vecino de ana: 0"
+  label="elena tiene un solo vecino, diego, que no es vecino de ana: no comparten ninguno."
 />
 </div>
+
+La respuesta del ejemplo es **diego**, con dos vecinos compartidos. Sin
+candidatas, o si ninguna comparte un vecino, la respuesta es `null`.
+Responderla no es una operación del contrato: hay que recorrer los vecinos de
+los vecinos de `user`, con `adj`.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el tamaño">
+| Regla                 | Resultado                                                    | Por qué                                                       |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| 1. el enunciado       | $$E \le 10^5$$                                               | cada amistad es una arista                                    |
+| 2. $$V \le 2E$$       | $$V \le 2 \cdot 10^5$$                                        | la entrada es la lista de amistades                           |
+| 3. el máximo          | $$\frac{V(V - 1)}{2} \approx 2 \cdot 10^{10}$$ aristas posibles | una por cada par de personas                                  |
+| 4. denso o disperso   | **disperso**                                                 | $$10^5$$ de $$2 \cdot 10^{10}$$ posibles                       |
+
+El grafo se guarda en **listas de adyacencia**, la clase `AdjListGraph`:
+ocupan unas $$V + 2E = 4 \cdot 10^5$$ entradas, y una matriz tendría
+$$4 \cdot 10^{10}$$ casillas. `adj(v)` entrega los amigos de `v` en
+$$\Theta(\operatorname{grado}(v))$$, que es lo que la pregunta recorre.
 
 </Slide>
 
 <Slide title="Sugerir amigos · comparar con todas las personas">
-Lo primero que se piensa es contar los amigos en común de `user` con cada
-persona de la red, una por una, comparando sus dos listas de amigos. Es
-correcto, y mira a todas las personas, aunque solo pueden tener un amigo en
-común con `user` las que están a dos aristas de él.
+Lo primero que se piensa es comparar a `user` con cada persona de la red, una
+por una, contando los nombres que aparecen en las dos listas de amigos. Es
+correcto, pero compara también con quienes no pueden compartir ningún amigo:
+un amigo en común es un camino de dos aristas, y quien está más lejos
+siempre suma cero.
 
 <NodeGraph
   cols={6}
   rows={3}
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  tones={{ ana: 'mark', elena: 'flag' }}
-  caption="elena se compara con ana, y no puede compartir ningún amigo"
-  label="La red de cinco personas. ana, destacada, se compara también con elena, marcada en rojo: elena está a tres aristas de ana, y no comparte ningún amigo con ella."
+  tones={{ 'ana': 'mark', 'elena': 'flag' }}
+  caption="elena está a tres aristas de ana: no comparten ningún amigo"
+  label="La red de cinco personas. ana, destacada; elena, en rojo, está a tres aristas de ana y no comparte ningún amigo con ella, pero la comparación la mira igual."
 />
 
-En una red real, con $$V = 2 \cdot 10^5$$ personas, son $$2 \cdot 10^5$$
-comparaciones de listas para una sola sugerencia, y casi todas responden
-cero.
+Con $$V = 2 \cdot 10^5$$ personas son $$2 \cdot 10^5$$ comparaciones de dos
+listas para una sola sugerencia, y casi todas responden cero.
 
 </Slide>
 
 <Slide title="Sugerir amigos · la idea">
 Un amigo en común de `user` y otra persona es un amigo de `user` que también
-es amigo de la otra. Al revés: cada amigo de `user` le suma un amigo en común
-a **cada uno de sus propios amigos**. Basta con recorrer los vecinos de los
-vecinos de `user`, con un contador por persona, saltándose a `user` y a
-quienes ya son sus amigos.
+es amigo de la otra. Dicho al revés: **cada amigo de `user` le suma uno a
+cada uno de sus propios amigos**. Basta con recorrer los amigos de cada amigo
+de `user` y llevar un contador por persona, saltándose a `user` y a quienes ya
+son sus amigos. Al final, la sugerencia es el contador más alto.
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
   cols={6}
   rows={3}
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-  markEdges={[['beto', 'diego'], ['carla', 'diego']]}
-  notes={{ diego: 2 }}
-  tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-  caption="desde beto y carla, diego suma 2; los demás son ana o sus amigos"
-  label="Desde beto y carla, los amigos de ana, se recorren sus amistades: las dos llegan a diego, que queda con 2. Las otras llevan a ana o a un amigo de ana, y se saltan."
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  caption="1. los amigos de ana: beto y carla"
+  label="Los amigos de ana, beto y carla, marcados: se saltan al contar."
 />
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['beto', 'diego']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  notes={{ 'diego': 1 }}
+  caption="2. desde beto: diego suma 1"
+  label="Desde beto se recorren sus amigos: ana y carla se saltan, y diego suma 1."
+/>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
+  edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
+  markEdges={[['carla', 'diego']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
+  notes={{ 'diego': 2 }}
+  caption="3. desde carla: diego llega a 2"
+  label="Desde carla se recorren sus amigos: ana y beto se saltan, y diego llega a 2, el contador más alto."
+/>
+</div>
 
-Los contadores son un arreglo indexado por el vértice, y los amigos de `user`
-se marcan en otro: saltarse a un amigo cuesta $$\Theta(1)$$, sin preguntar
-`hasEdge`.
+Los contadores van en un **arreglo indexado por el vértice**, y los amigos de
+`user` se marcan en otro arreglo de booleanos: saltarse a un amigo es leer una
+casilla, $$\Theta(1)$$, sin preguntar `hasEdge`.
 
 </Slide>
 
-<Slide title="Sugerir amigos · de nombres a números">
-`Graph` solo conoce vértices de $$0$$ a $$V - 1$$, y la red tiene nombres. La
-primera vuelta numera cada nombre nuevo con `names.size()`: el `Map` traduce
-del nombre al número, y la lista, de vuelta.
+<Slide title="Sugerir amigos · construir el grafo">
+`Graph` conoce vértices de $$0$$ a $$V - 1$$, y la red trae nombres. El método
+lee las amistades dos veces. La primera vuelta le da un número a cada nombre
+nuevo, `names.size()`: el `Map` `ids` traduce del nombre al número, y la lista
+`names`, de vuelta. Al terminarla se conoce $$V$$, y la segunda vuelta crea el
+grafo y agrega una arista por línea:
 
 <StepShow
   language="java"
   beside
-  title="ids y names, nombre por nombre"
+  title="Las amistades, del texto al grafo"
   codeSrc="./26-grafos-tda-modelado.code/amigos/Solution.java"
-  codeRange="8-17"
+  codeRange="8-22"
 >
-  <Step lines={[8, 9]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El mapa ids y la lista names empiezan vacíos.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={0} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+  <Step lines={[8, 9]} under={<ArrayRows rows={[{'name': 'names', 'cells': []}, {'name': 'ids', 'cells': [], 'head': []}]} mark={[]} cols={5} label="names e ids: vacíos." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>ids y names empiezan vacíos.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: ninguno todavía."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: [] }, { name: 'ids', cells: [] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: los dos vacíos."
+        label="El grafo hasta ahora: ningún vértice; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12, 13, 14]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «ana beto»: ana es nuevo, y recibe names.size() = 0.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0, 0]} read={0} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee ana, de la línea 1." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana'] }, { name: 'ids', cells: [0], head: ['ana'] }]}
-        mark={[[0, 0], [1, 0]]}
-        label="La lista names y el mapa ids: ana es el 0."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12, 13, 14]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «ana beto»: beto es nuevo, y recibe names.size() = 1.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0, 1]} read={0} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee beto, de la línea 1." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto']}, {'name': 'ids', 'cells': [0, 1], 'head': ['ana', 'beto']}]} mark={[[0, 0], [0, 1], [1, 0], [1, 1]]} cols={5} label="names e ids: ana es el 0, beto es el 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana beto»: los dos son nuevos, y reciben 0 y 1.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0]} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto'] }, { name: 'ids', cells: [0, 1], head: ['ana', 'beto'] }]}
-        mark={[[0, 1], [1, 1]]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1."
+        label="El grafo hasta ahora: 0 ana, 1 beto; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «ana carla»: ana ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1, 0]} read={1} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee ana, de la línea 2." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto'] }, { name: 'ids', cells: [0, 1], head: ['ana', 'beto'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12, 13, 14]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «ana carla»: carla es nuevo, y recibe names.size() = 2.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1, 1]} read={1} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee carla, de la línea 2." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla']}, {'name': 'ids', 'cells': [0, 1, 2], 'head': ['ana', 'beto', 'carla']}]} mark={[[0, 2], [1, 2]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana carla»: ana ya tiene número; carla es nuevo y recibe 2.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1]} read={1} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla'] }, { name: 'ids', cells: [0, 1, 2], head: ['ana', 'beto', 'carla'] }]}
-        mark={[[0, 2], [1, 2]]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «beto carla»: beto ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2, 0]} read={2} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee beto, de la línea 3." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla']}, {'name': 'ids', 'cells': [0, 1, 2], 'head': ['ana', 'beto', 'carla']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto carla»: los dos ya tienen número.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2]} read={2} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla'] }, { name: 'ids', cells: [0, 1, 2], head: ['ana', 'beto', 'carla'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «beto carla»: carla ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2, 1]} read={2} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee carla, de la línea 3." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla'] }, { name: 'ids', cells: [0, 1, 2], head: ['ana', 'beto', 'carla'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «beto diego»: beto ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3, 0]} read={3} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee beto, de la línea 4." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla'] }, { name: 'ids', cells: [0, 1, 2], head: ['ana', 'beto', 'carla'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12, 13, 14]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «beto diego»: diego es nuevo, y recibe names.size() = 3.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3, 1]} read={3} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee diego, de la línea 4." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego']}, {'name': 'ids', 'cells': [0, 1, 2, 3], 'head': ['ana', 'beto', 'carla', 'diego']}]} mark={[[0, 3], [1, 3]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto diego»: beto ya tiene número; diego es nuevo y recibe 3.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3]} read={3} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla, 3 diego."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla', 'diego'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['ana', 'beto', 'carla', 'diego'] }]}
-        mark={[[0, 3], [1, 3]]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «carla diego»: carla ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4, 0]} read={4} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee carla, de la línea 5." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego']}, {'name': 'ids', 'cells': [0, 1, 2, 3], 'head': ['ana', 'beto', 'carla', 'diego']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «carla diego»: los dos ya tienen número.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4]} read={4} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla, 3 diego."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla', 'diego'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['ana', 'beto', 'carla', 'diego'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego; sin aristas."
       />
     </Pair>
   </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «carla diego»: diego ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4, 1]} read={4} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee diego, de la línea 5." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla, 3 diego."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla', 'diego'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['ana', 'beto', 'carla', 'diego'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «diego elena»: diego ya tiene número, y se salta.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5, 0]} read={5} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee diego, de la línea 6." />
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }]}
-        edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla, 3 diego."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla', 'diego'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['ana', 'beto', 'carla', 'diego'] }]}
-        mark={[]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[11, 12, 13, 14]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>Línea «diego elena»: elena es nuevo, y recibe names.size() = 4.</div>
-    <Pair stack>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5, 1]} read={5} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee elena, de la línea 6." />
+  <Step lines={[10, 11, 12, 13, 14]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[[0, 4], [1, 4]]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «diego elena»: diego ya tiene número; elena es nuevo y recibe 4.</div>
+    <Pair>
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5]} read={5} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[]}
-        label="Los vértices numerados hasta ahora, sin aristas: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena."
-      />
-      <ArrayRows
-        rows={[{ name: 'names', cells: ['ana', 'beto', 'carla', 'diego', 'elena'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['ana', 'beto', 'carla', 'diego', 'elena'] }]}
-        mark={[[0, 4], [1, 4]]}
-        label="La lista names y el mapa ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; sin aristas."
       />
     </Pair>
   </Step>
-</StepShow>
-
-Al terminar la vuelta se conoce $$V$$, la cantidad de nombres, que el grafo
-necesita al crearse.
-
-</Slide>
-
-<Slide title="Sugerir amigos · el grafo">
-La segunda vuelta crea el grafo con $$V$$ vértices y agrega una arista por
-línea, con los números de sus dos nombres. Es la clase de listas de
-adyacencia, sin cambios:
-
-<StepShow
-  language="java"
-  title="El grafo de la red, línea por línea"
-  codeSrc="./26-grafos-tda-modelado.code/amigos/Solution.java"
-  codeRange="18-22"
->
-  <Step lines={[18]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>new AdjListGraph(5): una lista vacía por persona.</div>
+  <Step lines={[18]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>names.size() = 5: el grafo se crea con 5 vértices y 5 listas vacías.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={0} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={null} read={6} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[]}
-        label="La red con sus vértices numerados, sin aristas."
-      />
-      <AdjLists
-        lists={[[], [], [], [], []]}
-        mark={[]}
-        label="Las listas: la lista de 0 está vacía; la lista de 1 está vacía; la lista de 2 está vacía; la lista de 3 está vacía; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; sin aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[], [], [], [], []]}
+      mark={[]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene nada; la lista de 1 tiene nada; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«ana beto» es addEdge(0, 1): un 1 en la lista de 0 y un 0 en la de 1.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana beto»: addEdge(0, 1), 1 al final de la lista de 0 y 0 al final de la de 1.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0]} read={0} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 1, ana beto." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[0]} read={0} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto']]}
         markEdges={[['0 ana', '1 beto']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto; marcada ana-beto, la que entra."
-      />
-      <AdjLists
-        lists={[[1], [0], [], [], []]}
-        mark={[[0, 0], [1, 0]]}
-        label="Las listas: la lista de 0 tiene 1; la lista de 1 tiene 0; la lista de 2 está vacía; la lista de 3 está vacía; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 1 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1], [0], [], [], []]}
+      mark={[[0, 0], [1, 0]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1; la lista de 1 tiene 0; la lista de 2 tiene nada; la lista de 3 tiene nada; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«ana carla» es addEdge(0, 2): un 2 en la lista de 0 y un 0 en la de 2.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «ana carla»: addEdge(0, 2), 2 al final de la lista de 0 y 0 al final de la de 2.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1]} read={1} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 2, ana carla." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[1]} read={1} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '2 carla']]}
         markEdges={[['0 ana', '2 carla']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto, ana-carla; marcada ana-carla, la que entra."
-      />
-      <AdjLists
-        lists={[[1, 2], [0], [0], [], []]}
-        mark={[[0, 1], [2, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0; la lista de 2 tiene 0; la lista de 3 está vacía; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 2 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1, 2], [0], [0], [], []]}
+      mark={[[0, 1], [2, 0]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0; la lista de 2 tiene 0; la lista de 3 tiene nada; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«beto carla» es addEdge(1, 2): un 2 en la lista de 1 y un 1 en la de 2.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto carla»: addEdge(1, 2), 2 al final de la lista de 1 y 1 al final de la de 2.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2]} read={2} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 3, beto carla." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[2]} read={2} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla']]}
         markEdges={[['1 beto', '2 carla']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2], [0, 1], [], []]}
-        mark={[[1, 1], [2, 1]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1; la lista de 3 está vacía; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 3 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1, 2], [0, 2], [0, 1], [], []]}
+      mark={[[1, 1], [2, 1]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2; la lista de 2 tiene 0, 1; la lista de 3 tiene nada; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«beto diego» es addEdge(1, 3): un 3 en la lista de 1 y un 1 en la de 3.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «beto diego»: addEdge(1, 3), 3 al final de la lista de 1 y 1 al final de la de 3.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3]} read={3} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 4, beto diego." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[3]} read={3} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego']]}
         markEdges={[['1 beto', '3 diego']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto, ana-carla, beto-carla, beto-diego; marcada beto-diego, la que entra."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2, 3], [0, 1], [1], []]}
-        mark={[[1, 2], [3, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1; la lista de 3 tiene 1; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 4 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1, 2], [0, 2, 3], [0, 1], [1], []]}
+      mark={[[1, 2], [3, 0]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1; la lista de 3 tiene 1; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«carla diego» es addEdge(2, 3): un 3 en la lista de 2 y un 2 en la de 3.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «carla diego»: addEdge(2, 3), 3 al final de la lista de 2 y 2 al final de la de 3.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4]} read={4} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 5, carla diego." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[4]} read={4} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         markEdges={[['2 carla', '3 diego']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto, ana-carla, beto-carla, beto-diego, carla-diego; marcada carla-diego, la que entra."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2], []]}
-        mark={[[2, 2], [3, 1]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2; la lista de 4 está vacía."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 5 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2], []]}
+      mark={[[2, 2], [3, 1]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2; la lista de 4 tiene nada."
+    />
   </Step>
-  <Step lines={[19, 20, 21]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«diego elena» es addEdge(3, 4): un 4 en la lista de 3 y un 3 en la de 4.</div>
+  <Step lines={[19, 20, 21]} under={<ArrayRows rows={[{'name': 'names', 'cells': ['ana', 'beto', 'carla', 'diego', 'elena']}, {'name': 'ids', 'cells': [0, 1, 2, 3, 4], 'head': ['ana', 'beto', 'carla', 'diego', 'elena']}]} mark={[]} cols={5} label="names e ids: ana es el 0, beto es el 1, carla es el 2, diego es el 3, elena es el 4." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Línea «diego elena»: addEdge(3, 4), 4 al final de la lista de 3 y 3 al final de la de 4.</div>
     <Pair>
-      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5]} read={5} label="La entrada, línea por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena. Se lee la línea 6, diego elena." />
+      <InputLines head="friendships" lines={['ana beto', 'ana carla', 'beto carla', 'beto diego', 'carla diego', 'diego elena']} at={[5]} read={5} label="La entrada, una amistad por línea: ana beto, ana carla, beto carla, beto diego, carla diego, diego elena." />
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: '0 ana', x: 0, y: 1 }, { v: '1 beto', x: 1.5, y: 0 }, { v: '2 carla', x: 1.5, y: 2 }, { v: '3 diego', x: 3, y: 1 }, { v: '4 elena', x: 4.5, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '2 carla'], ['1 beto', '2 carla'], ['1 beto', '3 diego'], ['2 carla', '3 diego'], ['3 diego', '4 elena']]}
         markEdges={[['3 diego', '4 elena']]}
-        label="La red con sus vértices numerados, con las aristas ana-beto, ana-carla, beto-carla, beto-diego, carla-diego, diego-elena; marcada diego-elena, la que entra."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
-        mark={[[3, 2], [4, 0]]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
+        label="El grafo hasta ahora: 0 ana, 1 beto, 2 carla, 3 diego, 4 elena; 6 aristas."
       />
     </Pair>
+    <AdjLists
+      lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
+      mark={[[3, 2], [4, 0]]}
+      minWidth={230}
+      label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
+    />
   </Step>
 </StepShow>
 
@@ -6388,26 +6303,26 @@ adyacencia, sin cambios:
 
 <Slide title="Sugerir amigos · la solución">
 Con el grafo construido, el método marca a los amigos de `user`, cuenta los
-amigos en común recorriendo los vecinos de cada amigo y elige la cuenta
-mayor. Como el `>` es estricto, en un empate queda el número menor: el nombre
-que apareció primero.
+amigos en común recorriendo los amigos de cada amigo y elige la cuenta mayor.
+Como el `>` es estricto, en un empate queda el número menor: el nombre que
+apareció primero.
 
 <StepShow
   language="java"
   beside
-  title="suggest(red, ana): la cuenta"
+  title='suggest(friendships, "ana")'
   codeSrc="./26-grafos-tda-modelado.code/amigos/Solution.java"
   codeRange="23-44"
 >
-  <Step lines={[23]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>u = ids.get("ana") = 0.</div>
+  <Step lines={[23]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} fresh label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>u = ids.get("ana") = 0.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark' }}
+        tones={{ 'ana': 'mark' }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6415,23 +6330,18 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: null, size: 5 }, { name: 'common', cells: null, size: 5 }]}
-        mark={[]}
-        cell={52}
-        label="Todavía sin arreglos."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': null, 'size': 5}, {'name': 'common', 'cells': null, 'size': 5}]} mark={[]} cell={52} label="friend: todavía no existe; common: todavía no existe." />
     </Pair>
   </Step>
-  <Step lines={[24]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>friend: un booleano por persona, todos en false.</div>
+  <Step lines={[24]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>friend: un booleano por persona, todos en false.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark' }}
+        tones={{ 'ana': 'mark' }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6439,16 +6349,11 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'false', 'false', 'false', 'false'] }, { name: 'common', cells: null, size: 5 }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto false, carla false, diego false, elena false."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'false', 'false', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': null, 'size': 5}]} mark={[]} cell={52} label="friend: false, false, false, false, false; common: todavía no existe." />
     </Pair>
   </Step>
-  <Step lines={[25, 26]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = 1, beto: friend[1] = true.</div>
+  <Step lines={[25, 26]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 1: beto es amigo de ana, friend[1] = true.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6456,24 +6361,19 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['ana', 'beto']]}
-        tones={{ ana: 'mark', beto: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista ana-beto."
+        tones={{ 'ana': 'mark', 'beto': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad ana-beto."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[0, 0]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'false', 'false', 'false'] }, { name: 'common', cells: null, size: 5 }]}
-        mark={[[0, 1]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla false, diego false, elena false."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'false', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': null, 'size': 5}]} mark={[[0, 1]]} cell={52} label="friend: false, true, false, false, false; common: todavía no existe." />
     </Pair>
   </Step>
-  <Step lines={[25, 26]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = 2, carla: friend[2] = true.</div>
+  <Step lines={[25, 26]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 2: carla es amigo de ana, friend[2] = true.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6481,31 +6381,26 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['ana', 'carla']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista ana-carla."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad ana-carla."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[0, 1]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: null, size: 5 }]}
-        mark={[[0, 2]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': null, 'size': 5}]} mark={[[0, 2]]} cell={52} label="friend: false, true, true, false, false; common: todavía no existe." />
     </Pair>
   </Step>
-  <Step lines={[28]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>common: un contador de amigos en común por persona, todos en 0.</div>
+  <Step lines={[28]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>common: un contador por persona, todos en 0.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6513,16 +6408,11 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 0, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 0, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 0, 0], 'size': 5}]} mark={[]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 0, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = beto, x = 0: es u, ana; se salta.</div>
+  <Step lines={[29, 30, 31]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 1, x = 0: es ana, se salta.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6530,24 +6420,19 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['beto', 'ana']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista beto-ana."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad beto-ana."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[1, 0]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 0, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 0, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 0, 0], 'size': 5}]} mark={[]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 0, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = beto, x = 2: carla ya es amiga de ana; se salta.</div>
+  <Step lines={[29, 30, 31]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 1, x = 2: carla ya es amigo de ana, friend[2] es true, se salta.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6555,24 +6440,19 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['beto', 'carla']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista beto-carla."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad beto-carla."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[1, 1]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 0, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 0, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 0, 0], 'size': 5}]} mark={[[0, 2]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 0, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31, 32]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = beto, x = 3: diego no es u ni amigo; common[3] = 1.</div>
+  <Step lines={[30, 31, 32]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 1, x = 3: diego suma un amigo en común, common[3] = 1.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6580,24 +6460,20 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['beto', 'diego']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista beto-diego."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        notes={{ 'diego': 1 }}
+        label="La red de cinco personas; ana es u, marcada la amistad beto-diego."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[1, 2]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 1, 0] }]}
-        mark={[[1, 3]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 1, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 1, 0], 'size': 5}]} mark={[[1, 3]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 1, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = carla, x = 0: es u, ana; se salta.</div>
+  <Step lines={[29, 30, 31]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 2, x = 0: es ana, se salta.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6605,24 +6481,19 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['carla', 'ana']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista carla-ana."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad carla-ana."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[2, 0]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 1, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 1, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 1, 0], 'size': 5}]} mark={[]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 1, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = carla, x = 1: beto ya es amigo de ana; se salta.</div>
+  <Step lines={[29, 30, 31]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 2, x = 1: beto ya es amigo de ana, friend[1] es true, se salta.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6630,24 +6501,19 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['carla', 'beto']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista carla-beto."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        label="La red de cinco personas; ana es u, marcada la amistad carla-beto."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[2, 1]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 1, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 1, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 1, 0], 'size': 5}]} mark={[[0, 1]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 1, 0." />
     </Pair>
   </Step>
-  <Step lines={[29, 30, 31, 32]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>f = carla, x = 3: diego no es u ni amigo; common[3] = 2.</div>
+  <Step lines={[30, 31, 32]} under={<OutputBox head="variables" lines={['u = 0']} rows={3} label="Las variables: u = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>f = 2, x = 3: diego suma un amigo en común, common[3] = 2.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
@@ -6655,31 +6521,28 @@ que apareció primero.
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
         markEdges={[['carla', 'diego']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u; marcada la arista carla-diego."
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        notes={{ 'diego': 2 }}
+        label="La red de cinco personas; ana es u, marcada la amistad carla-diego."
       />
       <AdjLists
         lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
         mark={[[2, 2]]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 3]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[[1, 3]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
-  <Step lines={[36, 37]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>best = -1 y most = 0: todavía no hay sugerencia.</div>
+  <Step lines={[36, 37]} under={<OutputBox head="variables" lines={['u = 0', 'best = -1', 'most = 0']} rows={3} fresh label="Las variables: u = 0, best = -1, most = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>best = -1 y most = 0: todavía no hay sugerencia.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        notes={{ 'diego': 2 }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6687,23 +6550,19 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
-  <Step lines={[38, 39]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>x = 0: common[0] = 0 no es mayor que most = 0.</div>
+  <Step lines={[38, 39]} under={<OutputBox head="variables" lines={['u = 0', 'best = -1', 'most = 0']} rows={3} label="Las variables: u = 0, best = -1, most = 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = 0, 1, 2: common vale 0, no supera a most.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+        notes={{ 'diego': 2 }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6711,23 +6570,19 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 0]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[[1, 0], [1, 1], [1, 2]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
-  <Step lines={[38, 39]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>x = 1: common[1] = 0 no es mayor que most = 0.</div>
+  <Step lines={[39, 40, 41]} under={<OutputBox head="variables" lines={['u = 0', 'best = 3', 'most = 2']} rows={3} fresh label="Las variables: u = 0, best = 3, most = 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = 3: common[3] = 2 supera a most: best = 3, most = 2.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
+        notes={{ 'diego': 2 }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6735,23 +6590,19 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 1]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[[1, 3]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
-  <Step lines={[38, 39]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>x = 2: common[2] = 0 no es mayor que most = 0.</div>
+  <Step lines={[38, 39]} under={<OutputBox head="variables" lines={['u = 0', 'best = 3', 'most = 2']} rows={3} label="Las variables: u = 0, best = 3, most = 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = 4: common[4] = 0, no supera a most.</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
+        notes={{ 'diego': 2 }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6759,23 +6610,19 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 2]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[[1, 4]]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
-  <Step lines={[38, 39, 40, 41]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>x = 3: common[3] = 2 es mayor que 0; most = 2 y best = 3.</div>
+  <Step lines={[44]} under={<OutputBox head="variables" lines={['u = 0', 'best = 3', 'most = 2']} rows={3} label="Las variables: u = 0, best = 3, most = 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna names.get(3): "diego".</div>
     <Pair stack>
       <NodeGraph
         cols={6}
         rows={3}
         nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
         edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep', diego: 'keep' }}
+        tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep', 'diego': 'mark' }}
+        notes={{ 'diego': 2 }}
         label="La red de cinco personas; ana es u."
       />
       <AdjLists
@@ -6783,60 +6630,7 @@ que apareció primero.
         mark={[]}
         label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
       />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 3]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[38, 39]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>x = 4: common[4] = 0 no es mayor que most = 2.</div>
-    <Pair stack>
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', beto: 'keep', carla: 'keep' }}
-        label="La red de cinco personas; ana es u."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
-        mark={[]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
-      />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 4]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
-    </Pair>
-  </Step>
-  <Step lines={[44]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>best = 3: retorna names.get(3), diego.</div>
-    <Pair stack>
-      <NodeGraph
-        cols={6}
-        rows={3}
-        nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }, { v: 'diego', x: 3, y: 1 }, { v: 'elena', x: 4.5, y: 2 }]}
-        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla'], ['beto', 'diego'], ['carla', 'diego'], ['diego', 'elena']]}
-        tones={{ ana: 'mark', diego: 'keep' }}
-        label="La red de cinco personas; ana es u."
-      />
-      <AdjLists
-        lists={[[1, 2], [0, 2, 3], [0, 1, 3], [1, 2, 4], [3]]}
-        mark={[]}
-        label="Las listas: la lista de 0 tiene 1, 2; la lista de 1 tiene 0, 2, 3; la lista de 2 tiene 0, 1, 3; la lista de 3 tiene 1, 2, 4; la lista de 4 tiene 3."
-      />
-      <ArrayRows
-        rows={[{ name: 'friend', cells: ['false', 'true', 'true', 'false', 'false'] }, { name: 'common', cells: [0, 0, 0, 2, 0] }]}
-        mark={[[1, 3]]}
-        cell={52}
-        label="Los arreglos: friend con ana false, beto true, carla true, diego false, elena false; common con ana 0, beto 0, carla 0, diego 2, elena 0."
-      />
+      <ArrayRows rows={[{'name': 'friend', 'cells': ['false', 'true', 'true', 'false', 'false'], 'size': 5}, {'name': 'common', 'cells': [0, 0, 0, 2, 0], 'size': 5}]} mark={[]} cell={52} label="friend: false, true, true, false, false; common: 0, 0, 0, 2, 0." />
     </Pair>
   </Step>
 </StepShow>
@@ -6844,27 +6638,40 @@ que apareció primero.
 </Slide>
 
 <Slide title="Sugerir amigos · casos y costo">
-Si todos los amigos de los amigos de `user` son `user` o sus amigos, ningún
-contador sube, `best` sigue en $$-1$$ y el método retorna `null`. Pasa en un
-triángulo, y con una sola amistad.
+Si todo amigo de un amigo de `user` es `user` o un amigo suyo, ningún contador
+sube, `best` sigue en $$-1$$ y el método retorna `null`:
 
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
   cols={4}
   rows={3}
   nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }, { v: 'carla', x: 1.5, y: 2 }]}
   edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
-  tones={{ ana: 'mark' }}
-  caption="suggest(triángulo, ana): todo vecino de un vecino es ana o su amigo, null"
-  label="Un triángulo: ana, destacada, beto y carla, todos amigos entre sí. Los amigos de beto y de carla son ana o amigos de ana, y ningún contador sube."
+  tones={{ 'ana': 'mark', 'beto': 'keep', 'carla': 'keep' }}
+  notes={{ 'beto': 0, 'carla': 0 }}
+  caption="un triángulo: los amigos de beto y carla son ana o sus amigos → null"
+  label="Un triángulo: ana, destacada, beto y carla, amigos entre sí. Los amigos de beto y de carla son ana o amigos de ana, y ningún contador sube: null."
 />
+<NodeGraph
+  cols={4}
+  rows={3}
+  nodes={[{ v: 'ana', x: 0, y: 1 }, { v: 'beto', x: 1.5, y: 0 }]}
+  edges={[['ana', 'beto']]}
+  tones={{ 'ana': 'mark', 'beto': 'keep' }}
+  caption="una sola amistad: el único amigo de beto es ana → null"
+  label="Una sola amistad, ana con beto. El único amigo de beto es ana, que se salta: null."
+/>
+</div>
 
-**Tiempo.** Leer las amistades cuesta $$\Theta(E)$$ esperado, por el
-`HashMap`, y crear el grafo, $$\Theta(V + E)$$. La cuenta recorre las listas
-de los amigos de `user`: la suma de sus grados, a lo más $$2E$$. Los arreglos
-y la búsqueda del mayor cuestan $$\Theta(V)$$. En total, $$O(V + E)$$
-esperado.
+**Tiempo.** Numerar las amistades cuesta $$\Theta(E)$$ esperado: cada nombre
+es una búsqueda en el `HashMap`. Crear el grafo y agregar las aristas,
+$$\Theta(V + E)$$. La cuenta recorre la lista de cada amigo de `user`: la
+suma de sus grados, a lo más $$2E$$. Los dos arreglos y la búsqueda del mayor,
+$$\Theta(V)$$. En total, $$\Theta(V + E)$$ esperado: leer la entrada ya
+cuesta eso.
 
-**Memoria.** El grafo, $$\Theta(V + E)$$, más los nombres y los dos arreglos.
+**Memoria.** El grafo, $$\Theta(V + E)$$, más `ids`, `names` y los dos
+arreglos, $$\Theta(V)$$.
 
 </Slide>
 
