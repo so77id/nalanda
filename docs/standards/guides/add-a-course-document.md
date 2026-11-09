@@ -1204,6 +1204,46 @@ Live: `/catalog/c/SequenceStepper`.
    - **Code that exists only on its slide** stays a fence (optionally
      ```` ```java file=Graph.java ```` for its header) or an inline `code`.
 
+5j. **Walk a graph step by step (optional, ADR-0092).** `<GraphWalk>`
+   simulates a traversal over a small graph and plays it as a `<StepShow>`:
+   the frames are computed, never written by hand, so none can disagree with
+   the algorithm. The method is quoted from its file (5i); `lines` says which
+   FILE lines each event of the walk lights, and the example calls go on the
+   slide as `program`:
+
+   ```mdx
+   <GraphWalk
+     beside
+     nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+     edges={[[0, 1], [0, 2], [1, 2]]}
+     cols={3}
+     rows={3}
+     codeSrc="./27-grafos-recorridos.code/Traversals.java"
+     codeRange="2-10"
+     lines={{ mark: 3, look: [4, 5], prev: 6, recurse: 7, return: 10 }}
+     program={`Traversals.dfs(g, 0, marked, prev);`}
+     programLines={[1]}
+     label="Un triángulo."
+   />
+   ```
+
+   - **The vertices are 0..V−1, in order**, each at a grid position as on
+     `<NodeGraph>`. **The edges go in the order the program adds them**: that
+     is the order of every adjacency list (`AdjListGraph.addEdge` appends), so
+     the order the walk visits neighbours in.
+   - **Every event needs its lines**; one left out is an authoring error. For
+     `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`,
+     `return`.
+   - **What a frame draws**: the running call in mark, the finished ones in
+     keep, the edges the calls in progress were entered by (the thread) and
+     the edge being looked at as marked edges, the call stack beside the
+     graph, and `marked` and `prev` under the listing, the cell just written
+     in mark. One step per assignment, per neighbour looked at, per call and
+     per return: a walk over six vertices runs about 36 steps, so a slide
+     walks a graph of four or five.
+   - Only the recursive depth-first search so far; each other walk is added
+     with the slide that first uses it (ADR-0083's rule).
+
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A
    picture lives **beside the `.mdx` that uses it**, addressed relatively, and a

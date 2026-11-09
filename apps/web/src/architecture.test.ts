@@ -233,6 +233,9 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
     'components/interactive/FibMemoSteps.tsx',
     'components/interactive/FibTabSteps.tsx',
     'components/interactive/FibIterSteps.tsx',
+    // The graph walk (ADR-0092, #357): a composite on top of StepShow with its
+    // own lazy wrapper, guarded below like the fib composites.
+    'components/interactive/GraphWalk.tsx',
   ];
 
   it('is imported only by its lazy wrapper', () => {
@@ -638,6 +641,24 @@ describe('architecture: the fibitersteps widget stays out of the entry chunk', (
         (_fileTop, _importTop, importRel, file) =>
           importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
             'components/interactive/fibitersteps' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the graphwalk widget stays out of the entry chunk', () => {
+  // Same rationale as FibMemoSteps: composite on top of StepShow (ADR-0092),
+  // own lazy wrapper + ALLOWED entry in the step-through guard above.
+  const ALLOWED = ['components/interactive/lazyGraphWalk.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/graphwalk' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),

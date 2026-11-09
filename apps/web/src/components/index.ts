@@ -130,6 +130,10 @@ export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
 export type { FibTabStepsProps } from './interactive/lazyFibTabSteps';
 export { LazyFibIterSteps } from './interactive/lazyFibIterSteps';
 export type { FibIterStepsProps } from './interactive/lazyFibIterSteps';
+// A walk over a graph simulated and played by <StepShow> (ADR-0092): lazy for
+// the same reason as the fib composites.
+export { LazyGraphWalk } from './interactive/lazyGraphWalk';
+export type { GraphWalkProps } from './interactive/lazyGraphWalk';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,
