@@ -334,21 +334,145 @@ author who met it, so the guide grows instead of being worked around.
 What never moves is the **order**, because the order is the thing being
 taught.
 
-**A graph exercise adds a beat between 1 and 2: the model** (#363, Miguel's
-refinement of 2026-11-06). In the graphs unit the skill being practised is
-turning a problem into a graph, so every worked exercise there answers, on a
-slide titled «… · el modelo» right after the statement, the questions the
-class names in its act «Modelar un problema como grafo»: what a vertex is,
-what an edge is, whether it has direction and weight, what question is asked
-of the graph, and how big the graph is — with the input drawn beside the
-graph it becomes. Beats 2 to 5 then reason over the graph. The beat may take
-several slides when the model is the lesson: the maze of
-`26-grafos-tda-modelado.mdx` names the implicit graph and the two
-neighbourhoods in four. Two consequences for the other beats: the graph is
-named in the model, so beat 3 names the structure that stores or answers it
-(the weighted lists, a per-vertex array, a set), not the graph; and the
-statement's own input format is part of what the model converts, so the
-exercises of one class differ in the input they read.
+**A graph exercise follows its own protocol**, below: the five beats are
+still there, in order, but the model grows into a part of its own and the
+statement changes shape.
+
+## A graph exercise: the protocol
+
+Written with Miguel while rebuilding «Sugerir amigos» of
+`26-grafos-tda-modelado.mdx` (#363, 2026-11-08/09), which is its worked case.
+It does not fix slides: it fixes **the questions the exercise answers, in
+this order**. A question may take one slide, several, or share one; what
+matters is that each answer is understood. The method is what is being
+taught — take a problem that does not speak of graphs, model it, decide how
+to store it, and only then solve it — and it is learned by meeting it the
+same way every time, the same way the student will meet it in a test.
+
+### Before writing
+
+Prepared off the slides:
+
+1. **The problem**, told without the word «grafo»: a network, a map, a grid,
+   a game.
+2. **Its exact input and output**: the method's signature, each parameter
+   with its bounds, and the full output rule (ties, the case with no answer).
+3. **One small example**, about five vertices, that has an answer. The whole
+   exercise uses it.
+4. **The cases with no answer**, one or two, small.
+5. **The naive solution and its cost** under the statement's bounds, and
+   **the idea** that improves on it.
+6. **The program and its tests**, with one test per rule the statement
+   states (the tie, the case with no answer).
+
+### The questions, in order
+
+Three parts: **the statement**, **modelling** and **solving**.
+
+**A · The statement**
+
+- **A1. What is asked?** The full statement, as in a test: one or two
+  sentences of context; **the question in bold** with its complete rule; the
+  hard word defined in the text, in its own paragraph; **Implemente** with the
+  signature quoted from the file; **Entrada:** with one bullet per parameter
+  (what it is, how it comes, its bounds); **Salida:**. The text takes the
+  slide's full width (`measure-full`). *Test:* could a student write the method
+  from this alone, in a test? It says nothing about how to solve it, and no
+  drawing gives the answer away.
+- **A2. What should it return?** The example: the input exactly as it reaches
+  the method (one box per parameter) and the expected output in a «retorna»
+  box. *Test:* it does not say why — that is B2's.
+
+**B · Modelling**
+
+- **B1. What is each thing in the graph?** Four decisions — what a vertex is,
+  what an edge is, whether it has direction, whether it has weight — in a
+  table **Pregunta · Respuesta · Por qué**. Direction and weight answer with
+  their names (**no dirigido / dirigido**, **no ponderado / ponderado**). The
+  example's input stands beside the graph it becomes.
+- **B2. Why does the example return that?** The question translated into the
+  graph's words, the hard word first («un amigo en común es un **vecino que
+  comparten**»), and the example's output **seen on the drawing**, one step
+  per drawing. This is the first place the answer is explained. It closes by
+  saying whether an operation of the contract answers it or it needs a walk.
+- **B3. How big can the graph be?** Four steps, each with **the rule, the
+  formula, the numbers substituted and the result**: the edges (what the
+  statement bounds is used as given); the vertices (where their bound comes
+  from — V ≤ 2E for an edge list — with a drawing of the worst case); the
+  edges there could be (where the formula comes from, and the computation on
+  a line of its own); dense or sparse (what there is over what there could
+  be, and what that means in words). *Test:* the student could repeat every
+  computation in another exercise.
+- **B4. Where is it stored?** What each structure would cost with those
+  numbers — the memory with its computation, and what the operation the
+  question uses walks over — in a Matriz · Listas table with the cheaper one
+  in green; then the summary table of B3 and **the decision** in bold: which
+  class, how much it takes, what that operation costs. If the input already
+  **is** an adjacency matrix, it is used as given and B4 says why converting
+  it would cost more; if the graph is **implicit**, it is not stored and B4
+  says which rule gives the neighbours and what applying it costs.
+- **B5. How does the input become the graph?** Only when it has to be built:
+  each translation the program needs, with **its use in the algorithm**, and
+  why the input is read as many times as it is, explained before any code;
+  then the walk that builds the graph, whose frame keeps **the same size from
+  its first step** — what does not exist yet holds its space, empty.
+
+**C · Solving**
+
+- **C1. What is the direct way, and what does it cost?** The naive solution
+  — the question followed to the letter — drawn with its count on the
+  example, and its cost: the formula and the computation with B3's numbers.
+  It closes in two paragraphs: «**El tiempo es O(…).** Con … pasos, a unos 10⁸
+  por segundo, tarda …» and, on its own, «**¿Se puede hacer mejor?**». This
+  is beat 2 of the five, in the form a graph exercise takes.
+- **C2. How is it done better?** The idea, opening on «Para hacerlo mejor,
+  …», in numbered steps each led by its observation in bold, with drawings of
+  the run on the example marking what adds up or changes. The auxiliary
+  structures are named here. No code.
+- **C3. What does it look like in code?** The solution's walk on the
+  example, with a one- or two-line introduction; variables under the code,
+  the graph, lists and arrays in the drawing; helpers written before use.
+- **C4. Where does it fail, and what does it cost?** The cases with no
+  answer, **drawn**; **Tiempo** part by part, one bullet per part with its
+  cost and its reason; **En total** in a paragraph of its own, compared in
+  seconds with C1; **Memoria**.
+- **C5. The whole program**, to run: the `<Exercise>` and its tests.
+
+### Rules across the exercise
+
+- **One example** from start to end; only the cases with no answer use other
+  inputs.
+- **The example's output is given in A2 and explained in B2.** Nothing before
+  the model explains it.
+- **Before the model, the problem's words** (amigo, persona); **from the model
+  on, the graph's** (vecino, vértice).
+- **No number appears without its construction.**
+- **A drawing to explain, a table to summarise.**
+- **One idea per slide.** A crowded slide is split, never shrunk.
+- **No slide names another**, and every title says what is on its slide:
+  `‹Problema›` and `‹Problema› · ‹what it answers›`.
+- **Mathematics in LaTeX**, and a long computation on a line of its own.
+
+### Checklist
+
+- [ ] A1 works as a test statement and says nothing of the solution.
+- [ ] A2 gives the example's output and does not explain it.
+- [ ] B1's four decisions each have a reason, with the input beside its graph.
+- [ ] B2 explains the output on the graph and says whether the contract is
+      enough.
+- [ ] Every number of B3 has its rule, formula and substitution.
+- [ ] B4's decision comes from comparing costs with those numbers.
+- [ ] B5 says what each translation is for, and its walk's frame is fixed.
+- [ ] C1 is measured in seconds and ends on «¿se puede hacer mejor?».
+- [ ] C2 is in steps, with drawings and no code.
+- [ ] C4 draws the cases with no answer, and its time goes part by part with
+      the total compared.
+- [ ] C5 passes its tests against the real JVM.
+
+**What this changes in the five beats, for graphs only:** the statement no
+longer closes on solved examples — it gives one with its output, explained in
+B2, and the cases with no answer go to C4; the model is a whole part, B1–B5;
+and beat 2 is the measured naive solution, C1.
 
 ## Not a constraint
 
@@ -480,7 +604,12 @@ dónde, los estados vecinos de dos jarras). They added the model beat above,
 and they climb by input rather than by algorithm: names to numbers, an
 adjacency matrix given as such, weighted edges, a grid whose graph is never
 stored, and no input at all — a graph that is only a rule. None of them
-traverses the graph; that is the next class's.
+traverses the graph; that is the next class's. All five were rebuilt on the
+graph-exercise protocol above (2026-11-09), «Sugerir amigos» first and with
+Miguel, slide by slide; the other four show its adaptations — an input that
+already is the adjacency matrix (the celebrity), weights (the nearest city),
+and two implicit graphs whose B4 decides not to store anything (the maze,
+the lock), where C1 measures memory or wasted work instead of seconds.
 
 **Its sibling for the question bank already exists**:
 [`write-control-questions.md`](write-control-questions.md) governs the
