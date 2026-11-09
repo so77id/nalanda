@@ -23,6 +23,7 @@ import {
   LazyFibIterSteps,
   LazyFibMemoSteps,
   LazyFibTabSteps,
+  LazyGraphWalk,
   LazyMermaid,
   LazyPredictOutput,
   LazySortStepper,
@@ -246,6 +247,9 @@ export const mdxComponents = {
   FibTabSteps: LazyFibTabSteps,
   // Lazy for the same reason as FibMemoSteps.
   FibIterSteps: LazyFibIterSteps,
+  // Lazy for the same reason as FibMemoSteps: a walk over a graph played by
+  // <StepShow> (ADR-0092).
+  GraphWalk: LazyGraphWalk,
   // Not lazy at the wrapper level, but the component internally
   // Suspense-loads KaTeX (~260 kB) via `React.lazy`. So the entry chunk
   // pays for the Math shell (Suspense + a few lines of JSX); only pages

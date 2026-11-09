@@ -27,6 +27,7 @@ import { explanationCatalogEntry } from './interactive/Explanation.catalog';
 import { fibIterStepsCatalogEntry } from './interactive/FibIterSteps.catalog';
 import { fibMemoStepsCatalogEntry } from './interactive/FibMemoSteps.catalog';
 import { fibTabStepsCatalogEntry } from './interactive/FibTabSteps.catalog';
+import { graphWalkCatalogEntry } from './interactive/GraphWalk.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
@@ -108,5 +109,6 @@ export const catalogEntries: CatalogEntry[] = [
   fibMemoStepsCatalogEntry,
   fibTabStepsCatalogEntry,
   fibIterStepsCatalogEntry,
+  graphWalkCatalogEntry,
   memoryVisualCatalogEntry,
 ];
