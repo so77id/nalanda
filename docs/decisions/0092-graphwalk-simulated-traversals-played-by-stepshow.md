@@ -55,10 +55,10 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - Lazy, like the fib composites: `lazyGraphWalk.tsx`, its own guard in
   `architecture.test.ts`, and an entry in `<StepShow>`'s `ALLOWED`.
 - **Walks are added one at a time, each with the slide that first uses it**
-  (ADR-0083's rule): S3 shipped the recursive DFS; S5 the iterative DFS and
-  the tempting version that marks on push; the grid, BFS with its queue and
-  `dist`, and Kahn with its in-degrees and the line layout come with arcs I
-  to III.
+  (ADR-0083's rule): S3 shipped the recursive DFS; S5a the iterative DFS and
+  the tempting version that marks on push; S5b the recursive DFS over a
+  maze's grid; BFS with its queue and `dist`, and Kahn with its in-degrees
+  and the line layout come with arcs II and III.
 - **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
   `Stack`, the loop BFS shares with a queue at the close of arc II (la
   bolsa). It is drawn beside its own stack instead of the call stack; the
@@ -77,6 +77,21 @@ Three ways to animate the walks were weighed with Miguel in S3.
   (19 steps against 26 on a square), and the stack turns the neighbours'
   order around (0 1 2 3 against 0 3 2 1). Each walks on its own slide.
   Decided with Miguel in S5.
+- **A maze is walked over its implicit graph** (`grid`), as class 2 models
+  it: the cell in row r and column c is the vertex r · C + c, and its
+  neighbours are computed up, down, left, right with `DR4`/`DC4` and `free`,
+  never stored, so no `Graph` is built and the listing is
+  `MazeDepthFirstPaths.java`, the same API over a grid. **Every direction is
+  a `look`**, a wall and the border included, because the loop asks `free`
+  about all four and class 2 walked the degree the same way; the narration
+  says why the walk does not step there. That is about eight steps a cell,
+  so the maze is small (eight free cells, 62 steps). **The frame is the
+  grid**: `marked` and `prev` hold a cell per square, walls included, so they
+  are drawn on it instead of under the listing — a marked cell painted in
+  mark while its call runs or waits and in keep once it returned, `prev` as
+  an arrow from each cell back to where it was reached from, the arrows of
+  the calls in progress in mark (the thread), and a dashed arrow to the cell
+  being looked at. Decided with Miguel in S5b.
 
 ## Alternatives considered
 
@@ -95,11 +110,12 @@ Three ways to animate the walks were weighed with Miguel in S3.
   `<GraphWalk>` for the whole unit: Prim (#358) and Dijkstra (#359) add their
   walks here, the priority queue being one more bag.
 - The catalog entry quotes the course's files
-  (`27-grafos-recorridos.code/DepthFirstPaths.java` and
-  `IterativeDepthFirstPaths.java`), as `<SourceFile>`'s quotes class 2's:
-  when the class's code changes, the entry's ranges and `lines` move with it.
-  The trace was checked against those files run on a JDK 21 (S5): the same
-  order and the same `prev` on the square and on the counterexample.
+  (`27-grafos-recorridos.code/DepthFirstPaths.java`,
+  `IterativeDepthFirstPaths.java` and `MazeDepthFirstPaths.java`), as
+  `<SourceFile>`'s quotes class 2's: when the class's code changes, the
+  entry's ranges and `lines` move with it. The trace was checked against
+  those files run on a JDK 21 (S5a, S5b): the same order and the same `prev`
+  on the square, on the counterexample and on the maze.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit

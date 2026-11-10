@@ -11,6 +11,7 @@ import {
   adjacencyOf,
   traceDfs,
   traceDfsStack,
+  traceGridDfs,
   type GraphWalkEdge,
   type WalkEvent,
   type WalkFrame,
@@ -36,16 +37,23 @@ export interface GraphWalkProps {
    */
   algorithm?: GraphWalkAlgorithm;
   /** The vertices, numbered 0..V−1, each at a grid position (as `<NodeGraph>`). */
-  nodes: NodeGraphNode[];
+  nodes?: NodeGraphNode[];
   /** `[v, w]`, in the order the program adds them: that order is `adj`'s. */
-  edges: [number, number][];
+  edges?: [number, number][];
   /** How many columns the drawing's grid has. */
-  cols: number;
+  cols?: number;
   /** How many rows the drawing's grid has. */
-  rows: number;
+  rows?: number;
   /** Arcs instead of edges. */
   directed?: boolean;
-  /** The vertex the walk starts from. Default the first node. */
+  /**
+   * A maze instead of `nodes` and `edges`: its rows, `.` a free cell and `#` a
+   * wall. The walk runs over its implicit graph — the cell in row r and column
+   * c is the vertex r · C + c, its neighbours computed with `DR4`/`DC4` and
+   * `free` — and the drawing is the grid (#357 S5b). `dfs` only, for now.
+   */
+  grid?: string[];
+  /** The vertex the walk starts from. Default the first node, or the first free cell. */
   start?: number;
   /**
    * The lines each event lights, in the listing's own numbering — the FILE's
@@ -89,13 +97,35 @@ export interface GraphWalkProps {
  * of calls in progress as marked edges — over the call stack and the arrays.
  */
 export function GraphWalk(props: GraphWalkProps) {
-  const { nodes, edges, lines, code, codeSrc } = props;
+  const { grid, lines, code, codeSrc } = props;
   const algorithm = props.algorithm ?? 'dfs';
   if (!Object.hasOwn(EVENTS, algorithm)) {
     return (
       <AuthoringError component="GraphWalk">
         algorithm=&quot;{String(algorithm)}&quot; no existe; son dfs, dfs-iterative y
         dfs-mark-on-push.
+      </AuthoringError>
+    );
+  }
+  if (grid !== undefined && props.nodes !== undefined) {
+    return (
+      <AuthoringError component="GraphWalk">
+        escribe nodes y edges, o grid: no los dos.
+      </AuthoringError>
+    );
+  }
+  if (grid !== undefined) {
+    const problem = gridProblem(grid, algorithm, props.start);
+    if (problem !== null) {
+      return <AuthoringError component="GraphWalk">{problem}</AuthoringError>;
+    }
+  }
+  const nodes = props.nodes ?? [];
+  const edges = props.edges ?? [];
+  if (grid === undefined && (props.nodes === undefined || props.edges === undefined)) {
+    return (
+      <AuthoringError component="GraphWalk">
+        falta el grafo: escribe nodes y edges, o grid con el laberinto.
       </AuthoringError>
     );
   }
@@ -117,8 +147,8 @@ export function GraphWalk(props: GraphWalkProps) {
       </AuthoringError>
     );
   }
-  const start = props.start ?? 0;
-  if (!inRange(V, start)) {
+  const start = props.start ?? (grid === undefined ? 0 : firstFree(grid));
+  if (grid === undefined && !inRange(V, start)) {
     return (
       <AuthoringError component="GraphWalk">
         start={start} no es un vértice de nodes.
@@ -147,11 +177,12 @@ export function GraphWalk(props: GraphWalkProps) {
 function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: number }) {
   const {
     algorithm,
-    nodes,
-    edges,
-    cols,
-    rows,
+    nodes = [],
+    edges = [],
+    cols = 0,
+    rows = 0,
     directed = false,
+    grid,
     start,
     lines,
     label,
@@ -161,12 +192,14 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
   // MDX re-mints inline literals on every render: memoise on a primitive key
   // (add-a-content-component.md, the stepper rule).
   const edgesKey = edges.map(([v, w]) => `${v}-${w}`).join(',');
+  const gridKey = grid?.join('\n');
   const frames = useMemo(() => {
+    if (gridKey !== undefined) return traceGridDfs(gridKey.split('\n'), start);
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
     const adj = adjacencyOf(V, parsed, directed);
     if (algorithm === 'dfs') return traceDfs(adj, start);
     return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push');
-  }, [algorithm, V, edgesKey, directed, start]);
+  }, [algorithm, V, edgesKey, gridKey, directed, start]);
   const depth = Math.max(...frames.map((f) => f.stack.length));
 
   return (
@@ -190,23 +223,29 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
         // `marked` and `prev` are the program's own variables, passed to the
         // walk: they go under the listings, where `<StepShow>` shows what the
         // program holds (#363), and leave the drawing the graph and the stack.
+        // A maze's arrays hold a cell per square, walls included: the grid
+        // draws them instead, `marked` as the cells' paint, `prev` as arrows.
         <Step
           key={i}
           lines={asLines(lines[frame.event])}
           programLines={programLines}
-          under={<ArraysPanel frame={frame} />}
+          under={gridKey === undefined ? <ArraysPanel frame={frame} /> : undefined}
         >
-          <Frame
-            frame={frame}
-            nodes={nodes}
-            edges={edges}
-            cols={cols}
-            rows={rows}
-            directed={directed}
-            recursive={algorithm === 'dfs'}
-            depth={depth}
-            label={label}
-          />
+          {gridKey !== undefined ? (
+            <GridFrame frame={frame} grid={gridKey.split('\n')} depth={depth} label={label} />
+          ) : (
+            <Frame
+              frame={frame}
+              nodes={nodes}
+              edges={edges}
+              cols={cols}
+              rows={rows}
+              directed={directed}
+              recursive={algorithm === 'dfs'}
+              depth={depth}
+              label={label}
+            />
+          )}
         </Step>
       ))}
     </StepShow>
@@ -271,13 +310,7 @@ function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, la
           />
         </div>
         {recursive ? (
-          <StackPanel
-            title="pila de llamadas"
-            items={frame.stack.map((v) => `dfs(${v})`)}
-            hot={frame.stack.length - 1}
-            depth={depth}
-            label={`Pila de llamadas: ${frame.stack.map((v) => `dfs(${v})`).join(', ')}; corre dfs(${frame.v}).`}
-          />
+          <CallStack frame={frame} depth={depth} />
         ) : (
           <StackPanel
             title="pila"
@@ -296,6 +329,222 @@ function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, la
         )}
       </div>
     </div>
+  );
+}
+
+/** The calls in progress, as the recursive walk's frames hold them. */
+function CallStack({ frame, depth }: { frame: WalkFrame; depth: number }) {
+  const calls = frame.stack.map((v) => `dfs(${v})`);
+  return (
+    <StackPanel
+      title="pila de llamadas"
+      items={calls}
+      hot={frame.stack.length - 1}
+      depth={depth}
+      label={`Pila de llamadas: ${calls.join(', ')}; corre dfs(${frame.v}).`}
+    />
+  );
+}
+
+const GRID_CELL = 48;
+const GRID_PAD = 16;
+
+type CellState = 'wall' | 'free' | 'open' | 'running' | 'done';
+
+const CELL_PAINT: Record<Exclude<CellState, 'wall' | 'free'>, { fill: string; stroke: string }> = {
+  open: { fill: 'var(--color-mark-soft)', stroke: 'var(--color-ink-soft)' },
+  running: { fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' },
+  done: { fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' },
+};
+
+interface GridFrameProps {
+  frame: WalkFrame;
+  grid: string[];
+  depth: number;
+  label: string;
+}
+
+/**
+ * A frame of the walk over a maze: the grid, each free cell numbered
+ * r · C + c; the cells marked in mark while their call runs or waits and in
+ * keep once it returned; `prev` as an arrow from each reached cell back to
+ * the one it was reached from, those of the calls in progress in mark — the
+ * thread; and, on a look, a dashed arrow to the cell asked about.
+ */
+function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
+  const onSlide = useMode() === 'presentation';
+  const R = grid.length;
+  const C = grid[0].length;
+  const width = C * GRID_CELL + 2 * GRID_PAD;
+  const height = R * GRID_CELL + 2 * GRID_PAD;
+  const center = (r: number, c: number): [number, number] => [
+    GRID_PAD + c * GRID_CELL + GRID_CELL / 2,
+    GRID_PAD + r * GRID_CELL + GRID_CELL / 2,
+  ];
+  const at = (v: number) => center(Math.floor(v / C), v % C);
+  const onStack = new Set(frame.stack);
+  const done = new Set(frame.done);
+  const stateOf = (r: number, c: number): CellState => {
+    const v = r * C + c;
+    if (grid[r][c] === '#') return 'wall';
+    if (v === frame.v) return 'running';
+    if (done.has(v)) return 'done';
+    return onStack.has(v) ? 'open' : 'free';
+  };
+  const cells = [];
+  for (let r = 0; r < R; r++) {
+    for (let c = 0; c < C; c++) {
+      const state = stateOf(r, c);
+      const x = GRID_PAD + c * GRID_CELL;
+      const y = GRID_PAD + r * GRID_CELL;
+      const paint = state === 'wall' || state === 'free' ? null : CELL_PAINT[state];
+      cells.push(
+        <g key={`${r},${c}`} data-cell={`${r},${c}`} data-state={state}>
+          <rect
+            x={x}
+            y={y}
+            width={GRID_CELL}
+            height={GRID_CELL}
+            style={{
+              fill: state === 'wall' ? 'var(--color-ink-soft)' : 'var(--color-surface)',
+              stroke: 'var(--color-ink-soft)',
+            }}
+            strokeWidth={1.4}
+          />
+          {paint ? (
+            <rect
+              x={x + 2}
+              y={y + 2}
+              width={GRID_CELL - 4}
+              height={GRID_CELL - 4}
+              style={{ fill: paint.fill, stroke: paint.stroke }}
+              strokeWidth={state === 'running' ? 3 : state === 'done' ? 2 : 1.2}
+            />
+          ) : null}
+          {state === 'wall' ? null : (
+            <text
+              x={x + 5}
+              y={y + 13}
+              fontSize="11"
+              fontWeight="700"
+              fontFamily="var(--font-mono, monospace)"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              {r * C + c}
+            </text>
+          )}
+        </g>,
+      );
+    }
+  }
+  const arrows = [];
+  for (let x = 0; x < frame.prev.length; x++) {
+    const p = frame.prev[x];
+    if (p < 0) continue;
+    const hot = onStack.has(x) || (frame.wrote?.array === 'prev' && frame.wrote.index === x);
+    arrows.push(
+      <g key={x} data-prev={x} data-hot={hot ? '' : undefined}>
+        <Arrow from={at(x)} to={at(p)} hot={hot} />
+      </g>,
+    );
+  }
+  let look = null;
+  if (frame.event === 'look' && frame.v !== null && frame.cell !== null) {
+    const [r, c] = frame.cell;
+    const [x1, y1] = at(frame.v);
+    const [x2, y2] = center(r, c);
+    const inside = r >= 0 && r < R && c >= 0 && c < C;
+    look = (
+      <g data-look={`${r},${c}`}>
+        {inside ? (
+          <rect
+            x={x2 - GRID_CELL / 2 + 4}
+            y={y2 - GRID_CELL / 2 + 4}
+            width={GRID_CELL - 8}
+            height={GRID_CELL - 8}
+            fill="none"
+            style={{ stroke: 'var(--color-mark)' }}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+          />
+        ) : null}
+        {/* Three quarters of the way: off the grid, it ends in the margin. */}
+        <Arrow from={[x1, y1]} to={[x1 + (x2 - x1) * 0.75, y1 + (y2 - y1) * 0.75]} hot dashed />
+      </g>
+    );
+  }
+  return (
+    <div
+      className="flex flex-col items-center gap-1"
+      data-testid="graph-walk-frame"
+      data-event={frame.event}
+      data-v={frame.v ?? ''}
+      data-w={frame.w ?? ''}
+    >
+      <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.4, minHeight: '2.8em' }}>
+        {frame.text}
+      </div>
+      <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-2">
+        {/* Capped, as the graph is: the frame's height never follows the width. */}
+        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '440px' : '320px' }}>
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+            role="img"
+            aria-label={`${label} ${frame.text}`}
+            data-testid="graph-walk-grid"
+          >
+            {cells}
+            {arrows}
+            {look}
+          </svg>
+        </div>
+        <CallStack frame={frame} depth={depth} />
+      </div>
+    </div>
+  );
+}
+
+/** A straight arrow, its head at `to`: `prev` pointing back, or a look. */
+function Arrow({
+  from,
+  to,
+  hot,
+  dashed = false,
+}: {
+  from: [number, number];
+  to: [number, number];
+  hot: boolean;
+  dashed?: boolean;
+}) {
+  const [x1, y1] = from;
+  const dx = to[0] - x1;
+  const dy = to[1] - y1;
+  const len = Math.hypot(dx, dy);
+  // `prev` stops short of the cell it points to, so two arrows meeting in a
+  // cell do not cover each other's heads; a look ends where it was aimed.
+  const reach = dashed ? len : len - 9;
+  const [ux, uy] = [dx / len, dy / len];
+  const [tx, ty] = [x1 + ux * reach, y1 + uy * reach];
+  const head = 7;
+  const color = hot ? 'var(--color-mark)' : 'var(--color-ink-soft)';
+  return (
+    <g>
+      <line
+        x1={x1}
+        y1={y1}
+        x2={tx - ux * head}
+        y2={ty - uy * head}
+        style={{ stroke: color }}
+        strokeWidth={hot ? 3 : 1.6}
+        strokeLinecap="round"
+        strokeDasharray={dashed ? '5 4' : undefined}
+      />
+      <polygon
+        points={`${tx},${ty} ${tx - ux * head - uy * 4.5},${ty - uy * head + ux * 4.5} ${tx - ux * head + uy * 4.5},${ty - uy * head - ux * 4.5}`}
+        style={{ fill: color }}
+      />
+    </g>
   );
 }
 
@@ -474,6 +723,40 @@ function ArraysPanel({ frame }: { frame: WalkFrame }) {
       })}
     </svg>
   );
+}
+
+/** What is wrong with a maze the walk is given, or null. In Spanish. */
+function gridProblem(
+  grid: string[],
+  algorithm: GraphWalkAlgorithm,
+  start: number | undefined,
+): string | null {
+  if (algorithm !== 'dfs') {
+    return `algorithm="${algorithm}" todavía no recorre una grilla: con grid, el recorrido es dfs.`;
+  }
+  const lengths = grid.map((row) => row.length);
+  if (grid.length === 0 || lengths[0] === 0 || lengths.some((n) => n !== lengths[0])) {
+    return `las filas de grid tienen que tener todas el mismo largo, y no ser vacías (llegaron de ${lengths.join(', ')}).`;
+  }
+  const odd = grid.findIndex((row) => /[^.#]/.test(row));
+  if (odd >= 0) {
+    return `grid solo lleva . (celda libre) y # (muro); la fila ${odd} trae otro carácter.`;
+  }
+  const C = lengths[0];
+  const s = start ?? firstFree(grid);
+  const free =
+    Number.isInteger(s) && s >= 0 && s < grid.length * C && grid[Math.floor(s / C)][s % C] === '.';
+  if (!free) {
+    return `start=${s} no es una celda libre de grid: la celda de la fila r y la columna c es r · ${C} + c.`;
+  }
+  return null;
+}
+
+/** The first free cell, row by row: where a maze's walk starts by default. */
+function firstFree(grid: string[]): number {
+  const C = grid[0]?.length ?? 0;
+  const i = grid.join('').indexOf('.');
+  return i < 0 || C === 0 ? -1 : i;
 }
 
 function asLines(spec: number | number[] | undefined): number[] {

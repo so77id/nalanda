@@ -39,7 +39,8 @@ orden en que se recorre decide qué pregunta responde.
 
 <Slide title="¿Se llega a la salida?">
 
-{/* Class 2's maze, small (about 5 x 6 cells), the entrance and the exit */}
+{/* A maze of 3 x 4 with eight free cells (decided in S5b, the one slide 9 */}
+{/* walks: ...#, .#.., .##.), the entrance (0, 0) and the exit (2, 3) */}
 {/* marked, its implicit graph drawn over it (the free cells, the steps). */}
 {/* Asks, without answering, whether the exit is reached from the entrance, */}
 {/* and by which way. [MazeGrid with `ways`] */}
@@ -119,9 +120,10 @@ orden en que se recorre decide qué pregunta responde.
 <Slide title="La búsqueda en profundidad en el laberinto">
 
 {/* The same rule over the grid, with no Graph built (decided in S5): the */}
-{/* vertex is r · C + c, the neighbours computed with DR/DC and free, as in */}
-{/* class 2. Answers slide 1: the exit is reached, by this way. [GraphWalk */}
-{/* over the grid, built in S5b] */}
+{/* vertex is r · C + c, the neighbours computed with DR4/DC4 and free, as */}
+{/* in class 2; MazeDepthFirstPaths, the same API. Answers slide 1: the */}
+{/* exit is reached, by this way. [GraphWalk with grid: the maze of slide */}
+{/* 1, eight free cells, a dead end the walk takes first] */}
 
 </Slide>
 
