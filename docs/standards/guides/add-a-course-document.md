@@ -1302,6 +1302,18 @@ Live: `/catalog/c/SequenceStepper`.
      every neighbour of a vertex at once and pushes it, the recursive one
      reads one and goes down, and the stack turns the neighbours' order
      around. Each walks on its own slide.
+   - **A maze is walked as `grid`**, in place of `nodes`, `edges`, `cols` and
+     `rows`: its rows, all of one length, `.` a free cell and `#` a wall. The
+     walk runs over the implicit graph — the cell in row r and column c is the
+     vertex r · C + c, its neighbours computed up, down, left, right — so the
+     listing is a method that computes them (`MazeDepthFirstPaths.java`), and
+     `look` lights the `for`, the lines computing the cell and the `if`. Every
+     direction is a step, a wall and the border included, since the loop asks
+     `free` about all four: about eight steps a cell, 62 on a maze of eight
+     free cells. The frame is the grid, each free cell numbered: `marked` is
+     the cells' paint, `prev` an arrow from each cell back to where it was
+     reached from, those of the calls in progress in mark (the thread), and
+     no arrays go under the listing. `dfs` only, for now.
    - Each other walk is added with the slide that first uses it (ADR-0083's
      rule).
 

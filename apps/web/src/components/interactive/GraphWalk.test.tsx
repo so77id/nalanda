@@ -386,3 +386,107 @@ describe('GraphWalk', () => {
     expect(screen.getByText(/son dfs, dfs-iterative y dfs-mark-on-push/)).toBeInTheDocument();
   });
 });
+
+// The walk over a maze's implicit graph (#357 S5b): a dead end down from the
+// entrance, the exit at the far corner. Inline listing, numbered from 1.
+const MAZE = ['...#', '.#..', '.##.'];
+
+const MAZE_DFS = `private void dfs(int v) {
+    marked[v] = true;
+    for (int k = 0; k < 4; k++) {
+        int r = v / cols + DR4[k];
+        int c = v % cols + DC4[k];
+        int w = r * cols + c;
+        if (free(r, c) && !marked[w]) {
+            prev[w] = v;
+            dfs(w);
+        }
+    }
+}`;
+
+const MAZE_LINES = { mark: 2, look: [3, 4, 5, 6, 7], prev: 8, recurse: 9, return: 12 };
+
+function maze(extra: Record<string, unknown> = {}) {
+  return (
+    <GraphWalk grid={MAZE} code={MAZE_DFS} lines={MAZE_LINES} label="Un laberinto." {...extra} />
+  );
+}
+
+function cell(rc: string): HTMLElement {
+  return document.querySelector(`[data-cell="${rc}"]`) as HTMLElement;
+}
+
+describe('GraphWalk over a grid', () => {
+  it('draws the maze, the walls and the cell its first call marks, with no arrays under the listing', () => {
+    render(maze());
+    expect(screen.getByText('dfs(0) marca la celda 0, en (0, 0).')).toBeInTheDocument();
+    expect(cell('0,0')).toHaveAttribute('data-state', 'running');
+    expect(cell('0,3')).toHaveAttribute('data-state', 'wall');
+    expect(cell('1,0')).toHaveAttribute('data-state', 'free');
+    expect(screen.getByRole('img', { name: /^Un laberinto\. dfs\(0\) marca/ })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Pila de llamadas: dfs\(0\)/ })).toBeInTheDocument();
+    expect(document.querySelector('[data-cell="marked[0]"]')).toBeNull();
+  });
+
+  it('looks up, off the grid, then down, and walks there: prev as an arrow back, then the call', async () => {
+    render(maze());
+    await forward(1);
+    expect(frame()).toHaveAttribute('data-event', 'look');
+    expect(document.querySelector('[data-look]')).toHaveAttribute('data-look', '-1,0');
+    expect(screen.getByText(/fuera de la grilla, y free es false/)).toBeInTheDocument();
+    await forward(1);
+    expect(document.querySelector('[data-look]')).toHaveAttribute('data-look', '1,0');
+    await forward(1);
+    expect(frame()).toHaveAttribute('data-event', 'prev');
+    expect(document.querySelector('[data-prev="4"]')).toHaveAttribute('data-hot');
+    await forward(2);
+    expect(frame()).toHaveAttribute('data-event', 'mark');
+    expect(cell('1,0')).toHaveAttribute('data-state', 'running');
+    expect(cell('0,0')).toHaveAttribute('data-state', 'open');
+    // The thread: the arrow of every call still in progress stays lit.
+    expect(document.querySelector('[data-prev="4"]')).toHaveAttribute('data-hot');
+  });
+
+  it('keeps a cell once its call returns, and its arrow goes back to ink', async () => {
+    render(maze());
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    while (!(frame().dataset['event'] === 'return' && frame().dataset['v'] === '4')) {
+      await user.click(next);
+    }
+    await user.click(next);
+    expect(cell('2,0')).toHaveAttribute('data-state', 'done');
+    expect(cell('1,0')).toHaveAttribute('data-state', 'done');
+    expect(document.querySelector('[data-prev="8"]')).not.toHaveAttribute('data-hot');
+    expect(cell('0,0')).toHaveAttribute('data-state', 'running');
+  });
+
+  it('starts from the cell given as r · C + c', () => {
+    render(maze({ start: 11 }));
+    expect(screen.getByText('dfs(11) marca la celda 11, en (2, 3).')).toBeInTheDocument();
+  });
+
+  it('tells the author a maze is walked by dfs only, for now', () => {
+    render(maze({ algorithm: 'dfs-iterative' }));
+    expect(screen.getByText(/todavía no recorre una grilla/)).toBeInTheDocument();
+  });
+
+  it('tells the author when the rows differ in length, hold another character, or start on a wall', () => {
+    const { unmount } = render(maze({ grid: ['..', '.'] }));
+    expect(screen.getByText(/el mismo largo/)).toBeInTheDocument();
+    unmount();
+    const second = render(maze({ grid: ['.x'] }));
+    expect(screen.getByText(/solo lleva \. \(celda libre\) y # \(muro\)/)).toBeInTheDocument();
+    second.unmount();
+    render(maze({ start: 3 }));
+    expect(screen.getByText(/start=3 no es una celda libre de grid/)).toBeInTheDocument();
+  });
+
+  it('tells the author to give a graph or a maze, not both and not neither', () => {
+    const { unmount } = render(maze({ nodes: TRIANGLE, edges: [[0, 1]], cols: 3, rows: 3 }));
+    expect(screen.getByText(/no los dos/)).toBeInTheDocument();
+    unmount();
+    render(<GraphWalk code={MAZE_DFS} lines={MAZE_LINES} label="x" />);
+    expect(screen.getByText(/falta el grafo/)).toBeInTheDocument();
+  });
+});

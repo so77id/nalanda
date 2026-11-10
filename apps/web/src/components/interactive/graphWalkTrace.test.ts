@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjacencyOf, traceDfs, traceDfsStack } from './graphWalkTrace';
+import { adjacencyOf, traceDfs, traceDfsStack, traceGridDfs } from './graphWalkTrace';
 
 describe('adjacencyOf', () => {
   it('appends both ends of an undirected edge, in the order the edges arrive (AdjListGraph.addEdge)', () => {
@@ -259,5 +259,74 @@ describe('traceDfsStack, marking on push (the tempting version)', () => {
     expect(frames.some((f) => f.event === 'skip')).toBe(false);
     const pops = frames.filter((f) => f.event === 'pop').map((f) => f.v);
     expect(new Set(pops).size).toBe(pops.length);
+  });
+});
+
+// The maze of #357 S5b: a dead end down from the entrance, which the walk
+// takes first and backs out of, and the exit at the far corner.
+//   . . . #
+//   . # . .
+//   . # # .
+const MAZE = ['...#', '.#..', '.##.'];
+
+describe('traceGridDfs (the depth-first search over a maze)', () => {
+  it('numbers the cell in row r and column c as r · C + c, and walks them in the order Java does', () => {
+    const frames = traceGridDfs(MAZE, 0);
+    // Run on a JDK 21 against MazeDepthFirstPaths.java (S5b).
+    expect(frames.at(-1)!.order).toEqual([0, 4, 8, 1, 2, 6, 7, 11]);
+    expect(frames.at(-1)!.prev).toEqual([-1, 0, 1, -1, 0, -1, 2, 6, 4, -1, -1, 7]);
+  });
+
+  it('looks in the four directions of every cell, up, down, left, right, the walls and the border included', () => {
+    const frames = traceGridDfs(MAZE, 0);
+    const looksFrom0 = frames.filter((f) => f.event === 'look' && f.v === 0);
+    expect(looksFrom0.map((f) => f.cell)).toEqual([
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]);
+    expect(frames.filter((f) => f.event === 'look')).toHaveLength(4 * 8);
+  });
+
+  it('takes one step per assignment, direction, call and return: 62 on this maze', () => {
+    expect(traceGridDfs(MAZE, 0)).toHaveLength(8 + 4 * 8 + 7 + 7 + 8);
+  });
+
+  it('says on each look why it does not step there: off the grid, a wall, or already marked', () => {
+    const looks = traceGridDfs(MAZE, 0).filter((f) => f.event === 'look');
+    const outside = looks[0];
+    expect(outside).toMatchObject({ v: 0, w: null, blocked: true, seen: null });
+    expect(outside.text).toBe(
+      'Mira arriba de 0: (−1, 0) está fuera de la grilla, y free es false.',
+    );
+    const wall = looks.find((f) => f.v === 8 && f.cell?.[1] === 1)!;
+    expect(wall).toMatchObject({ w: 9, blocked: true, seen: null });
+    expect(wall.text).toBe('Mira a la derecha de 8: (2, 1) es muro, y free es false.');
+    const back = looks.find((f) => f.v === 4 && f.w === 0)!;
+    expect(back).toMatchObject({ blocked: false, seen: true });
+    expect(back.text).toBe('Mira arriba de 4: 0 está libre, pero ya está marcada; la salta.');
+    const open = looks.find((f) => f.v === 0 && f.w === 4)!;
+    expect(open).toMatchObject({ blocked: false, seen: false });
+    expect(open.text).toBe('Mira abajo de 0: 4 está libre y sin marcar.');
+  });
+
+  it('goes down the dead end first, backs out of it, and only then heads for the exit', () => {
+    const frames = traceGridDfs(MAZE, 0);
+    const returns = frames.filter((f) => f.event === 'return').map((f) => f.v);
+    expect(returns.slice(0, 2)).toEqual([8, 4]);
+    const deepest = frames.reduce((a, f) => Math.max(a, f.stack.length), 0);
+    expect(deepest).toBe(6);
+  });
+
+  it('names the cell it marks by its number and its position', () => {
+    expect(traceGridDfs(MAZE, 0)[0].text).toBe('dfs(0) marca la celda 0, en (0, 0).');
+  });
+
+  it('refuses rows of different lengths, a character other than . and #, and a start on a wall', () => {
+    expect(() => traceGridDfs(['..', '.'], 0)).toThrow(RangeError);
+    expect(() => traceGridDfs(['.x'], 0)).toThrow(RangeError);
+    expect(() => traceGridDfs(MAZE, 3)).toThrow(RangeError);
+    expect(() => traceGridDfs(MAZE, 12)).toThrow(RangeError);
   });
 });

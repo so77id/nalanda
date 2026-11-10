@@ -8,6 +8,7 @@ import { LazyGraphWalk as GraphWalk } from './lazyGraphWalk';
 const DFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/DepthFirstPaths.java';
 const ITER_SRC =
   'asset:courses/sample-course/27-grafos-recorridos.code/IterativeDepthFirstPaths.java';
+const MAZE_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/MazeDepthFirstPaths.java';
 
 const PROGRAM = `Graph g = new AdjListGraph(6);
 Graphs.readEdges(in, g);
@@ -25,6 +26,17 @@ const ITER_LINES = {
   push: 29,
   end: 20,
 };
+
+// The maze's dfs starts at 30: the neighbours are computed, so a look is the
+// `for`, the cell it computes and the `if` asking `free` about it.
+const MAZE_LINES = { mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 };
+
+// A dead end down from the entrance, which the walk takes first, and the exit
+// at the far corner.
+const MAZE = ['...#', '.#..', '.##.'];
+
+const MAZE_PROGRAM = `String[] grid = {"...#", ".#..", ".##."};
+MazeDepthFirstPaths paths = new MazeDepthFirstPaths(grid, 0);`;
 
 // The tempting version lives only on its slide: written inline (ADR-0091 §5).
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -85,7 +97,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   name: 'GraphWalk',
   family: 'interactive',
   description:
-    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps.',
+    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. The recursive one also walks a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `marked` the cells’ paint and `prev` an arrow from each cell back to where it was reached from, the thread in mark.',
   whenToUse:
     'When a slide walks a traversal over a small graph step by step and the frames would otherwise be written by hand — fifteen to thirty `<Step>`s, each a `<NodeGraph>` and its arrays, where one copied wrong is caught by nobody. ' +
     'NOT for a single picture of a graph (`<NodeGraph>`), nor for a walk whose lesson is a structure the trace does not draw.',
@@ -100,7 +112,13 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'nodes',
       type: 'NodeGraphNode[]',
       description:
-        'The vertices, numbered 0..V−1 in order, each at a grid position, as `<NodeGraph>` takes them.',
+        'The vertices, numbered 0..V−1 in order, each at a grid position, as `<NodeGraph>` takes them. With `edges`, `cols` and `rows`; or `grid` instead.',
+    },
+    {
+      name: 'grid',
+      type: 'string[]',
+      description:
+        'A maze instead of a graph: its rows, all of one length, `.` a free cell and `#` a wall. The cell in row r and column c is the vertex r · C + c, its neighbours computed up, down, left, right (`DR4`/`DC4`); every direction is a `look`, a wall and the border included. `dfs` only, for now.',
     },
     {
       name: 'edges',
@@ -111,12 +129,17 @@ export const graphWalkCatalogEntry: CatalogEntry = {
     { name: 'cols', type: 'number', description: 'Columns of the drawing’s grid.' },
     { name: 'rows', type: 'number', description: 'Rows of the drawing’s grid.' },
     { name: 'directed', type: 'boolean', description: 'Arcs instead of edges. Default false.' },
-    { name: 'start', type: 'number', description: 'The vertex the walk starts from. Default 0.' },
+    {
+      name: 'start',
+      type: 'number',
+      description:
+        'The vertex the walk starts from. Default 0, or the first free cell of `grid`, row by row.',
+    },
     {
       name: 'lines',
       type: 'Record<event, number | number[]>',
       description:
-        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. A missing one is an authoring error.',
+        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`; over a grid, also the lines computing the cell), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. A missing one is an authoring error.',
     },
     {
       name: 'codeSrc / codeRange',
@@ -285,6 +308,30 @@ DepthFirstPaths paths = new DepthFirstPaths(g, 0);\`}
           code={ON_PUSH}
           lines={ON_PUSH_LINES}
           label="Un triángulo 0-1-3, y el vértice 2 colgando de 0."
+        />
+      ),
+    },
+    {
+      title: 'DFS over a maze: down the dead end first, back out, then on to the exit',
+      code: `<GraphWalk
+  grid={['...#', '.#..', '.##.']}
+  program={\`String[] grid = {"...#", ".#..", ".##."};
+MazeDepthFirstPaths paths = new MazeDepthFirstPaths(grid, 0);\`}
+  programLines={[2]}
+  codeSrc="./27-grafos-recorridos.code/MazeDepthFirstPaths.java"
+  codeRange="30-41"
+  lines={{ mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 }}
+  label="Un laberinto de 3 por 4, con la entrada arriba a la izquierda y la salida abajo a la derecha."
+/>`,
+      render: () => (
+        <GraphWalk
+          grid={MAZE}
+          program={MAZE_PROGRAM}
+          programLines={[2]}
+          codeSrc={MAZE_SRC}
+          codeRange="30-41"
+          lines={MAZE_LINES}
+          label="Un laberinto de 3 por 4, con la entrada arriba a la izquierda y la salida abajo a la derecha."
         />
       ),
     },

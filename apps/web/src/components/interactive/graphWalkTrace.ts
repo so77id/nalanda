@@ -75,12 +75,19 @@ export interface WalkFrame {
   order: number[];
   /** The cell of `marked` or `prev` this frame wrote, if it wrote one. */
   wrote: { array: 'marked' | 'prev'; index: number } | null;
+  /**
+   * On `look` over a grid: the cell looked at, `[row, col]`, in the grid or
+   * off it (`w` is null off it). Null over a graph.
+   */
+  cell: readonly [number, number] | null;
+  /** On `look` over a grid: a wall or off the grid, so `free` is false. */
+  blocked: boolean;
   /** The frame's narration, in Spanish. */
   text: string;
 }
 
 type FrameFields = Pick<WalkFrame, 'event' | 'v' | 'w' | 'text'> &
-  Partial<Pick<WalkFrame, 'seen' | 'unvisited' | 'wrote'>>;
+  Partial<Pick<WalkFrame, 'seen' | 'unvisited' | 'wrote' | 'cell' | 'blocked'>>;
 
 /** The walk's state, snapshotted into a frame after every step. */
 class Recorder {
@@ -101,6 +108,8 @@ class Recorder {
       seen: null,
       unvisited: false,
       wrote: null,
+      cell: null,
+      blocked: false,
       ...f,
       marked: [...this.marked],
       prev: [...this.prev],
@@ -115,6 +124,17 @@ function lookText(v: number, w: number, seen: boolean): string {
   return seen
     ? `Mira el vecino ${w} de ${v}: ya está marcado, lo salta.`
     : `Mira el vecino ${w} de ${v}: no está marcado.`;
+}
+
+/** One place the recursive walk looks from `v`: a neighbour, or a cell of a grid. */
+interface Probe {
+  /** The vertex looked at; null off the grid. */
+  w: number | null;
+  /** A wall, or off the grid: not a vertex to walk to, whatever `marked` says. */
+  blocked: boolean;
+  cell: readonly [number, number] | null;
+  /** The frame's narration, given whether `w` is marked. */
+  text: (seen: boolean) => string;
 }
 
 /**
@@ -141,6 +161,107 @@ export function traceDfs(adj: readonly (readonly number[])[], start: number): Wa
   if (!isVertex(V, start)) {
     throw new RangeError(`start ${start} is not a vertex of 0..${V - 1}`);
   }
+  return walkRecursive(
+    V,
+    start,
+    (v) =>
+      adj[v].map((w) => ({
+        w,
+        blocked: false,
+        cell: null,
+        text: (seen) => lookText(v, w, seen),
+      })),
+    (v) => `dfs(${v}) marca ${v}.`,
+  );
+}
+
+/** Up, down, left, right: `DR4` and `DC4`, in the order class 2 wrote them. */
+const GRID_STEPS: readonly (readonly [number, number])[] = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
+const GRID_DIRECTIONS = ['arriba', 'abajo', 'a la izquierda', 'a la derecha'];
+
+/**
+ * Depth-first search over the implicit graph of a maze: `grid` is its rows,
+ * `.` a free cell and `#` a wall; the cell in row r and column c is the
+ * vertex r · C + c, and its neighbours are computed, never stored, exactly as
+ * the listing reads:
+ *
+ * ```java
+ * private void dfs(int v) {
+ *     marked[v] = true;
+ *     for (int k = 0; k < 4; k++) {
+ *         int r = v / cols + DR4[k];
+ *         int c = v % cols + DC4[k];
+ *         int w = r * cols + c;
+ *         if (free(r, c) && !marked[w]) {
+ *             prev[w] = v;
+ *             dfs(w);
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * The frames are `traceDfs`'s, with one `look` per direction — a wall or the
+ * border included, since the loop asks `free` about all four.
+ */
+export function traceGridDfs(grid: readonly string[], start: number): WalkFrame[] {
+  const R = grid.length;
+  const C = R > 0 ? grid[0].length : 0;
+  if (C === 0 || grid.some((row) => row.length !== C)) {
+    throw new RangeError('grid needs rows, all of the same length');
+  }
+  if (grid.some((row) => /[^.#]/.test(row))) {
+    throw new RangeError("grid holds only '.' and '#'");
+  }
+  const inside = (r: number, c: number) => r >= 0 && r < R && c >= 0 && c < C;
+  const free = (r: number, c: number) => inside(r, c) && grid[r][c] === '.';
+  if (!isVertex(R * C, start) || !free(Math.floor(start / C), start % C)) {
+    throw new RangeError(`start ${start} is not a free cell of the grid`);
+  }
+  return walkRecursive(
+    R * C,
+    start,
+    (v) =>
+      GRID_STEPS.map(([dr, dc], k): Probe => {
+        const r = Math.floor(v / C) + dr;
+        const c = (v % C) + dc;
+        const w = inside(r, c) ? r * C + c : null;
+        const where = `Mira ${GRID_DIRECTIONS[k]} de ${v}:`;
+        return {
+          w,
+          blocked: !free(r, c),
+          cell: [r, c],
+          text: (seen) =>
+            w === null
+              ? `${where} ${position(r, c)} está fuera de la grilla, y free es false.`
+              : !free(r, c)
+                ? `${where} ${position(r, c)} es muro, y free es false.`
+                : seen
+                  ? `${where} ${w} está libre, pero ya está marcada; la salta.`
+                  : `${where} ${w} está libre y sin marcar.`,
+        };
+      }),
+    (v) => `dfs(${v}) marca la celda ${v}, en ${position(Math.floor(v / C), v % C)}.`,
+  );
+}
+
+/** `(r, c)`, a negative written with a true minus sign. */
+function position(r: number, c: number): string {
+  const n = (x: number) => (x < 0 ? `−${-x}` : String(x));
+  return `(${n(r)}, ${n(c)})`;
+}
+
+/** The recursive walk, over whatever `probesOf` says `v` looks at. */
+function walkRecursive(
+  V: number,
+  start: number,
+  probesOf: (v: number) => Probe[],
+  markText: (v: number) => string,
+): WalkFrame[] {
   const r = new Recorder(V);
   const { marked, prev, stack, done, order } = r;
 
@@ -153,23 +274,23 @@ export function traceDfs(adj: readonly (readonly number[])[], start: number): Wa
       v,
       w: null,
       wrote: { array: 'marked', index: v },
-      text: `dfs(${v}) marca ${v}.`,
+      text: markText(v),
     });
-    for (const w of adj[v]) {
-      const seen = marked[w];
-      r.record({ event: 'look', v, w, seen, text: lookText(v, w, seen) });
-      if (!seen) {
-        prev[w] = v;
-        r.record({
-          event: 'prev',
-          v,
-          w,
-          wrote: { array: 'prev', index: w },
-          text: `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`,
-        });
-        r.record({ event: 'recurse', v, w, text: `Llama a dfs(${w}).` });
-        dfs(w);
-      }
+    for (const probe of probesOf(v)) {
+      const { w, blocked, cell } = probe;
+      const seen = blocked || w === null ? null : marked[w];
+      r.record({ event: 'look', v, w, seen, blocked, cell, text: probe.text(seen === true) });
+      if (seen !== false || w === null) continue;
+      prev[w] = v;
+      r.record({
+        event: 'prev',
+        v,
+        w,
+        wrote: { array: 'prev', index: w },
+        text: `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`,
+      });
+      r.record({ event: 'recurse', v, w, text: `Llama a dfs(${w}).` });
+      dfs(w);
     }
     done.push(v);
     const caller = stack.length > 1 ? stack[stack.length - 2] : null;
