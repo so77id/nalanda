@@ -1,9 +1,9 @@
 class Solution {
-    static int celebrity(boolean[][] follows) {
-        int V = follows.length;
+    static int celebrity(Graph g) {
+        int V = g.V();
         int candidate = 0;
         for (int i = 1; i < V; i++) {
-            if (follows[candidate][i]) {
+            if (g.hasEdge(candidate, i)) {
                 candidate = i;
             }
         }
@@ -11,10 +11,10 @@ class Solution {
             if (i == candidate) {
                 continue;
             }
-            if (follows[candidate][i]) {
+            if (g.hasEdge(candidate, i)) {
                 return -1;
             }
-            if (!follows[i][candidate]) {
+            if (!g.hasEdge(i, candidate)) {
                 return -1;
             }
         }

@@ -6013,7 +6013,7 @@ las que podría tener:
    \frac{V(V - 1)}{2} \approx \frac{V^2}{2} = \frac{(2 \cdot 10^5)^2}{2} = \frac{4 \cdot 10^{10}}{2} = 2 \cdot 10^{10}
    $$
 
-   Con $$V$$ tan grande, restarle 1 no cambia la cuenta, y se usa $$V^2$$.
+   Con $$V$$ tan grande, restarle 1 no cambia la cuenta, y se usa $$V^2/2$$.
 
 4. **Denso o disperso.** Se divide lo que hay por lo que podría haber:
 
@@ -6958,7 +6958,7 @@ check(Solution.suggest(new String[] {"ana beto", "beto carla", "ana diego", "die
 
 </Slide>
 
-{/* Exercise 2: who follows whom, as a 0/1 matrix. */}
+{/* Exercise 2: who follows whom, as a directed Graph of unknown implementation. */}
 
 <Slide title="Una celebridad en la red">
 <div className="measure-full">
@@ -6978,10 +6978,11 @@ que seguir a la primera.
 
 **Entrada:**
 
-- `follows`: quién sigue a quién, una tabla de $$V \times V$$.
-  `follows[i][j]` es `true` si la persona `i` sigue a la `j`. Las personas
-  están numeradas de $$0$$ a $$V - 1$$, con $$1 \le V \le 5000$$, y nadie se
-  sigue a sí mismo.
+- `g`: la red, como un `Graph` dirigido. Cada persona es un vértice,
+  numerado de $$0$$ a $$V - 1$$, con $$1 \le V \le 5000$$, y hay un arco de `i` a
+  `j` si `i` sigue a `j`; nadie se sigue a sí mismo. **No se sabe cómo está
+  implementado**: el método solo puede usar las operaciones del contrato, y
+  quien lo llama elige la implementación.
 
 **Salida:**
 
@@ -6993,11 +6994,19 @@ persona es la celebridad.
 </Slide>
 
 <Slide title="Una celebridad · ejemplo">
-Cuatro personas, numeradas 0 ana, 1 beto, 2 carla y 3 diego. La fila `i` dice
-a quién sigue la persona `i`. Con esta tabla, el método retorna `3`:
+Cuatro personas: 0 ana, 1 beto, 2 carla y 3 diego. Con esta red, el método
+retorna `3`:
 
 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3rem' }}>
-  <InputLines head="follows" lines={['{false, true,  false, true},', '{false, false, false, true},', '{false, false, false, true},', '{false, false, false, false}']} read={4} label="La tabla follows tal como llega, fila por fila: false, true, false, true; false, false, false, true; false, false, false, true; false, false, false, false." />
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  caption="g: un arco de quien sigue a quien es seguido"
+  label="La red del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego."
+/>
   <OutputBox head="retorna" lines={['3']} rows={1} label="Retorna 3." />
 </div>
 
@@ -7006,23 +7015,20 @@ a quién sigue la persona `i`. Con esta tabla, el método retorna `3`:
 <Slide title="Una celebridad · el modelo">
 | Pregunta              | Respuesta              | Por qué                                                                  |
 | --------------------- | ---------------------- | ------------------------------------------------------------------------ |
-| ¿Qué es un vértice?   | una persona            | la pregunta habla de personas, y ya vienen numeradas de $$0$$ a $$V - 1$$ |
-| ¿Qué es una arista?   | «`i` sigue a `j`»      | cada `true` de `follows` une a dos personas                              |
+| ¿Qué es un vértice?   | una persona            | la red ya entrega cada persona como un vértice, de $$0$$ a $$V - 1$$         |
+| ¿Qué es una arista?   | «`i` sigue a `j`»      | la red tiene un arco por cada persona que sigue a otra                   |
 | ¿Tiene dirección?     | sí: **dirigido**       | seguir a alguien no obliga a que te siga: es un arco de `i` a `j`        |
 | ¿Tiene peso?          | no: **no ponderado**   | seguir no trae un número                                                 |
 
-<Pair>
-<InputLines head="follows" lines={['{false, true,  false, true},', '{false, false, false, true},', '{false, false, false, true},', '{false, false, false, false}']} read={4} label="La tabla follows tal como llega, fila por fila: false, true, false, true; false, false, false, true; false, false, false, true; false, false, false, false." />
 <NodeGraph
   cols={3}
   rows={3}
   directed
   nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
   edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
-  caption="cada true, un arco: de quien sigue a quien es seguido"
-  label="El grafo del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego. Un arco por cada true de la tabla."
+  caption="el modelo: la red, tal como llega"
+  label="El grafo del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego."
 />
-</Pair>
 
 </Slide>
 
@@ -7045,15 +7051,15 @@ En el ejemplo se ve:
   label="Los tres arcos que llegan a diego, desde ana, beto y carla, marcados. De diego no sale ningún arco."
 />
 
-Diego cumple las dos, y la salida es `3`. Esta pregunta no la responde una
-operación del contrato: hay que mirar los arcos que entran a cada vértice y
-los que salen de él.
+Diego cumple las dos, y la salida es `3`. Ninguna operación del contrato la
+responde sola: hay que preguntar `hasEdge` muchas veces, por los arcos que
+entran a cada vértice y los que salen de él.
 
 </Slide>
 
 <Slide title="Una celebridad · cuántos vértices y aristas">
-Para saber cómo guardar el grafo hay que saber cuán grande puede llegar a
-ser. Aquí el enunciado acota a las personas, y lo demás se deduce:
+Para saber con qué implementación conviene llamar al método hay que saber
+cuán grande puede llegar a ser la red. Aquí el enunciado acota a las personas, y lo demás se deduce:
 
 1. **Los vértices.** El enunciado dice «$$1 \le V \le 5000$$», y lo que el
    enunciado acota se usa tal cual: $$V \le 5000$$.
@@ -7082,33 +7088,33 @@ ser. Aquí el enunciado acota a las personas, y lo demás se deduce:
 </Slide>
 
 <Slide title="Una celebridad · matriz o listas">
-La tabla que llega **ya es la matriz de adyacencia** del grafo: la casilla
-`follows[i][j]` es `true` si hay un arco de `i` a `j`.
+La red llega como un `Graph`, y el método no sabe qué implementación hay
+detrás. Pero responder la pregunta solo necesita una operación:
+`hasEdge(i, j)`, ¿sigue `i` a `j`? Lo que cuesta depende de quién la
+responda:
+
+|                              | `AdjMatrixDigraph`                       | `AdjListDigraph`                                         |
+| ---------------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| `hasEdge(i, j)`              | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>una casilla: $$\Theta(1)$$</span>       | buscar `j` en la lista de `i`: $$\Theta(\operatorname{grado}(i))$$ |
+| memoria con $$V = 5000$$     | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$V^2 = 2{,}5 \cdot 10^7$$ casillas: unos 25 MB</span> | si es densa, $$2{,}5 \cdot 10^7$$ objetos `Integer` en listas: cientos de MB |
+| las menos de $$3V$$ preguntas, si la red es densa | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$3V = 1{,}5 \cdot 10^4$$ casillas</span> | cada una lee hasta $$V$$ entradas: $$3V \cdot V \approx 7{,}5 \cdot 10^7$$ |
+
+Con la matriz, cada pregunta es leer una casilla, y la red puede ser densa
+sin que eso cambie el costo de preguntar. La matriz es la implementación que
+conviene pasarle al método:
 
 <AdjMatrix
   rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
   mark={[]}
-  caption="follows es la matriz de adyacencia: la fila de i, los arcos que salen de i"
-  label="La tabla follows dibujada como matriz de adyacencia: true en [0][1], [0][3], [1][3] y [2][3]; las demás casillas, false."
+  caption="la red del ejemplo en una matriz: hasEdge(i, j) es la casilla [i][j]"
+  label="La red del ejemplo como matriz de adyacencia: true en [0][1], [0][3], [1][3] y [2][3]; las demás casillas, false."
 />
-
-La pregunta es si conviene usarla tal cual o pasarla a listas:
-
-|                       | Matriz: la tabla que llega                                    | Listas: convertirla                                                  |
-| --------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| construirla           | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>nada: ya está</span>                                      | leer las $$V^2 = 2{,}5 \cdot 10^7$$ casillas para armar las listas    |
-| memoria               | $$V^2 = 2{,}5 \cdot 10^7$$ casillas: unos 25 MB, que ya se ocupan | hasta $$V + E \approx 2{,}5 \cdot 10^7$$ entradas, además de la tabla |
-| ¿sigue `i` a `j`?     | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>una casilla: $$\Theta(1)$$</span>                           | buscar `j` en la lista de `i`: $$\Theta(\operatorname{grado}(i))$$    |
-
-Convertirla costaría leer la tabla entera antes de empezar, y después cada
-pregunta sería más cara. La pregunta del problema se responde mirando
-casillas, que es justo lo que la matriz hace en $$\Theta(1)$$.
 
 </Slide>
 
 <Slide title="Una celebridad · el tamaño">
-En resumen, las cotas del enunciado dan el tamaño, y el tamaño, con la forma
-de la entrada, decide la estructura:
+En resumen, las cotas del enunciado dan el tamaño, y el tamaño decide con
+qué implementación conviene llamar al método:
 
 | Paso                      | Resultado                              | Por qué                                         |
 | ------------------------- | -------------------------------------- | ----------------------------------------------- |
@@ -7116,23 +7122,24 @@ de la entrada, decide la estructura:
 | 2. las aristas posibles   | $$V(V - 1) \approx 2{,}5 \cdot 10^7$$     | un arco por cada par ordenado de personas       |
 | 3. denso o disperso       | **puede ser denso**                    | el enunciado no acota los arcos                 |
 
-**La decisión:** se usa la tabla `follows` tal cual, como matriz de
-adyacencia. No hay grafo que construir: `follows[i][j]` responde si `i` sigue
-a `j` en $$\Theta(1)$$.
+**La decisión:** el método se escribe con el contrato, y conviene llamarlo
+con un `AdjMatrixDigraph`: así cada `hasEdge(i, j)` cuesta $$\Theta(1)$$, sea la
+red densa o no.
 
 </Slide>
 
 <Slide title="Una celebridad · revisar a cada persona">
 La solución más directa sigue la pregunta al pie de la letra: para cada
 persona, revisar si todas las demás la siguen y si ella no sigue a nadie. Es
-mirar su columna y su fila de la tabla: $$2(V - 1)$$ casillas por persona.
+preguntar `hasEdge` por cada otra persona en los dos sentidos: $$2(V - 1)$$
+preguntas por persona, que en la matriz son su fila y su columna.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <AdjMatrix
   rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
   mark={[[1, 0], [1, 2], [1, 3], [0, 1], [2, 1], [3, 1]]}
   caption="beto: su fila y su columna, 6 casillas; carla no lo sigue"
-  label="Revisar a beto: la fila 1 y la columna 1, seis casillas. [2][1] es false: carla no sigue a beto."
+  label="Revisar a beto: la fila 1 y la columna 1, seis casillas. hasEdge(2, 1) es false: carla no sigue a beto."
 />
 <AdjMatrix
   rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
@@ -7142,34 +7149,34 @@ mirar su columna y su fila de la tabla: $$2(V - 1)$$ casillas por persona.
 />
 </div>
 
-**¿Cuánto cuesta?** Son $$V$$ personas, y cada una mira $$2(V - 1)$$ casillas:
+**¿Cuánto cuesta?** Son $$V$$ personas, y cada una hace $$2(V - 1)$$ preguntas:
 
 $$
-V \cdot 2(V - 1) \approx 2V^2 = 2 \cdot 5000^2 = 5 \cdot 10^7 \text{ casillas}
+V \cdot 2(V - 1) \approx 2V^2 = 2 \cdot 5000^2 = 5 \cdot 10^7 \text{ preguntas}
 $$
 
-**El tiempo es $$O(V^2)$$.** Con $$5 \cdot 10^7$$ casillas, a unos $$10^8$$
-pasos por segundo, tarda medio segundo por consulta, y lee cada casilla de
-la tabla dos veces, una por su fila y otra por su columna, para encontrar a
-una sola persona.
+**El tiempo es $$O(V^2)$$**, aun con la matriz. Con $$5 \cdot 10^7$$ preguntas,
+a unos $$10^8$$ por segundo, tarda medio segundo, y crece con $$V^2$$: con diez
+veces más personas serían cincuenta segundos, preguntando por cada par dos
+veces para encontrar a una sola.
 
 **¿Se puede hacer mejor?**
 
 </Slide>
 
 <Slide title="Una celebridad · la idea">
-Para hacerlo mejor, se usa que **cada casilla descarta a alguien**:
+Para hacerlo mejor, se usa que **cada pregunta descarta a alguien**:
 
 1. **Si `i` sigue a `j`, `i` no es celebridad**, porque sigue a alguien. **Si
    no lo sigue, `j` no es celebridad**, porque alguien no la sigue. Una sola
-   casilla deja fuera a una de las dos personas.
+   pregunta deja fuera a una de las dos personas.
 2. **Una candidata contra todas.** Se empieza con la persona $$0$$ como
    candidata, y se pregunta si sigue a cada una de las siguientes. Si la
    sigue, queda fuera y la otra pasa a ser la candidata; si no, queda fuera
    la otra. Después de $$V - 1$$ preguntas queda una sola persona.
 3. **Se comprueba la que queda.** Todas las demás quedaron fuera, pero la
-   que queda puede no ser celebridad: se revisan su fila y su columna, como
-   antes, solo para ella.
+   que queda puede no ser celebridad: se le pregunta en los dos sentidos a
+   cada otra persona, $$2(V - 1)$$ preguntas.
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
 <NodeGraph
@@ -7206,20 +7213,20 @@ Para hacerlo mejor, se usa que **cada casilla descarta a alguien**:
 />
 </div>
 
-En total son $$V - 1$$ preguntas y $$2(V - 1)$$ casillas de comprobación: menos
-de $$3V$$, en vez de casi toda la tabla.
+En total son $$V - 1$$ preguntas para elegir y $$2(V - 1)$$ para comprobar:
+menos de $$3V$$, en vez de preguntar por cada par.
 
 </Slide>
 
 <Slide title="Una celebridad · la solución">
-La primera vuelta deja a la candidata; la segunda revisa su fila y su
-columna.
+La primera vuelta deja a la candidata; la segunda le pregunta a cada otra
+persona en los dos sentidos.
 
 <StepShow
   language="java"
   beside
-  title="celebrity(follows): ana, beto, carla y diego"
-  program={`int c = Solution.celebrity(follows);`}
+  title="celebrity(g), con g un AdjMatrixDigraph"
+  program={`int c = Solution.celebrity(g);`}
   codeSrc="./26-grafos-tda-modelado.code/celebridad/Solution.java"
   codeRange="2-22"
 >
@@ -7238,12 +7245,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]."
       />
     </Pair>
   </Step>
   <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['1 beto']} rows={2} fresh label="candidate: 1 beto." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1: [0][1] es true, ana sigue a beto. Ana no es celebridad; candidate = 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1: hasEdge(0, 1) es true, ana sigue a beto. Ana no es celebridad; candidate = 1.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7258,12 +7265,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[0, 1]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][1], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][1], true."
       />
     </Pair>
   </Step>
   <Step lines={[5, 6]} programLines={[1]} under={<OutputBox head="candidate" lines={['1 beto']} rows={2} label="candidate: 1 beto." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2: [1][2] es false, beto no sigue a carla. Carla no es celebridad.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2: hasEdge(1, 2) es false, beto no sigue a carla. Carla no es celebridad.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7277,12 +7284,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[1, 2]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][2], false."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][2], false."
       />
     </Pair>
   </Step>
   <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} fresh label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: [1][3] es true, beto sigue a diego. Beto no es celebridad; candidate = 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: hasEdge(1, 3) es true, beto sigue a diego. Beto no es celebridad; candidate = 3.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7297,12 +7304,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[1, 3]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][3], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][3], true."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 0, ana: [3][0] es false, diego no sigue a ana.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 0, ana: hasEdge(3, 0) es false, diego no sigue a ana.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7316,12 +7323,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[3, 0]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][0], false."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][0], false."
       />
     </Pair>
   </Step>
   <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[0][3] es true: ana sigue a diego.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(0, 3) es true: ana sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7336,12 +7343,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[0, 3]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][3], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][3], true."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1, beto: [3][1] es false, diego no sigue a beto.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1, beto: hasEdge(3, 1) es false, diego no sigue a beto.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7355,12 +7362,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[3, 1]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][1], false."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][1], false."
       />
     </Pair>
   </Step>
   <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[1][3] es true: beto sigue a diego.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(1, 3) es true: beto sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7375,12 +7382,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[1, 3]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][3], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][3], true."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 14]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2, carla: [3][2] es false, diego no sigue a carla.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2, carla: hasEdge(3, 2) es false, diego no sigue a carla.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7394,12 +7401,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[3, 2]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][2], false."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [3][2], false."
       />
     </Pair>
   </Step>
   <Step lines={[17]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>[2][3] es true: carla sigue a diego.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>hasEdge(2, 3) es true: carla sigue a diego.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7414,12 +7421,12 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[2, 3]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [2][3], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [2][3], true."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3 es la candidata: continue, sin mirar casillas.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3 es la candidata: continue, sin preguntar.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7433,7 +7440,7 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]."
       />
     </Pair>
   </Step>
@@ -7453,7 +7460,7 @@ columna.
       <AdjMatrix
         rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
         mark={[[0, 3], [1, 3], [2, 3]]}
-        label="La matriz follows: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][3], true y [1][3], true y [2][3], true."
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [0][3], true y [1][3], true y [2][3], true."
       />
     </Pair>
   </Step>
@@ -7495,15 +7502,20 @@ Con una sola persona no hay nada que preguntar, y el método retorna $$0$$.
 
 **Tiempo**, parte por parte:
 
-- **Elegir la candidata:** $$V - 1$$ casillas, una por persona después de la
+- **Elegir la candidata:** $$V - 1$$ preguntas, una por persona después de la
   primera: $$\Theta(V)$$.
-- **Comprobarla:** su fila y su columna, $$2(V - 1)$$ casillas: $$\Theta(V)$$.
+- **Comprobarla:** $$2(V - 1)$$ preguntas, en los dos sentidos con cada otra
+  persona: $$\Theta(V)$$.
+- **Cada pregunta:** $$\Theta(1)$$ con `AdjMatrixDigraph`. Con `AdjListDigraph`
+  cuesta $$\Theta(\operatorname{grado})$$, y en una red densa el total llega a
+  $$\Theta(V^2)$$.
 
-**En total, $$\Theta(V)$$**: menos de $$3V = 1{,}5 \cdot 10^4$$ casillas, unas
-$$0{,}15$$ milésimas de segundo, contra las $$5 \cdot 10^7$$ casillas y el medio
+**En total, $$\Theta(V)$$ con la matriz**, donde cada pregunta es $$\Theta(1)$$:
+menos de $$3V = 1{,}5 \cdot 10^4$$ preguntas, unas $$0{,}15$$ milésimas de segundo,
+contra las $$5 \cdot 10^7$$ preguntas y el medio
 segundo de revisar a cada persona.
 
-**Memoria.** Dos enteros, $$\Theta(1)$$, además de la tabla que llega.
+**Memoria.** Dos enteros, $$\Theta(1)$$, además del grafo que llega.
 
 </Slide>
 
@@ -7512,12 +7524,67 @@ segundo de revisar a cada persona.
 <Exercise title="Una celebridad en la red">
 
 ```java starter
+import java.util.ArrayList;
+import java.util.List;
+
+interface Graph {
+    int V();
+    int E();
+    Iterable<Integer> adj(int v);
+    boolean hasEdge(int v, int w);
+    void addEdge(int v, int w);
+}
+
+class AdjMatrixDigraph implements Graph {
+    private final boolean[][] matrix;
+    private int E;
+
+    AdjMatrixDigraph(int V) { matrix = new boolean[V][V]; }
+
+    public int V() { return matrix.length; }
+    public int E() { return E; }
+    public boolean hasEdge(int v, int w) { return matrix[v][w]; }
+
+    public void addEdge(int v, int w) {
+        if (matrix[v][w]) return;
+        matrix[v][w] = true;
+        E++;
+    }
+
+    public Iterable<Integer> adj(int v) {
+        List<Integer> neighbors = new ArrayList<>();
+        for (int w = 0; w < matrix.length; w++) {
+            if (matrix[v][w]) neighbors.add(w);
+        }
+        return neighbors;
+    }
+}
+
+class AdjListDigraph implements Graph {
+    private final List<List<Integer>> lists = new ArrayList<>();
+    private int E;
+
+    AdjListDigraph(int V) {
+        for (int v = 0; v < V; v++) lists.add(new ArrayList<>());
+    }
+
+    public int V() { return lists.size(); }
+    public int E() { return E; }
+    public Iterable<Integer> adj(int v) { return new ArrayList<>(lists.get(v)); }
+    public boolean hasEdge(int v, int w) { return lists.get(v).contains(w); }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+        E++;
+    }
+}
+
 class Solution {
-    static int celebrity(boolean[][] follows) {
-        int V = follows.length;
+    static int celebrity(Graph g) {
+        int V = g.V();
         int candidate = 0;
         for (int i = 1; i < V; i++) {
-            if (follows[candidate][i]) {
+            if (g.hasEdge(candidate, i)) {
                 candidate = i;
             }
         }
@@ -7525,10 +7592,10 @@ class Solution {
             if (i == candidate) {
                 continue;
             }
-            if (follows[candidate][i]) {
+            if (g.hasEdge(candidate, i)) {
                 return -1;
             }
-            if (!follows[i][candidate]) {
+            if (!g.hasEdge(i, candidate)) {
                 return -1;
             }
         }
@@ -7538,13 +7605,23 @@ class Solution {
 ```
 
 ```java test
-boolean t = true, f = false;
-check(Solution.celebrity(new boolean[][] {{f, t, f, t}, {f, f, f, t}, {f, f, f, t}, {f, f, f, f}}), 3);
-check(Solution.celebrity(new boolean[][] {{f, t, f, t}, {f, f, f, t}, {f, f, f, t}, {f, f, t, f}}), -1);
-check(Solution.celebrity(new boolean[][] {{f, t, f}, {f, f, f}, {f, f, f}}), -1);
-check(Solution.celebrity(new boolean[][] {{f, t}, {f, f}}), 1);
-check(Solution.celebrity(new boolean[][] {{f, t}, {t, f}}), -1);
-check(Solution.celebrity(new boolean[][] {{f}}), 0);
+Graph m = new AdjMatrixDigraph(4);
+m.addEdge(0, 1); m.addEdge(0, 3); m.addEdge(1, 3); m.addEdge(2, 3);
+check(Solution.celebrity(m), 3);
+Graph l = new AdjListDigraph(4);
+l.addEdge(0, 1); l.addEdge(0, 3); l.addEdge(1, 3); l.addEdge(2, 3);
+check(Solution.celebrity(l), 3);
+m.addEdge(3, 2);
+check(Solution.celebrity(m), -1);
+Graph three = new AdjMatrixDigraph(3);
+three.addEdge(0, 1);
+check(Solution.celebrity(three), -1);
+Graph two = new AdjMatrixDigraph(2);
+two.addEdge(0, 1);
+check(Solution.celebrity(two), 1);
+two.addEdge(1, 0);
+check(Solution.celebrity(two), -1);
+check(Solution.celebrity(new AdjMatrixDigraph(1)), 0);
 ```
 
 </Exercise>
@@ -7588,11 +7665,12 @@ ciudades aparecen en `roads`. Sin carreteras, un arreglo vacío.
 
 <Slide title="Ciudad vecina · ejemplo">
 Con estas cinco carreteras, el método retorna un nombre por ciudad, en el
-orden en que las ciudades aparecen:
+orden en que las ciudades aparecen; al lado de cada respuesta, la ciudad a la
+que corresponde:
 
-<Pair stack>
+<Pair>
   <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} read={5} label="Las carreteras, una por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125." />
-  <ArrayRows rows={[{'name': 'ciudad', 'cells': ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'], 'head': ['', '', '', '', '']}, {'name': 'retorna', 'cells': ['Rancagua', 'Quillota', 'Santiago', 'Rancagua', 'Valparaíso'], 'head': ['', '', '', '', '']}]} mark={[]} cols={5} cell={92} label="Las ciudades en el orden en que aparecen, Santiago, Valparaíso, Rancagua, Talca y Quillota, y lo que retorna el método para cada una: Rancagua, Quillota, Santiago, Rancagua y Valparaíso." />
+  <OutputBox head="retorna" lines={['Santiago → Rancagua', 'Valparaíso → Quillota', 'Rancagua → Santiago', 'Talca → Rancagua', 'Quillota → Valparaíso']} rows={5} label="Retorna, en el orden en que aparecen las ciudades: Rancagua para Santiago, Quillota para Valparaíso, Santiago para Rancagua, Rancagua para Talca y Valparaíso para Quillota." />
 </Pair>
 
 </Slide>
@@ -8133,14 +8211,14 @@ menor peso; su `to` es la vecina más cercana.
         nodes={[{ v: 'Santiago', x: 3.5, y: 1 }, { v: 'Valparaíso', x: 0.5, y: 1 }, { v: 'Rancagua', x: 5.8, y: 1 }, { v: 'Talca', x: 7.9, y: 1 }, { v: 'Quillota', x: 2, y: 0 }]}
         edges={[['Santiago', 'Valparaíso', 116], ['Santiago', 'Rancagua', 87], ['Rancagua', 'Talca', 172], ['Valparaíso', 'Quillota', 52], ['Quillota', 'Santiago', 125]]}
         caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
-        label="Las cinco ciudades y sus carreteras; destacada Santiago."
+        label="Las cinco ciudades y sus carreteras."
       />
       <AdjLists
         side={['null', 'null', 'null', 'null', 'null']}
         sideHead="result"
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = null, result[1] = null, result[2] = null, result[3] = null, result[4] = null."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = null, result[1] = null, result[2] = null, result[3] = null, result[4] = null."
       />
     </Pair>
   </Step>
@@ -8155,7 +8233,7 @@ menor peso; su `to` es la vecina más cercana.
         markEdges={[['Santiago', 'Valparaíso']]}
         tones={{ Santiago: 'mark', Valparaíso: 'keep' }}
         caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
-        label="Las cinco ciudades y sus carreteras; destacada Santiago, y marcada la carretera Santiago-Valparaíso."
+        label="Las cinco ciudades y sus carreteras; marcada la carretera Santiago-Valparaíso."
       />
       <AdjLists
         side={['null', 'null', 'null', 'null', 'null']}
@@ -8177,7 +8255,7 @@ menor peso; su `to` es la vecina más cercana.
         markEdges={[['Santiago', 'Rancagua']]}
         tones={{ Santiago: 'mark', Rancagua: 'keep' }}
         caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
-        label="Las cinco ciudades y sus carreteras; destacada Santiago, y marcada la carretera Santiago-Rancagua."
+        label="Las cinco ciudades y sus carreteras; marcada la carretera Santiago-Rancagua."
       />
       <AdjLists
         side={['null', 'null', 'null', 'null', 'null']}
@@ -8199,7 +8277,7 @@ menor peso; su `to` es la vecina más cercana.
         markEdges={[['Santiago', 'Quillota']]}
         tones={{ Santiago: 'mark', Rancagua: 'keep' }}
         caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
-        label="Las cinco ciudades y sus carreteras; destacada Santiago, y marcada la carretera Santiago-Quillota."
+        label="Las cinco ciudades y sus carreteras; marcada la carretera Santiago-Quillota."
       />
       <AdjLists
         side={['null', 'null', 'null', 'null', 'null']}
@@ -8221,7 +8299,7 @@ menor peso; su `to` es la vecina más cercana.
         markEdges={[['Santiago', 'Rancagua']]}
         tones={{ Santiago: 'mark', Rancagua: 'keep' }}
         caption="Santiago 0, Valparaíso 1, Rancagua 2, Talca 3, Quillota 4"
-        label="Las cinco ciudades y sus carreteras; destacada Santiago, y marcada la carretera Santiago-Rancagua."
+        label="Las cinco ciudades y sus carreteras; marcada la carretera Santiago-Rancagua."
       />
       <AdjLists
         side={['Rancagua', 'null', 'null', 'null', 'null']}
@@ -8229,7 +8307,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[0]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = null, result[2] = null, result[3] = null, result[4] = null."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = null, result[2] = null, result[3] = null, result[4] = null."
       />
     </Pair>
   </Step>
@@ -8296,7 +8374,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[1]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = null, result[3] = null, result[4] = null."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = null, result[3] = null, result[4] = null."
       />
     </Pair>
   </Step>
@@ -8363,7 +8441,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[2]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = null, result[4] = null."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = null, result[4] = null."
       />
     </Pair>
   </Step>
@@ -8408,7 +8486,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[3]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = null."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = null."
       />
     </Pair>
   </Step>
@@ -8475,7 +8553,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[4]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = Valparaíso."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = Valparaíso."
       />
     </Pair>
   </Step>
@@ -8496,7 +8574,7 @@ menor peso; su `to` es la vecina más cercana.
         sideMark={[0, 1, 2, 3, 4]}
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[]}
-        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125 Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = Valparaíso."
+        label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125. Al lado de cada lista, result: result[0] = Rancagua, result[1] = Quillota, result[2] = Santiago, result[3] = Rancagua, result[4] = Valparaíso."
       />
     </Pair>
   </Step>
@@ -8807,7 +8885,7 @@ libres no es un callejón, porque no lleva a ninguna.
 **Entrada:**
 
 - `grid`: el laberinto, una fila por `String`, todas del mismo largo: $$R$$
-  filas y $$C$$ columnas, con $$R, C \le 1000$$.
+  filas y $$C$$ columnas, con $$1 \le R, C \le 1000$$.
 - `diagonals`: `true` si también se avanza en diagonal.
 
 **Salida:**
@@ -9378,12 +9456,13 @@ Para decidir cómo guardar el grafo hay que saber cuán grande es. Aquí el
 enunciado lo fija:
 
 1. **Los vértices.** Cuatro ruedas de diez dígitos dan
-   $$10 \cdot 10 \cdot 10 \cdot 10 = 10^4$$ combinaciones: $$V = 10^4$$.
-2. **Las aristas.** Cada vértice tiene exactamente 8 vecinos, y cada arista se
-   cuenta desde sus dos extremos:
+   $$10 \cdot 10 \cdot 10 \cdot 10 = 10^4$$ combinaciones, y las prohibidas se
+   sacan: $$V \le 10^4$$.
+2. **Las aristas.** Cada vértice tiene a lo más 8 vecinos, menos si alguno está
+   prohibido, y cada arista se cuenta desde sus dos extremos:
 
    $$
-   E = \frac{8V}{2} = \frac{8 \cdot 10^4}{2} = 4 \cdot 10^4
+   E \le \frac{8V}{2} = \frac{8 \cdot 10^4}{2} = 4 \cdot 10^4
    $$
 
 3. **Las aristas que podría haber.**
@@ -9414,8 +9493,8 @@ En resumen:
 
 | Paso                    | Resultado                                    | Por qué                                     |
 | ----------------------- | -------------------------------------------- | ------------------------------------------- |
-| 1. los vértices         | $$V = 10^4$$                                  | cuatro ruedas de diez dígitos               |
-| 2. las aristas          | $$E = 4 \cdot 10^4$$                           | 8 vecinos por vértice, cada arista dos veces |
+| 1. los vértices         | $$V \le 10^4$$                                | cuatro ruedas de diez dígitos               |
+| 2. las aristas          | $$E \le 4 \cdot 10^4$$                         | a lo más 8 vecinos, cada arista dos veces    |
 | 3. las que podría haber | $$\frac{V(V - 1)}{2} \approx 5 \cdot 10^7$$     | una por cada par de combinaciones           |
 | 4. denso o disperso     | **disperso**                                 | 8 vecinos de $$9999$$                         |
 
@@ -9820,8 +9899,8 @@ antes de pasar a la siguiente rueda.
 
 <Slide title="Candado · casos y costo">
 Si la combinación actual está prohibida, el candado está trabado: el método
-retorna la lista vacía antes de girar nada. Si sus ocho vecinas están
-prohibidas, también. Y la vuelta de la rueda sale de la cuenta, sin un `if`:
+retorna la lista vacía antes de girar nada. Y la vuelta de la rueda sale de la
+cuenta, sin un `if`:
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
@@ -9916,7 +9995,7 @@ calcula, y recién entonces el código.
 
 <Exercise title="Los seguidores de cada persona">
 
-Una red guarda a quién sigue cada persona. Para mostrar el perfil de cada
+Una red sabe a quién sigue cada persona. Para mostrar el perfil de cada
 una, necesita lo contrario: quiénes la siguen.
 
 **¿Quiénes siguen a cada persona?** Para cada persona, la lista de quienes
