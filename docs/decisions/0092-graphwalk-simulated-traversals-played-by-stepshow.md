@@ -55,9 +55,28 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - Lazy, like the fib composites: `lazyGraphWalk.tsx`, its own guard in
   `architecture.test.ts`, and an entry in `<StepShow>`'s `ALLOWED`.
 - **Walks are added one at a time, each with the slide that first uses it**
-  (ADR-0083's rule): S3 ships the recursive DFS; the iterative DFS in parallel
-  with it, the grid, BFS with its queue and `dist`, and Kahn with its
-  in-degrees and the line layout come with arcs I to III.
+  (ADR-0083's rule): S3 shipped the recursive DFS; S5 the iterative DFS and
+  the tempting version that marks on push; the grid, BFS with its queue and
+  `dist`, and Kahn with its in-degrees and the line layout come with arcs I
+  to III.
+- **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
+  `Stack`, the loop BFS shares with a queue at the close of arc II (la
+  bolsa). It is drawn beside its own stack instead of the call stack; the
+  vertices it has reached are kept, and its thread is the way back along
+  `prev` from the vertex last popped. When a vertex is pushed again,
+  `prev[w] = v` is written again, and the frame says from where `w` is now
+  reached.
+- **The version that marks on push** (`dfs-mark-on-push`) is a walk too, so
+  its counterexample is played, not asserted: it paints red a neighbour it
+  skips although it never reached it — «marked» has come to mean «seen». Its
+  listing lives only on its slide (inline `code`).
+- **The recursive and the iterative DFS are not paired** line by line, as
+  `<SequenceStepper>`'s `iterative` pairs listings that take the same
+  decisions in the same order: the iterative one reads every neighbour of a
+  vertex at once and pushes it, the recursive one reads one and goes down
+  (19 steps against 26 on a square), and the stack turns the neighbours'
+  order around (0 1 2 3 against 0 3 2 1). Each walks on its own slide.
+  Decided with Miguel in S5.
 
 ## Alternatives considered
 
@@ -75,10 +94,12 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - The epic's «receta `graph` de `<SequenceStepper>`» is replaced by
   `<GraphWalk>` for the whole unit: Prim (#358) and Dijkstra (#359) add their
   walks here, the priority queue being one more bag.
-- The catalog entry quotes a course file
-  (`27-grafos-recorridos.code/Traversals.java`), as `<SourceFile>`'s quotes
-  class 2's: when the class's code changes shape (#357 S6), the entry's range
-  and `lines` move with it.
+- The catalog entry quotes the course's files
+  (`27-grafos-recorridos.code/DepthFirstPaths.java` and
+  `IterativeDepthFirstPaths.java`), as `<SourceFile>`'s quotes class 2's:
+  when the class's code changes, the entry's ranges and `lines` move with it.
+  The trace was checked against those files run on a JDK 21 (S5): the same
+  order and the same `prev` on the square and on the counterexample.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit

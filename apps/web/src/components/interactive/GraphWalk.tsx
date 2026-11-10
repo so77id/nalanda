@@ -10,19 +10,31 @@ import {
 import {
   adjacencyOf,
   traceDfs,
-  type DfsEvent,
+  traceDfsStack,
   type GraphWalkEdge,
+  type WalkEvent,
   type WalkFrame,
 } from './graphWalkTrace';
 import { Step } from './Step';
 import { StepShow } from './StepShow';
 
-/** The events of a depth-first walk, each lighting the lines an author maps it to. */
-const DFS_EVENTS: readonly DfsEvent[] = ['mark', 'look', 'prev', 'recurse', 'return'];
+export type GraphWalkAlgorithm = 'dfs' | 'dfs-iterative' | 'dfs-mark-on-push';
+
+/** The events of each walk, each lighting the lines an author maps it to. */
+const EVENTS: Record<GraphWalkAlgorithm, readonly WalkEvent[]> = {
+  dfs: ['mark', 'look', 'prev', 'recurse', 'return'],
+  'dfs-iterative': ['pushStart', 'pop', 'skip', 'mark', 'look', 'prev', 'push', 'end'],
+  'dfs-mark-on-push': ['markStart', 'pushStart', 'pop', 'look', 'mark', 'prev', 'push', 'end'],
+};
 
 export interface GraphWalkProps {
-  /** The walk to simulate. Only `dfs` (recursive) so far. */
-  algorithm?: 'dfs';
+  /**
+   * The walk to simulate: `dfs`, the recursive depth-first search (the
+   * default); `dfs-iterative`, the same search with a stack of its own that
+   * marks on pop; `dfs-mark-on-push`, the tempting version that marks on push
+   * and does not walk depth first (#357 S5).
+   */
+  algorithm?: GraphWalkAlgorithm;
   /** The vertices, numbered 0..V−1, each at a grid position (as `<NodeGraph>`). */
   nodes: NodeGraphNode[];
   /** `[v, w]`, in the order the program adds them: that order is `adj`'s. */
@@ -40,14 +52,18 @@ export interface GraphWalkProps {
    * when the listing comes from `codeSrc` (ADR-0091). For `dfs`: `mark`
    * (`marked[v] = true`), `look` (the `for` and its `if`), `prev`
    * (`prev[w] = v`), `recurse` (the call) and `return` (the method's end).
+   * For `dfs-iterative`: `pushStart` (the stack and its first push), `pop`,
+   * `skip` (the `if (marked[v]) continue`), `mark`, `look`, `prev`, `push`
+   * and `end` (the loop's test, failing). For `dfs-mark-on-push`: the same
+   * without `skip`, plus `markStart` (`marked[s] = true`).
    */
-  lines: Partial<Record<DfsEvent, number | number[]>>;
+  lines: Partial<Record<WalkEvent, number | number[]>>;
   /** The listing, written in the document. Or `codeSrc`. */
   code?: string;
   /** The file the listing quotes, relative to the document (ADR-0091). */
   codeSrc?: string;
   codeRange?: string;
-  /** The badge over the listing: `Traversals.java`. */
+  /** The badge over the listing: `DepthFirstPaths.java`. */
   codeName?: string;
   /** The program that calls the walk, shown over the listing. Or `programSrc`. */
   program?: string;
@@ -75,10 +91,11 @@ export interface GraphWalkProps {
 export function GraphWalk(props: GraphWalkProps) {
   const { nodes, edges, lines, code, codeSrc } = props;
   const algorithm = props.algorithm ?? 'dfs';
-  if (algorithm !== 'dfs') {
+  if (!Object.hasOwn(EVENTS, algorithm)) {
     return (
       <AuthoringError component="GraphWalk">
-        algorithm=&quot;{String(algorithm)}&quot; no existe; por ahora solo dfs.
+        algorithm=&quot;{String(algorithm)}&quot; no existe; son dfs, dfs-iterative y
+        dfs-mark-on-push.
       </AuthoringError>
     );
   }
@@ -108,7 +125,7 @@ export function GraphWalk(props: GraphWalkProps) {
       </AuthoringError>
     );
   }
-  const missing = DFS_EVENTS.filter((e) => lines[e] === undefined);
+  const missing = EVENTS[algorithm].filter((e) => lines[e] === undefined);
   if (missing.length > 0) {
     return (
       <AuthoringError component="GraphWalk">
@@ -124,19 +141,32 @@ export function GraphWalk(props: GraphWalkProps) {
       </AuthoringError>
     );
   }
-  return <Body {...props} start={start} />;
+  return <Body {...props} algorithm={algorithm} start={start} />;
 }
 
-function Body(props: GraphWalkProps & { start: number }) {
-  const { nodes, edges, cols, rows, directed = false, start, lines, label, programLines } = props;
+function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: number }) {
+  const {
+    algorithm,
+    nodes,
+    edges,
+    cols,
+    rows,
+    directed = false,
+    start,
+    lines,
+    label,
+    programLines,
+  } = props;
   const V = nodes.length;
   // MDX re-mints inline literals on every render: memoise on a primitive key
   // (add-a-content-component.md, the stepper rule).
   const edgesKey = edges.map(([v, w]) => `${v}-${w}`).join(',');
   const frames = useMemo(() => {
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
-    return traceDfs(adjacencyOf(V, parsed, directed), start);
-  }, [V, edgesKey, directed, start]);
+    const adj = adjacencyOf(V, parsed, directed);
+    if (algorithm === 'dfs') return traceDfs(adj, start);
+    return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push');
+  }, [algorithm, V, edgesKey, directed, start]);
   const depth = Math.max(...frames.map((f) => f.stack.length));
 
   return (
@@ -173,6 +203,7 @@ function Body(props: GraphWalkProps & { start: number }) {
             cols={cols}
             rows={rows}
             directed={directed}
+            recursive={algorithm === 'dfs'}
             depth={depth}
             label={label}
           />
@@ -189,27 +220,36 @@ interface FrameProps {
   cols: number;
   rows: number;
   directed: boolean;
+  /** The recursive walk draws its call stack; an iterative one, its own stack. */
+  recursive: boolean;
   depth: number;
   label: string;
 }
 
-function Frame({ frame, nodes, edges, cols, rows, directed, depth, label }: FrameProps) {
+function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, label }: FrameProps) {
   // On a slide the drawing has its own column (`beside`) and the code is set
   // large: the graph takes more of it. Both caps are fixed numbers, never a
   // share of the column, so the frame's height never follows its width.
   const onSlide = useMode() === 'presentation';
   const tones: Record<string, NodeGraphTone> = {};
-  for (const v of frame.done) tones[String(v)] = 'keep';
-  tones[String(frame.v)] = 'mark';
-  // The thread: the edge each call in progress was entered by.
-  const thread: NodeGraphEdge[] = frame.stack.slice(1).map((v) => [frame.prev[v], v]);
-  const looking: NodeGraphEdge[] = frame.w === null ? [] : [[frame.v, frame.w]];
+  // Recursive: the calls that returned are kept. Iterative: the vertices the
+  // walk has reached.
+  for (const v of recursive ? frame.done : frame.order) tones[String(v)] = 'keep';
+  if (frame.v !== null) tones[String(frame.v)] = 'mark';
+  if (frame.wrote?.array === 'marked') tones[String(frame.wrote.index)] = 'mark';
+  // Marking on push: a neighbour skipped though the walk never reached it.
+  if (frame.unvisited && frame.w !== null) tones[String(frame.w)] = 'flag';
+  const thread = recursive
+    ? // The edge each call in progress was entered by.
+      frame.stack.slice(1).map((v): NodeGraphEdge => [frame.prev[v], v])
+    : threadBack(frame);
+  const looking: NodeGraphEdge[] = frame.v === null || frame.w === null ? [] : [[frame.v, frame.w]];
   return (
     <div
       className="flex flex-col items-center gap-1"
       data-testid="graph-walk-frame"
       data-event={frame.event}
-      data-v={frame.v}
+      data-v={frame.v ?? ''}
       data-w={frame.w ?? ''}
     >
       <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.4, minHeight: '2.8em' }}>
@@ -230,26 +270,75 @@ function Frame({ frame, nodes, edges, cols, rows, directed, depth, label }: Fram
             label={`${label} ${frame.text}`}
           />
         </div>
-        <CallStackPanel stack={frame.stack} depth={depth} />
+        {recursive ? (
+          <StackPanel
+            title="pila de llamadas"
+            items={frame.stack.map((v) => `dfs(${v})`)}
+            hot={frame.stack.length - 1}
+            depth={depth}
+            label={`Pila de llamadas: ${frame.stack.map((v) => `dfs(${v})`).join(', ')}; corre dfs(${frame.v}).`}
+          />
+        ) : (
+          <StackPanel
+            title="pila"
+            items={frame.stack.map(String)}
+            // The cell just pushed; a pop leaves nothing to light.
+            hot={
+              frame.event === 'push' || frame.event === 'pushStart' ? frame.stack.length - 1 : -1
+            }
+            depth={depth}
+            label={
+              frame.stack.length === 0
+                ? 'La pila está vacía.'
+                : `Pila, del fondo al tope: ${frame.stack.join(', ')}.`
+            }
+          />
+        )}
       </div>
     </div>
   );
 }
 
+/**
+ * The thread of an iterative walk: from the vertex it is on, back along
+ * `prev` to the start — the way the recursive walk's calls in progress hold.
+ */
+function threadBack(frame: WalkFrame): NodeGraphEdge[] {
+  const out: NodeGraphEdge[] = [];
+  if (frame.v === null) return out;
+  let x = frame.v;
+  // A walk of V vertices has at most V − 1 steps back; the bound is a guard.
+  for (let i = 0; i < frame.prev.length && frame.prev[x] >= 0; i++) {
+    out.push([frame.prev[x], x]);
+    x = frame.prev[x];
+  }
+  return out;
+}
+
 const CELL_H = 26;
 const STACK_W = 92;
 
-/** The calls in progress, the first at the bottom; the running one in mark. */
-function CallStackPanel({ stack, depth }: { stack: number[]; depth: number }) {
+interface StackPanelProps {
+  title: string;
+  /** The cells, the bottom first. */
+  items: string[];
+  /** The cell in mark, or −1. */
+  hot: number;
+  /** The most cells the walk ever holds: the panel keeps that height. */
+  depth: number;
+  label: string;
+}
+
+/** A stack drawn bottom up: the calls in progress, or the walk's own stack. */
+function StackPanel({ title, items, hot, depth, label }: StackPanelProps) {
   const head = 18;
   const height = head + depth * (CELL_H + 4) + 4;
-  const top = stack.length - 1;
   return (
     <svg
       viewBox={`0 0 ${STACK_W} ${height}`}
       style={{ width: `${STACK_W}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
       role="img"
-      aria-label={`Pila de llamadas: ${stack.map((v) => `dfs(${v})`).join(', ')}; corre dfs(${stack[top]}).`}
+      aria-label={label}
     >
       <text
         x={STACK_W / 2}
@@ -258,11 +347,11 @@ function CallStackPanel({ stack, depth }: { stack: number[]; depth: number }) {
         fontSize="11"
         style={{ fill: 'var(--color-ink-soft)' }}
       >
-        pila de llamadas
+        {title}
       </text>
-      {stack.map((v, i) => {
+      {items.map((text, i) => {
         const y = height - 4 - (i + 1) * (CELL_H + 4) + 4;
-        const hot = i === top;
+        const on = i === hot;
         return (
           <g key={i}>
             <rect
@@ -272,10 +361,10 @@ function CallStackPanel({ stack, depth }: { stack: number[]; depth: number }) {
               height={CELL_H}
               rx={4}
               style={{
-                fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)',
-                stroke: hot ? 'var(--color-mark)' : 'var(--color-ink-soft)',
+                fill: on ? 'var(--color-mark-soft)' : 'var(--color-surface)',
+                stroke: on ? 'var(--color-mark)' : 'var(--color-ink-soft)',
               }}
-              strokeWidth={hot ? 2 : 1.2}
+              strokeWidth={on ? 2 : 1.2}
             />
             <text
               x={STACK_W / 2}
@@ -286,7 +375,7 @@ function CallStackPanel({ stack, depth }: { stack: number[]; depth: number }) {
               fontFamily="var(--font-mono, monospace)"
               style={{ fill: 'var(--color-ink)' }}
             >
-              dfs({v})
+              {text}
             </text>
           </g>
         );
@@ -306,11 +395,15 @@ function ArraysPanel({ frame }: { frame: WalkFrame }) {
   const width = nameW + V * cw + 4;
   const height = 2 * rowH;
   const rowsData: { name: string; cells: string[]; hot: number }[] = [
-    { name: 'marked', cells: frame.marked.map(String), hot: frame.event === 'mark' ? frame.v : -1 },
+    {
+      name: 'marked',
+      cells: frame.marked.map(String),
+      hot: frame.wrote?.array === 'marked' ? frame.wrote.index : -1,
+    },
     {
       name: 'prev',
       cells: frame.prev.map((p) => (p < 0 ? '−1' : String(p))),
-      hot: frame.event === 'prev' && frame.w !== null ? frame.w : -1,
+      hot: frame.wrote?.array === 'prev' ? frame.wrote.index : -1,
     },
   ];
   return (
@@ -339,7 +432,7 @@ function ArraysPanel({ frame }: { frame: WalkFrame }) {
               const x = nameW + i * cw;
               const hot = i === row.hot;
               return (
-                <g key={i}>
+                <g key={i} data-cell={`${row.name}[${i}]`} data-hot={hot ? '' : undefined}>
                   <text
                     x={x + cw / 2}
                     y={y - 3}

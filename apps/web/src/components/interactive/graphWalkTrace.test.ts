@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjacencyOf, traceDfs } from './graphWalkTrace';
+import { adjacencyOf, traceDfs, traceDfsStack } from './graphWalkTrace';
 
 describe('adjacencyOf', () => {
   it('appends both ends of an undirected edge, in the order the edges arrive (AdjListGraph.addEdge)', () => {
@@ -111,5 +111,153 @@ describe('traceDfs', () => {
 
   it('refuses a start that is not a vertex', () => {
     expect(() => traceDfs(adjacencyOf(2, [[0, 1]]), 5)).toThrow(RangeError);
+  });
+});
+
+// The square 0-1-2-3-0 (adj: 0 [1, 3], 1 [0, 2], 2 [1, 3], 3 [2, 0]) and the
+// fan 0-1, 0-2, 0-3 with the chord 1-3: the smallest graph where marking on
+// push walks an order no depth-first walk takes (#357 S5, by brute force).
+const SQUARE = (): number[][] =>
+  adjacencyOf(4, [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+  ]);
+const FAN = (): number[][] =>
+  adjacencyOf(4, [
+    [0, 1],
+    [0, 2],
+    [0, 3],
+    [1, 3],
+  ]);
+
+describe('traceDfsStack, marking on pop (the iterative depth-first search)', () => {
+  it('pushes the start, then pops, marks, looks, sets prev and pushes, one step each', () => {
+    const frames = traceDfsStack(adjacencyOf(2, [[0, 1]]), 0, 'pop');
+    expect(frames.map((f) => [f.event, f.v, f.w])).toEqual([
+      ['pushStart', null, null],
+      ['pop', 0, null],
+      ['mark', 0, null],
+      ['look', 0, 1],
+      ['prev', 0, 1],
+      ['push', 0, 1],
+      ['pop', 1, null],
+      ['mark', 1, null],
+      ['look', 1, 0],
+      ['end', null, null],
+    ]);
+  });
+
+  it('keeps the stack it pushes to, bottom first', () => {
+    const frames = traceDfsStack(SQUARE(), 0, 'pop');
+    const pushes = frames.filter((f) => f.event === 'push' || f.event === 'pushStart');
+    expect(pushes.map((f) => f.stack)).toEqual([[0], [1], [1, 3], [1, 2], [1, 1]]);
+    expect(frames[frames.length - 1].stack).toEqual([]);
+  });
+
+  it('visits the neighbours in the reverse of adj order, the stack turning them around', () => {
+    const last = traceDfsStack(SQUARE(), 0, 'pop').at(-1)!;
+    expect(last.order).toEqual([0, 3, 2, 1]);
+    expect(traceDfs(SQUARE(), 0).at(-1)!.order).toEqual([0, 1, 2, 3]);
+  });
+
+  it('drops a vertex popped a second time, already marked', () => {
+    const frames = traceDfsStack(SQUARE(), 0, 'pop');
+    const skips = frames.filter((f) => f.event === 'skip');
+    expect(skips.map((f) => f.v)).toEqual([1]);
+    expect(skips[0].text).toBe('1 ya está marcado: lo descarta.');
+  });
+
+  it('rewrites prev when a vertex is pushed again, and says from where it is reached now', () => {
+    const frames = traceDfsStack(SQUARE(), 0, 'pop');
+    const prevOf1 = frames.filter((f) => f.event === 'prev' && f.w === 1);
+    expect(prevOf1.map((f) => f.text)).toEqual([
+      'prev[1] = 0: a 1 se llega desde 0.',
+      'prev[1] = 2: ahora a 1 se llega desde 2, no desde 0.',
+    ]);
+    expect(frames.at(-1)!.prev).toEqual([-1, 2, 3, 0]);
+  });
+
+  it('records the cell each frame wrote, for the arrays to light', () => {
+    const frames = traceDfsStack(adjacencyOf(2, [[0, 1]]), 0, 'pop');
+    expect(frames.map((f) => f.wrote)).toEqual([
+      null,
+      null,
+      { array: 'marked', index: 0 },
+      null,
+      { array: 'prev', index: 1 },
+      null,
+      null,
+      { array: 'marked', index: 1 },
+      null,
+      null,
+    ]);
+  });
+
+  it('narrates every frame in Spanish', () => {
+    const frames = traceDfsStack(adjacencyOf(2, [[0, 1]]), 0, 'pop');
+    expect(frames.map((f) => f.text)).toEqual([
+      'Apila el origen 0.',
+      'Saca 0 de la pila.',
+      'Marca 0.',
+      'Mira el vecino 1 de 0: no está marcado.',
+      'prev[1] = 0: a 1 se llega desde 0.',
+      'Apila 1.',
+      'Saca 1 de la pila.',
+      'Marca 1.',
+      'Mira el vecino 0 de 1: ya está marcado, lo salta.',
+      'La pila quedó vacía: no queda nada por recorrer.',
+    ]);
+  });
+
+  it('refuses a start that is not a vertex', () => {
+    expect(() => traceDfsStack(adjacencyOf(2, [[0, 1]]), 2, 'pop')).toThrow(RangeError);
+  });
+});
+
+describe('traceDfsStack, marking on push (the tempting version)', () => {
+  it('marks the start before pushing it, and each neighbour as it pushes it', () => {
+    const frames = traceDfsStack(adjacencyOf(2, [[0, 1]]), 0, 'push');
+    expect(frames.map((f) => [f.event, f.v, f.w])).toEqual([
+      ['markStart', null, null],
+      ['pushStart', null, null],
+      ['pop', 0, null],
+      ['look', 0, 1],
+      ['mark', 0, 1],
+      ['prev', 0, 1],
+      ['push', 0, 1],
+      ['pop', 1, null],
+      ['look', 1, 0],
+      ['end', null, null],
+    ]);
+    expect(frames[0].wrote).toEqual({ array: 'marked', index: 0 });
+    expect(frames[4].wrote).toEqual({ array: 'marked', index: 1 });
+    expect(frames[4].text).toBe('Marca 1 al apilarlo.');
+  });
+
+  it('walks the fan as 0, 3, 2, 1: from 3 it jumps to 2, with no edge between them', () => {
+    const last = traceDfsStack(FAN(), 0, 'push').at(-1)!;
+    expect(last.order).toEqual([0, 3, 2, 1]);
+    expect(traceDfsStack(FAN(), 0, 'pop').at(-1)!.order).toEqual([0, 3, 1, 2]);
+  });
+
+  it('skips from 3 a neighbour marked but never visited, and says so', () => {
+    const frames = traceDfsStack(FAN(), 0, 'push');
+    const look = frames.find((f) => f.event === 'look' && f.v === 3 && f.w === 1)!;
+    expect(look.unvisited).toBe(true);
+    expect(look.text).toBe(
+      'Mira el vecino 1 de 3: está marcado y lo salta, pero el recorrido todavía no pasa por 1.',
+    );
+    // A neighbour already walked is skipped plainly.
+    const back = frames.find((f) => f.event === 'look' && f.v === 3 && f.w === 0)!;
+    expect(back.unvisited).toBe(false);
+  });
+
+  it('never pops a vertex twice', () => {
+    const frames = traceDfsStack(SQUARE(), 0, 'push');
+    expect(frames.some((f) => f.event === 'skip')).toBe(false);
+    const pops = frames.filter((f) => f.event === 'pop').map((f) => f.v);
+    expect(new Set(pops).size).toBe(pops.length);
   });
 });

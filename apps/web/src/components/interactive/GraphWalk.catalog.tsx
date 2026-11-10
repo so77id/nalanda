@@ -2,19 +2,67 @@ import type { CatalogEntry } from '../../lib/catalogEntry';
 
 import { LazyGraphWalk as GraphWalk } from './lazyGraphWalk';
 
-// The method is the course's own file, quoted by range (ADR-0091), as
+// The methods are the course's own files, quoted by range (ADR-0091), as
 // `<SourceFile>`'s entry quotes class 2's; the example calls are written on
-// the slide, as #363 writes them. File lines: the method is 2-10.
-const DFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/Traversals.java';
+// the slide, as #363 writes them. File lines: each private `dfs` starts at 17.
+const DFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/DepthFirstPaths.java';
+const ITER_SRC =
+  'asset:courses/sample-course/27-grafos-recorridos.code/IterativeDepthFirstPaths.java';
 
 const PROGRAM = `Graph g = new AdjListGraph(6);
 Graphs.readEdges(in, g);
-boolean[] marked = new boolean[g.V()];
-int[] prev = new int[g.V()];
-Arrays.fill(prev, -1);
-Traversals.dfs(g, 0, marked, prev);`;
+DepthFirstPaths paths = new DepthFirstPaths(g, 0);`;
 
-const LINES = { mark: 3, look: [4, 5], prev: 6, recurse: 7, return: 10 };
+const LINES = { mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 };
+
+const ITER_LINES = {
+  pushStart: [18, 19],
+  pop: [20, 21],
+  skip: [22, 23],
+  mark: 25,
+  look: [26, 27],
+  prev: 28,
+  push: 29,
+  end: 20,
+};
+
+// The tempting version lives only on its slide: written inline (ADR-0091 §5).
+const ON_PUSH = `private void dfs(Graph g, int s) {
+    Stack<Integer> stack = new Stack<>();
+    marked[s] = true;
+    stack.push(s);
+    while (!stack.empty()) {
+        int v = stack.pop();
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                marked[w] = true;
+                prev[w] = v;
+                stack.push(w);
+            }
+        }
+    }
+}`;
+
+const ON_PUSH_LINES = {
+  markStart: [2, 3],
+  pushStart: 4,
+  pop: [5, 6],
+  look: [7, 8],
+  mark: 9,
+  prev: 10,
+  push: 11,
+  end: 5,
+};
+
+// The triangle 0-1-3 with 2 hanging from 0, off to the side: no edge crosses
+// another, and none passes behind a vertex, so the jump from 3 to 2 is seen to
+// have no edge under it.
+const FAN = [
+  { v: 0, x: 1, y: 0 },
+  { v: 1, x: 0, y: 2 },
+  { v: 2, x: 3, y: 0 },
+  { v: 3, x: 2, y: 2 },
+];
 
 const SQUARE = [
   { v: 0, x: 0, y: 0 },
@@ -37,15 +85,16 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   name: 'GraphWalk',
   family: 'interactive',
   description:
-    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — over the call stack and the `marked` and `prev` arrays. Only the recursive depth-first search so far (#357).',
+    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps.',
   whenToUse:
     'When a slide walks a traversal over a small graph step by step and the frames would otherwise be written by hand — fifteen to thirty `<Step>`s, each a `<NodeGraph>` and its arrays, where one copied wrong is caught by nobody. ' +
     'NOT for a single picture of a graph (`<NodeGraph>`), nor for a walk whose lesson is a structure the trace does not draw.',
   props: [
     {
       name: 'algorithm',
-      type: "'dfs'",
-      description: 'The walk to simulate. Default `dfs`, the recursive depth-first search.',
+      type: "'dfs' | 'dfs-iterative' | 'dfs-mark-on-push'",
+      description:
+        'The walk to simulate. Default `dfs`, the recursive depth-first search; `dfs-iterative`, with a stack of its own, marking on pop; `dfs-mark-on-push`, the tempting version, which does not walk depth first.',
     },
     {
       name: 'nodes',
@@ -67,13 +116,13 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'lines',
       type: 'Record<event, number | number[]>',
       description:
-        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`, `return`. A missing one is an authoring error.',
+        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. A missing one is an authoring error.',
     },
     {
       name: 'codeSrc / codeRange',
       type: 'string',
       description:
-        'The file the listing quotes, relative to the document (`./27-grafos-recorridos.code/Traversals.java`), and the range: the course’s code lives in files beside its document (ADR-0091). The listing then numbers its lines as the file does, its header names the range and «Ver archivo» opens the file whole.',
+        'The file the listing quotes, relative to the document (`./27-grafos-recorridos.code/DepthFirstPaths.java`), and the range: the course’s code lives in files beside its document (ADR-0091). The listing then numbers its lines as the file does, its header names the range and «Ver archivo» opens the file whole.',
     },
     {
       name: 'code',
@@ -113,9 +162,9 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   edges={[[0, 1], [0, 2], [1, 3], [2, 3]]}
   cols={3}
   rows={3}
-  codeSrc="./27-grafos-recorridos.code/Traversals.java"
-  codeRange="2-10"
-  lines={{ mark: 3, look: [4, 5], prev: 6, recurse: 7, return: 10 }}
+  codeSrc="./27-grafos-recorridos.code/DepthFirstPaths.java"
+  codeRange="17-25"
+  lines={{ mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 }}
   label="Un cuadrado de cuatro vértices: 0-1, 0-2, 1-3 y 2-3."
 />`,
       render: () => (
@@ -130,7 +179,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
           cols={3}
           rows={3}
           codeSrc={DFS_SRC}
-          codeRange="2-10"
+          codeRange="17-25"
           lines={LINES}
           label="Un cuadrado de cuatro vértices: 0-1, 0-2, 1-3 y 2-3."
         />
@@ -145,14 +194,11 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   rows={3}
   program={\`Graph g = new AdjListGraph(6);
 Graphs.readEdges(in, g);
-boolean[] marked = new boolean[g.V()];
-int[] prev = new int[g.V()];
-Arrays.fill(prev, -1);
-Traversals.dfs(g, 0, marked, prev);\`}
-  programLines={[6]}
-  codeSrc="./27-grafos-recorridos.code/Traversals.java"
-  codeRange="2-10"
-  lines={{ mark: 3, look: [4, 5], prev: 6, recurse: 7, return: 10 }}
+DepthFirstPaths paths = new DepthFirstPaths(g, 0);\`}
+  programLines={[3]}
+  codeSrc="./27-grafos-recorridos.code/DepthFirstPaths.java"
+  codeRange="17-25"
+  lines={{ mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 }}
   label="Seis vértices en dos filas, con dos ciclos."
 />`,
       render: () => (
@@ -170,11 +216,75 @@ Traversals.dfs(g, 0, marked, prev);\`}
           cols={7}
           rows={3}
           program={PROGRAM}
-          programLines={[6]}
+          programLines={[3]}
           codeSrc={DFS_SRC}
-          codeRange="2-10"
+          codeRange="17-25"
           lines={LINES}
           label="Seis vértices en dos filas, con dos ciclos."
+        />
+      ),
+    },
+    {
+      title: 'DFS with a stack, on the same square: the stack turns the neighbours around',
+      code: `<GraphWalk
+  algorithm="dfs-iterative"
+  nodes={SQUARE}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3]]}
+  cols={3}
+  rows={3}
+  codeSrc="./27-grafos-recorridos.code/IterativeDepthFirstPaths.java"
+  codeRange="17-33"
+  lines={{ pushStart: [18, 19], pop: [20, 21], skip: [22, 23], mark: 25,
+           look: [26, 27], prev: 28, push: 29, end: 20 }}
+  label="Un cuadrado de cuatro vértices: 0-1, 0-2, 1-3 y 2-3."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="dfs-iterative"
+          nodes={SQUARE}
+          edges={[
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+          ]}
+          cols={3}
+          rows={3}
+          codeSrc={ITER_SRC}
+          codeRange="17-33"
+          lines={ITER_LINES}
+          label="Un cuadrado de cuatro vértices: 0-1, 0-2, 1-3 y 2-3."
+        />
+      ),
+    },
+    {
+      title: 'Marking on push, on a triangle with a vertex hanging: from 3 it jumps to 2',
+      code: `<GraphWalk
+  algorithm="dfs-mark-on-push"
+  nodes={FAN}
+  edges={[[0, 1], [0, 2], [0, 3], [1, 3]]}
+  cols={4}
+  rows={3}
+  code={ON_PUSH}
+  lines={{ markStart: [2, 3], pushStart: 4, pop: [5, 6], look: [7, 8],
+           mark: 9, prev: 10, push: 11, end: 5 }}
+  label="Un triángulo 0-1-3, y el vértice 2 colgando de 0."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="dfs-mark-on-push"
+          nodes={FAN}
+          edges={[
+            [0, 1],
+            [0, 2],
+            [0, 3],
+            [1, 3],
+          ]}
+          cols={4}
+          rows={3}
+          code={ON_PUSH}
+          lines={ON_PUSH_LINES}
+          label="Un triángulo 0-1-3, y el vértice 2 colgando de 0."
         />
       ),
     },

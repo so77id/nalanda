@@ -63,6 +63,74 @@ function triangle() {
   );
 }
 
+// The iterative search, marking on pop, and the tempting one marking on push
+// (#357 S5): inline listings, numbered from 1.
+const ITER = `private void dfs(Graph g, int s) {
+    Stack<Integer> stack = new Stack<>();
+    stack.push(s);
+    while (!stack.empty()) {
+        int v = stack.pop();
+        if (marked[v]) {
+            continue;
+        }
+        marked[v] = true;
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                prev[w] = v;
+                stack.push(w);
+            }
+        }
+    }
+}`;
+const ITER_LINES = {
+  pushStart: [2, 3],
+  pop: [4, 5],
+  skip: [6, 7],
+  mark: 9,
+  look: [10, 11],
+  prev: 12,
+  push: 13,
+  end: 4,
+};
+const ON_PUSH = `private void dfs(Graph g, int s) {
+    Stack<Integer> stack = new Stack<>();
+    marked[s] = true;
+    stack.push(s);
+    while (!stack.empty()) {
+        int v = stack.pop();
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                marked[w] = true;
+                prev[w] = v;
+                stack.push(w);
+            }
+        }
+    }
+}`;
+const ON_PUSH_LINES = {
+  markStart: [2, 3],
+  pushStart: 4,
+  pop: [5, 6],
+  look: [7, 8],
+  mark: 9,
+  prev: 10,
+  push: 11,
+  end: 5,
+};
+// The fan 0-1, 0-2, 0-3 with the chord 1-3.
+const FAN_NODES = [
+  { v: 0, x: 1, y: 0 },
+  { v: 1, x: 0, y: 2 },
+  { v: 2, x: 1, y: 2 },
+  { v: 3, x: 2, y: 2 },
+];
+const FAN_EDGES: [number, number][] = [
+  [0, 1],
+  [0, 2],
+  [0, 3],
+  [1, 3],
+];
+
 function frame(): HTMLElement {
   return screen.getByTestId('graph-walk-frame');
 }
@@ -220,5 +288,101 @@ describe('GraphWalk', () => {
       <GraphWalk nodes={TRIANGLE} edges={[[0, 1]]} cols={3} rows={3} lines={LINES} label="x" />,
     );
     expect(screen.getByText(/falta el listado/)).toBeInTheDocument();
+  });
+
+  it('walks the iterative search with the stack it keeps, not a call stack', async () => {
+    render(
+      <GraphWalk
+        algorithm="dfs-iterative"
+        nodes={TRIANGLE}
+        edges={[
+          [0, 1],
+          [0, 2],
+          [1, 2],
+        ]}
+        cols={3}
+        rows={3}
+        code={ITER}
+        lines={ITER_LINES}
+        label="Un triángulo."
+      />,
+    );
+    expect(frame()).toHaveAttribute('data-event', 'pushStart');
+    expect(screen.getByText('Apila el origen 0.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Pila, del fondo al tope: 0.' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /Pila de llamadas/ })).toBeNull();
+    await forward(1);
+    expect(frame()).toHaveAttribute('data-event', 'pop');
+    expect(screen.getByRole('img', { name: 'La pila está vacía.' })).toBeInTheDocument();
+    await forward(1);
+    expect(frame()).toHaveAttribute('data-event', 'mark');
+    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'marked[0]');
+  });
+
+  it('marking on push, paints red the neighbour it skips without having walked to it', async () => {
+    render(
+      <GraphWalk
+        algorithm="dfs-mark-on-push"
+        nodes={FAN_NODES}
+        edges={FAN_EDGES}
+        cols={3}
+        rows={3}
+        code={ON_PUSH}
+        lines={ON_PUSH_LINES}
+        label="Un abanico con una cuerda."
+      />,
+    );
+    expect(frame()).toHaveAttribute('data-event', 'markStart');
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    for (let i = 0; i < 40; i++) {
+      if (frame().dataset['event'] === 'look' && frame().dataset['v'] === '3') {
+        if (frame().dataset['w'] === '1') break;
+      }
+      await user.click(next);
+    }
+    expect(frame()).toHaveAttribute('data-w', '1');
+    const node1 = document.querySelector('[data-node][data-value="1"]');
+    expect(node1).toHaveAttribute('data-tone', 'flag');
+    expect(
+      screen.getByText(
+        'Mira el vecino 1 de 3: está marcado y lo salta, pero el recorrido todavía no pasa por 1.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('tells the author which events of the iterative search have no lines', () => {
+    render(
+      <GraphWalk
+        algorithm="dfs-iterative"
+        nodes={TRIANGLE}
+        edges={[[0, 1]]}
+        cols={3}
+        rows={3}
+        code={ITER}
+        lines={{ pushStart: 2, pop: 4 }}
+        label="x"
+      />,
+    );
+    expect(
+      screen.getByText(/faltan en lines las líneas de skip, mark, look, prev, push, end/),
+    ).toBeInTheDocument();
+  });
+
+  it('tells the author which walks exist', () => {
+    render(
+      <GraphWalk
+        // @ts-expect-error -- an author's typo, as MDX would pass it
+        algorithm="bfs"
+        nodes={TRIANGLE}
+        edges={[[0, 1]]}
+        cols={3}
+        rows={3}
+        code={ITER}
+        lines={LINES}
+        label="x"
+      />,
+    );
+    expect(screen.getByText(/son dfs, dfs-iterative y dfs-mark-on-push/)).toBeInTheDocument();
   });
 });
