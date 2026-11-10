@@ -6993,16 +6993,11 @@ persona es la celebridad.
 </Slide>
 
 <Slide title="Una celebridad · ejemplo">
-Cuatro personas, numeradas 0 ana, 1 beto, 2 carla y 3 diego. Con esta tabla,
-el método retorna `3`:
+Cuatro personas, numeradas 0 ana, 1 beto, 2 carla y 3 diego. La fila `i` dice
+a quién sigue la persona `i`. Con esta tabla, el método retorna `3`:
 
 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3rem' }}>
-<AdjMatrix
-  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
-  mark={[]}
-  caption="follows: la fila de i dice a quién sigue i"
-  label="La tabla follows del ejemplo: true en [0][1], [0][3], [1][3] y [2][3]; las demás casillas, false."
-/>
+  <InputLines head="follows" lines={['{false, true,  false, true},', '{false, false, false, true},', '{false, false, false, true},', '{false, false, false, false}']} read={4} label="La tabla follows tal como llega, fila por fila: false, true, false, true; false, false, false, true; false, false, false, true; false, false, false, false." />
   <OutputBox head="retorna" lines={['3']} rows={1} label="Retorna 3." />
 </div>
 
@@ -7012,17 +7007,12 @@ el método retorna `3`:
 | Pregunta              | Respuesta              | Por qué                                                                  |
 | --------------------- | ---------------------- | ------------------------------------------------------------------------ |
 | ¿Qué es un vértice?   | una persona            | la pregunta habla de personas, y ya vienen numeradas de $$0$$ a $$V - 1$$ |
-| ¿Qué es una arista?   | «`i` sigue a `j`»      | cada casilla `true` de `follows` une a dos personas                      |
+| ¿Qué es una arista?   | «`i` sigue a `j`»      | cada `true` de `follows` une a dos personas                              |
 | ¿Tiene dirección?     | sí: **dirigido**       | seguir a alguien no obliga a que te siga: es un arco de `i` a `j`        |
 | ¿Tiene peso?          | no: **no ponderado**   | seguir no trae un número                                                 |
 
 <Pair>
-<AdjMatrix
-  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
-  mark={[]}
-  caption="la entrada"
-  label="La tabla follows del ejemplo: true en [0][1], [0][3], [1][3] y [2][3]; las demás casillas, false."
-/>
+<InputLines head="follows" lines={['{false, true,  false, true},', '{false, false, false, true},', '{false, false, false, true},', '{false, false, false, false}']} read={4} label="La tabla follows tal como llega, fila por fila: false, true, false, true; false, false, false, true; false, false, false, true; false, false, false, false." />
 <NodeGraph
   cols={3}
   rows={3}
@@ -7030,7 +7020,7 @@ el método retorna `3`:
   nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
   edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
   caption="cada true, un arco: de quien sigue a quien es seguido"
-  label="El grafo del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego. Un arco por cada casilla true."
+  label="El grafo del ejemplo: ana sigue a beto y a diego, beto sigue a diego, carla sigue a diego. Un arco por cada true de la tabla."
 />
 </Pair>
 
@@ -7043,7 +7033,6 @@ es que no salga ningún arco: **grado de salida $$0$$**. La pregunta queda así:
 **¿hay un vértice con grado de entrada $$V - 1$$ y grado de salida $$0$$?**
 En el ejemplo se ve:
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
 <NodeGraph
   cols={3}
   rows={3}
@@ -7055,13 +7044,6 @@ En el ejemplo se ve:
   caption="a diego le llegan 3 arcos, V − 1, y no sale ninguno"
   label="Los tres arcos que llegan a diego, desde ana, beto y carla, marcados. De diego no sale ningún arco."
 />
-<AdjMatrix
-  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
-  mark={[[0, 3], [1, 3], [2, 3], [3, 0], [3, 1], [3, 2]]}
-  caption="la columna de diego: true; su fila: false"
-  label="En la tabla, la columna 3 tiene true en las filas 0, 1 y 2, y la fila 3 tiene false en las columnas 0, 1 y 2: todos siguen a diego y diego no sigue a nadie."
-/>
-</div>
 
 Diego cumple las dos, y la salida es `3`. Esta pregunta no la responde una
 operación del contrato: hay que mirar los arcos que entran a cada vértice y
@@ -7100,9 +7082,17 @@ ser. Aquí el enunciado acota a las personas, y lo demás se deduce:
 </Slide>
 
 <Slide title="Una celebridad · matriz o listas">
-La entrada **ya es la matriz de adyacencia**: `follows[i][j]` dice si hay un
-arco de `i` a `j`. La pregunta es si conviene usarla tal cual o pasarla a
-listas:
+La tabla que llega **ya es la matriz de adyacencia** del grafo: la casilla
+`follows[i][j]` es `true` si hay un arco de `i` a `j`.
+
+<AdjMatrix
+  rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+  mark={[]}
+  caption="follows es la matriz de adyacencia: la fila de i, los arcos que salen de i"
+  label="La tabla follows dibujada como matriz de adyacencia: true en [0][1], [0][3], [1][3] y [2][3]; las demás casillas, false."
+/>
+
+La pregunta es si conviene usarla tal cual o pasarla a listas:
 
 |                       | Matriz: la tabla que llega                                    | Listas: convertirla                                                  |
 | --------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |

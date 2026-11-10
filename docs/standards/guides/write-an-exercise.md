@@ -444,6 +444,12 @@ Three parts: **the statement**, **modelling** and **solving**.
 
 - **One example** from start to end; only the cases with no answer use other
   inputs.
+- **No storage structure is drawn before B4.** Until the structure is
+  decided, the input is shown as it arrives — as text, even when it is a
+  `boolean[][]` — and the model as a graph; the matrix or lists drawing
+  appears first in B4, where it is chosen. Miguel, on the celebrity
+  (2026-11-10): «la matriz debería aparecer cuando se dice: ok, lo haremos
+  con matriz».
 - **The example's output is given in A2 and explained in B2.** Nothing before
   the model explains it.
 - **Before the model, the problem's words** (amigo, persona); **from the model
