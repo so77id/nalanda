@@ -1264,10 +1264,10 @@ Live: `/catalog/c/SequenceStepper`.
      edges={[[0, 1], [0, 2], [1, 2]]}
      cols={3}
      rows={3}
-     codeSrc="./27-grafos-recorridos.code/Traversals.java"
-     codeRange="2-10"
-     lines={{ mark: 3, look: [4, 5], prev: 6, recurse: 7, return: 10 }}
-     program={`Traversals.dfs(g, 0, marked, prev);`}
+     codeSrc="./27-grafos-recorridos.code/DepthFirstPaths.java"
+     codeRange="17-25"
+     lines={{ mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 }}
+     program={`DepthFirstPaths paths = new DepthFirstPaths(g, 0);`}
      programLines={[1]}
      label="Un triángulo."
    />
@@ -1277,18 +1277,33 @@ Live: `/catalog/c/SequenceStepper`.
      `<NodeGraph>`. **The edges go in the order the program adds them**: that
      is the order of every adjacency list (`AdjListGraph.addEdge` appends), so
      the order the walk visits neighbours in.
+   - **`algorithm` picks the walk**: `dfs`, the recursive depth-first search
+     (the default); `dfs-iterative`, the same search with a `Stack` of its
+     own, which marks on pop; `dfs-mark-on-push`, the tempting version that
+     marks on push and does not walk depth first — its listing lives only on
+     its slide, so it is written inline.
    - **Every event needs its lines**; one left out is an authoring error. For
      `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`,
-     `return`.
-   - **What a frame draws**: the running call in mark, the finished ones in
-     keep, the edges the calls in progress were entered by (the thread) and
-     the edge being looked at as marked edges, the call stack beside the
-     graph, and `marked` and `prev` under the listing, the cell just written
-     in mark. One step per assignment, per neighbour looked at, per call and
-     per return: a walk over six vertices runs about 36 steps, so a slide
-     walks a graph of four or five.
-   - Only the recursive depth-first search so far; each other walk is added
-     with the slide that first uses it (ADR-0083's rule).
+     `return`. For `dfs-iterative`: `pushStart` (the stack and its first
+     push), `pop`, `skip` (`if (marked[v]) continue`), `mark`, `look`,
+     `prev`, `push`, `end` (the loop's test). For `dfs-mark-on-push`: the
+     same without `skip`, plus `markStart` (`marked[s] = true`).
+   - **What a frame draws**: the vertex the walk is on in mark — the running
+     call, or the vertex last popped —, the ones already finished or reached
+     in keep, the way back to the start (the thread) and the edge being
+     looked at as marked edges, the call stack or the walk's own stack beside
+     the graph, and `marked` and `prev` under the listing, the cell just
+     written in mark. Marking on push, a neighbour skipped though the walk
+     never reached it is painted red. One step per assignment, per neighbour
+     looked at, per call and per return: a walk over six vertices runs about
+     36 steps, so a slide walks a graph of four or five.
+   - **The recursive and the iterative search are not paired** line by line
+     (the `iterative` rule of `<SequenceStepper>`): the iterative one reads
+     every neighbour of a vertex at once and pushes it, the recursive one
+     reads one and goes down, and the stack turns the neighbours' order
+     around. Each walks on its own slide.
+   - Each other walk is added with the slide that first uses it (ADR-0083's
+     rule).
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A

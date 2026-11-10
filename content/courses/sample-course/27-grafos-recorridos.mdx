@@ -32,7 +32,8 @@ orden en que se recorre decide qué pregunta responde.
 {/* in the arc's six beats; each empty slide holds its one idea, written in */}
 {/* S6 (slides 1-13) and S7 (14-16). The code is a class, DepthFirstPaths */}
 {/* (algs4 §4.1, CS61B): the constructor runs the private recursive dfs, the */}
-{/* fields are marked, prev and s, the public methods hasPathTo and pathTo. */}
+{/* fields are marked and prev (prev[s] = -1 marks the start), the public */}
+{/* methods hasPathTo and pathTo; IterativeDepthFirstPaths has the same API. */}
 
 {/* Beat 1 · the question, on something already seen. */}
 
@@ -117,9 +118,10 @@ orden en que se recorre decide qué pregunta responde.
 
 <Slide title="La búsqueda en profundidad en el laberinto">
 
-{/* The same code over the grid: the vertex is r · C + c, the neighbours */}
-{/* computed with DR/DC and free, as in class 2. Answers slide 1: the exit */}
-{/* is reached, by this way. [GraphWalk over the grid, built in S5] */}
+{/* The same rule over the grid, with no Graph built (decided in S5): the */}
+{/* vertex is r · C + c, the neighbours computed with DR/DC and free, as in */}
+{/* class 2. Answers slide 1: the exit is reached, by this way. [GraphWalk */}
+{/* over the grid, built in S5b] */}
 
 </Slide>
 
@@ -135,18 +137,23 @@ orden en que se recorre decide qué pregunta responde.
 <Slide title="Marcar al apilar no recorre en profundidad">
 
 {/* The tempting idea: replace the recursion with a stack and mark on */}
-{/* push, as the level order enqueues the children. It reaches the same */}
-{/* vertices in another order: side by side with the recursive one, the */}
-{/* orders part (algs4 §4.1, web exercise 29). That order jumps, and Teseo */}
-{/* could not walk it. [two runs side by side, the divergence in red] */}
+{/* push, as the level order enqueues the children. Played against the */}
+{/* rule, in one walk, on the smallest counterexample (edges 0-1, 0-2, */}
+{/* 0-3, 1-3; algs4 §4.1, web exercise 29): from 3 it skips 1, marked when */}
+{/* pushed but never reached, and then jumps from 3 to 2, with no edge */}
+{/* between them. «Marcado» has come to mean «visto». Teseo could not walk */}
+{/* that order. [GraphWalk dfs-mark-on-push, the skipped vertex in red] */}
 
 </Slide>
 
 <Slide title="El código de la búsqueda en profundidad iterativa">
 
 {/* Mark on pop: pop a vertex; if it is marked, drop it; if not, mark it */}
-{/* and push its neighbours. The recursive and the iterative in parallel */}
-{/* where their steps match one to one. [GraphWalk iterative, built in S5] */}
+{/* and push its neighbours. IterativeDepthFirstPaths, quoted from its */}
+{/* file. Not paired with the recursive one (decided in S5): their steps do */}
+{/* not go one to one, and the stack turns the neighbours' order around (0 */}
+{/* 3 2 1 against 0 1 2 3 on a square), which the slide says. [GraphWalk */}
+{/* dfs-iterative, beside its own stack] */}
 
 </Slide>
 
