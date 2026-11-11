@@ -129,11 +129,41 @@ describe('StepShow', () => {
       </StepShow>,
     );
 
-    expect(screen.getByText('alfa')).toBeTruthy();
-    expect(screen.queryByText('beta')).toBeNull();
+    const shown = container.querySelector('[data-stepshow-frame="current"]') as HTMLElement;
+    expect(within(shown).getByText('alfa')).toBeTruthy();
+    expect(within(shown).queryByText('beta')).toBeNull();
     expect(highlightedLines(container)).toEqual([7]);
     // The counter is a claim about position — the reader has to know which of N.
     expect(screen.getByText('paso 1 de 2')).toBeTruthy();
+  });
+
+  it('keeps every step in the frame from the first one, so the widget never changes size', () => {
+    // Every step's drawing is laid out in the same cell and only the current
+    // one is visible: the cell — and the slide scaled to fit it — is as big as
+    // the biggest step from the start (#363). jsdom lays nothing out, so this
+    // pins the structure; the size itself is checked in a browser.
+    const { container } = render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[7]}>
+          <p>alfa</p>
+        </Step>
+        <Step lines={[7, 8]}>
+          <p>beta</p>
+          <p>gamma</p>
+        </Step>
+      </StepShow>,
+    );
+    const frames = () => [...container.querySelectorAll('[data-stepshow-frame]')] as HTMLElement[];
+    // One frame per step, the second taller than the first.
+    expect(frames()).toHaveLength(2);
+    const states = () => frames().map((f) => f.dataset.stepshowFrame);
+    expect(states()).toEqual(['current', 'reserved']);
+    for (const f of frames().filter((f) => f.dataset.stepshowFrame === 'reserved')) {
+      expect(f.style.visibility).toBe('hidden');
+      expect(f.getAttribute('aria-hidden')).toBe('true');
+    }
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
+    expect(states()).toEqual(['reserved', 'current']);
   });
 
   it('advances with Next, retreats with Previous, and jumps back with Reset', () => {

@@ -300,7 +300,6 @@ export function StepShow({
   const currentLines = current.props.lines ?? [];
   const currentProgramLines = current.props.programLines ?? [];
   const currentHelperLines = current.props.helperLines ?? [];
-  const currentUnder = current.props.under;
   const hasUnder = steps.some((step) => step.props.under !== undefined);
   // The files behind the listings, whole, for the viewer: each with the lines
   // its listing quotes and the lines this step lights, in the file's numbering.
@@ -323,7 +322,6 @@ export function StepShow({
           },
         ],
   );
-  const currentVisual = current.props.children;
   const first = clamped === 0;
   const last = clamped === count - 1;
 
@@ -416,7 +414,7 @@ export function StepShow({
                 data-testid="stepshow-under"
                 className="flex flex-1 flex-col justify-center bg-surface p-3"
               >
-                {currentUnder}
+                <FrameStack frames={steps.map((step) => step.props.under)} current={clamped} />
               </div>
             ) : null}
           </div>
@@ -428,7 +426,7 @@ export function StepShow({
               : 'max-h-96 overflow-auto bg-surface p-3'
           }
         >
-          {currentVisual}
+          <FrameStack frames={steps.map((step) => step.props.children)} current={clamped} />
         </div>
       </div>
 
@@ -568,3 +566,32 @@ function describeLines(lines: number[]): string {
 
 export { Step } from './Step';
 export type { StepProps } from './Step';
+
+/**
+ * Every step's frame, stacked in one grid cell, with only the current one
+ * shown. The cell is as big as the biggest frame from the first step on, so
+ * the widget — and the slide that scales to fit it — keeps one size while the
+ * walk runs, and what a step adds appears in the room already kept for it
+ * (#363: «que tengan el tamaño final desde el comienzo»). The hidden frames
+ * keep their layout (`visibility: hidden`) and leave the accessibility tree.
+ */
+function FrameStack({ frames, current }: { frames: ReactNode[]; current: number }) {
+  return (
+    <div className="grid" data-testid="stepshow-frames">
+      {frames.map((frame, i) => {
+        const shown = i === current;
+        return (
+          <div
+            key={i}
+            className="col-start-1 row-start-1 flex flex-col justify-center"
+            style={shown ? undefined : { visibility: 'hidden' }}
+            aria-hidden={shown ? undefined : true}
+            data-stepshow-frame={shown ? 'current' : 'reserved'}
+          >
+            {frame}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

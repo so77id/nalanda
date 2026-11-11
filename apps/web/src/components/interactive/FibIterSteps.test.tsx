@@ -1,13 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { FibIterSteps } from './FibIterSteps';
 
+// StepShow keeps every step's frame in the DOM, hidden, so the widget has its
+// final size from the first step; what a step shows is in the current frame.
+const shown = () =>
+  within(document.querySelector('[data-stepshow-frame="current"]') as HTMLElement);
+
 describe('FibIterSteps', () => {
   it('renders three cells: previous, current, next', () => {
     render(<FibIterSteps target={5} />);
-    const cells = screen.getAllByTestId('fib-iter-cell');
+    const cells = shown().getAllByTestId('fib-iter-cell');
     expect(cells).toHaveLength(3);
     expect(cells[0]!).toHaveAttribute('data-var', 'previous');
     expect(cells[1]!).toHaveAttribute('data-var', 'current');
@@ -16,7 +21,7 @@ describe('FibIterSteps', () => {
 
   it('starts with previous = 0 and current = 1 initialised', () => {
     render(<FibIterSteps target={5} />);
-    const cells = screen.getAllByTestId('fib-iter-cell');
+    const cells = shown().getAllByTestId('fib-iter-cell');
     expect(cells[0]!).toHaveTextContent(/0/);
     expect(cells[1]!).toHaveTextContent(/1/);
     // next is not yet computed
@@ -31,21 +36,21 @@ describe('FibIterSteps', () => {
       if (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) break;
       await userEvent.click(forward);
     }
-    const cells = screen.getAllByTestId('fib-iter-cell');
+    const cells = shown().getAllByTestId('fib-iter-cell');
     // After finishing fib(5): the final current holds 5.
     expect(cells[1]!).toHaveTextContent(/5/);
     // Final caption mentions the return value.
-    expect(screen.getByText(/devolvemos current = 5/i)).toBeInTheDocument();
+    expect(shown().getByText(/devolvemos current = 5/i)).toBeInTheDocument();
   });
 
   it('carries the "sin stack, sin arreglo" reminder in the footer of every step', () => {
     render(<FibIterSteps target={5} />);
-    expect(screen.getByText(/sin stack, sin arreglo/i)).toBeInTheDocument();
+    expect(shown().getByText(/sin stack, sin arreglo/i)).toBeInTheDocument();
   });
 
   it('defaults target to 5 when omitted', () => {
     render(<FibIterSteps />);
-    const cells = screen.getAllByTestId('fib-iter-cell');
+    const cells = shown().getAllByTestId('fib-iter-cell');
     expect(cells).toHaveLength(3);
   });
 
@@ -53,13 +58,13 @@ describe('FibIterSteps', () => {
     render(<FibIterSteps target={0} />);
     // The base-case snapshot names the direct return, not the two-variable
     // init the code would never run.
-    expect(screen.getByText(/caso base:\s*n\s*=\s*0/i)).toBeInTheDocument();
-    expect(screen.getByText(/devuelve 0/i)).toBeInTheDocument();
+    expect(shown().getByText(/caso base:\s*n\s*=\s*0/i)).toBeInTheDocument();
+    expect(shown().getByText(/devuelve 0/i)).toBeInTheDocument();
   });
 
   it('honors the base case when target = 1', () => {
     render(<FibIterSteps target={1} />);
-    expect(screen.getByText(/caso base:\s*n\s*=\s*1/i)).toBeInTheDocument();
-    expect(screen.getByText(/devuelve 1/i)).toBeInTheDocument();
+    expect(shown().getByText(/caso base:\s*n\s*=\s*1/i)).toBeInTheDocument();
+    expect(shown().getByText(/devuelve 1/i)).toBeInTheDocument();
   });
 });
