@@ -2,7 +2,7 @@
 id: grafos-tda-modelado
 title: Grafos · TDA y modelado
 presentation: explicit
-questions: none
+questions: pool
 ---
 
 {/* Seeded from #356 when the first Grafos class was split (2026-11-06) and */}
@@ -10300,6 +10300,177 @@ En todos, `adj` aplica la regla al estado. Y todos preguntan lo mismo: el
 camino con menos aristas desde un estado hasta otro.
 
 </Slide>
+
+{/* Control questions (#363, approved one by one by Miguel on 2026-11-11). They measure graphs, not Java: the rules of the TDA, what each structure keeps and what it costs, and the decisions of a model. Coverage by act: the TDA 2, the matrix 4, the lists 4, modelling 5, the worked exercises none — so a control drawn over the TDA alone, or over the exercises alone, has fewer than four and is refused; ranges that reach into the matrix, the lists or modelling have enough. */}
+
+<Questions>
+
+<Question id="grafos-tda-arista-sin-direccion" anchor="las-reglas-de-graph">
+
+En un grafo sin dirección que aún no tiene aristas, se agrega una arista entre los vértices 2 y 5. ¿Cuántas aristas tiene ahora?
+
+- [x] Una: la arista entre 2 y 5 es la misma que la arista entre 5 y 2
+- [ ] Dos: 5 queda entre los vecinos de 2, y 2 entre los vecinos de 5
+- [ ] Dos: una que va de 2 a 5 y otra que va de 5 a 2
+- [ ] Ninguna, hasta que se agregue también la arista entre 5 y 2
+
+</Question>
+
+<Question id="grafos-tda-arco-dirigido" anchor="las-reglas-de-graph">
+
+En un grafo dirigido se agrega un arco del vértice 2 al vértice 5. ¿Qué se puede afirmar?
+
+- [x] 5 es vecino de 2, pero 2 no es vecino de 5
+- [ ] 2 y 5 quedan como vecinos el uno del otro
+- [ ] 2 es vecino de 5, pero 5 no es vecino de 2
+- [ ] Se agregan dos arcos, uno en cada sentido
+
+</Question>
+
+<Question id="grafos-matriz-simetrica" anchor="una-matriz-de-adyacencia">
+
+En la matriz de adyacencia de un grafo sin dirección, la casilla de la fila 2 y la columna 5 indica que hay una arista. ¿Qué otra casilla también lo indica?
+
+- [x] La de la fila 5 y la columna 2
+- [ ] La de la fila 2 y la columna 2
+- [ ] Todas las casillas de la fila 2
+- [ ] Ninguna: cada arista ocupa una sola casilla
+
+</Question>
+
+<Question id="grafos-matriz-vecinos" anchor="los-vecinos-en-la-matriz">
+
+En una matriz de adyacencia, ¿cuánto cuesta recorrer los vecinos de un vértice?
+
+- [x] O(V): lineal en la cantidad de vértices
+- [ ] O(grado(v)): lineal en la cantidad de vecinos
+- [ ] O(1): constante
+- [ ] O(V²): cuadrático en la cantidad de vértices
+
+</Question>
+
+<Question id="grafos-matriz-pesos-infinito" anchor="un-grafo-con-pesos-en-la-matriz">
+
+En la matriz de un grafo con pesos, ¿por qué la casilla de dos vértices sin arista no puede valer 0?
+
+- [x] Porque 0 es un peso posible: una arista que no cuesta nada
+- [ ] Porque 0 indicaría que el vértice está unido consigo mismo
+- [ ] Porque 0 indicaría que el grafo es dirigido
+- [ ] Porque la matriz solo puede guardar números positivos
+
+</Question>
+
+<Question id="grafos-matriz-memoria" anchor="la-memoria-y-el-precio-de-la-matriz">
+
+¿Cuánta memoria ocupa la matriz de adyacencia de un grafo con V vértices y E aristas?
+
+- [x] O(V²), tenga las aristas que tenga
+- [ ] O(V + E), según las aristas que tenga
+- [ ] O(E), una casilla por cada arista
+- [ ] O(V), una casilla por cada vértice
+
+</Question>
+
+<Question id="grafos-listas-buscar-arista" anchor="buscar-una-arista-en-las-listas">
+
+Con listas de adyacencia, ¿cuánto cuesta saber si hay una arista entre los vértices v y w?
+
+- [x] O(grado(v)): hay que buscar w en la lista de v
+- [ ] O(1): se lee una sola casilla
+- [ ] O(V): se recorre la fila de v
+- [ ] O(E): se revisan todas las aristas del grafo
+
+</Question>
+
+<Question id="grafos-listas-arco-dirigido" anchor="un-grafo-dirigido-en-las-listas">
+
+En las listas de adyacencia de un grafo dirigido, ¿dónde aparece el arco que va del vértice 2 al vértice 5?
+
+- [x] Solo en la lista de 2
+- [ ] En la lista de 2 y en la lista de 5
+- [ ] Solo en la lista de 5
+- [ ] En la lista de todos los vértices vecinos de 5
+
+</Question>
+
+<Question id="grafos-listas-memoria" anchor="la-memoria-y-el-precio-de-las-listas">
+
+¿Cuánta memoria ocupan las listas de adyacencia de un grafo sin dirección con V vértices y E aristas?
+
+- [x] O(V + E): una lista por vértice y dos entradas por arista
+- [ ] O(V²): una casilla por cada par de vértices
+- [ ] O(E): una entrada por arista, sin listas vacías
+- [ ] O(V): una entrada por vértice
+
+</Question>
+
+<Question id="grafos-denso-o-disperso" anchor="densos-y-dispersos-en-los-costos">
+
+Un grafo tiene 10⁵ vértices, y cada vértice tiene a lo más 10 vecinos. ¿Qué estructura conviene para guardarlo?
+
+- [x] Listas de adyacencia: el grafo es disperso
+- [ ] Matriz de adyacencia: el grafo es disperso
+- [ ] Matriz de adyacencia: el grafo es denso
+- [ ] Listas de adyacencia: el grafo es denso
+
+</Question>
+
+<Question id="grafos-modelo-relacion" anchor="las-aristas-de-un-modelo">
+
+En una red de personas se quiere saber quiénes pueden juntarse sin viajar. ¿Qué relación conviene usar como arista?
+
+- [x] Vivir en la misma ciudad
+- [ ] Ser amigos
+- [ ] Seguirse en la red
+- [ ] Haberse escrito un mensaje
+
+</Question>
+
+<Question id="grafos-modelo-tres-amistades" anchor="cuantos-vertices-y-aristas-tiene-un-modelo">
+
+Una lista trae 3 amistades, cada una entre dos personas. ¿Cuántas personas distintas puede haber, como máximo?
+
+- [x] 6: si ninguna persona aparece en dos amistades
+- [ ] 3: una persona por amistad
+- [ ] 4: las amistades comparten personas
+- [ ] 9: tres por tres
+
+</Question>
+
+<Question id="grafos-modelo-cota-dos-e" anchor="cuantos-vertices-y-aristas-tiene-un-modelo">
+
+Un grafo se arma solo con una lista de E aristas. ¿Cuántos vértices puede tener, como máximo?
+
+- [x] 2E: cada arista puede traer dos vértices nuevos
+- [ ] E: un vértice por arista
+- [ ] E²: uno por cada par de aristas
+- [ ] E + 1: como en un camino
+
+</Question>
+
+<Question id="grafos-modelo-vuelos" anchor="direccion-y-peso-en-un-modelo">
+
+En una red de vuelos, cada vuelo tiene su precio, y el vuelo de Santiago a Lima no cuesta lo mismo que el de Lima a Santiago. ¿Qué tipo de grafo la modela?
+
+- [x] Dirigido y ponderado
+- [ ] No dirigido y ponderado
+- [ ] Dirigido y no ponderado
+- [ ] No dirigido y no ponderado
+
+</Question>
+
+<Question id="grafos-modelo-no-matriz" anchor="el-tamano-de-un-modelo">
+
+Una red tiene a lo más 10⁵ amistades y hasta 2 · 10⁵ personas. ¿Por qué no conviene guardarla en una matriz de adyacencia?
+
+- [x] Tendría unas 4 · 10¹⁰ casillas, casi todas vacías
+- [ ] Tendría unas 4 · 10¹⁰ casillas, casi todas ocupadas por amistades
+- [ ] Tendría unas 2 · 10⁵ casillas, pero buscar una arista sería lento
+- [ ] Tendría unas 4 · 10⁵ casillas, como las listas, pero sería más lenta
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
