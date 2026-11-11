@@ -7095,12 +7095,13 @@ responda:
 
 |                              | `AdjMatrixDigraph`                       | `AdjListDigraph`                                         |
 | ---------------------------- | ---------------------------------------- | -------------------------------------------------------- |
-| `hasEdge(i, j)`              | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>una casilla: $$\Theta(1)$$</span>       | buscar `j` en la lista de `i`: $$\Theta(\operatorname{grado}(i))$$ |
-| memoria con $$V = 5000$$     | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$V^2 = 2{,}5 \cdot 10^7$$ casillas: unos 25 MB</span> | si es densa, $$2{,}5 \cdot 10^7$$ objetos `Integer` en listas: cientos de MB |
-| las menos de $$3V$$ preguntas, si la red es densa | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$3V = 1{,}5 \cdot 10^4$$ casillas</span> | cada una lee hasta $$V$$ entradas: $$3V \cdot V \approx 7{,}5 \cdot 10^7$$ |
+| una pregunta `hasEdge(i, j)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>lee una casilla: $$\Theta(1)$$</span> | busca `j` en la lista de `i`: $$\Theta(\operatorname{grado}(i))$$; si la red es densa, hasta $$5000$$ entradas |
+| memoria con $$V = 5000$$, si la red es densa | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$2{,}5 \cdot 10^7$$ `boolean` de 1 byte: unos 25 MB</span> | $$2{,}5 \cdot 10^7$$ `Integer` de unos 20 bytes cada uno, con su referencia: unos 500 MB |
 
-Con la matriz, cada pregunta es leer una casilla, y la red puede ser densa
-sin que eso cambie el costo de preguntar. La matriz es la implementación que
+Cualquier forma de responder va a preguntar `hasEdge` muchas veces. Con la
+matriz cada pregunta lee una casilla, y la red puede ser densa sin que eso
+cambie el costo de preguntar; con listas, cada pregunta puede leer miles de
+entradas. La matriz es la implementación que
 conviene pasarle al método:
 
 <AdjMatrix
@@ -7165,20 +7166,59 @@ veces para encontrar a una sola.
 </Slide>
 
 <Slide title="Una celebridad · la idea">
-Para hacerlo mejor, se usa que **cada pregunta descarta a alguien**:
+Para hacerlo mejor, se usa que la regla del enunciado es **estricta**: una
+celebridad **no sigue a nadie**, y **todas las demás la siguen**. No hay
+excepciones, así que basta ver que una de las dos falla para saber que alguien
+no es celebridad. Con eso, una sola pregunta descarta a una persona:
 
-1. **Si `i` sigue a `j`, `i` no es celebridad**, porque sigue a alguien. **Si
-   no lo sigue, `j` no es celebridad**, porque alguien no la sigue. Una sola
-   pregunta deja fuera a una de las dos personas.
-2. **Una candidata contra todas.** Se empieza con la persona $$0$$ como
-   candidata, y se pregunta si sigue a cada una de las siguientes. Si la
-   sigue, queda fuera y la otra pasa a ser la candidata; si no, queda fuera
-   la otra. Después de $$V - 1$$ preguntas queda una sola persona.
-3. **Se comprueba la que queda.** Todas las demás quedaron fuera, pero la
-   que queda puede no ser celebridad: se le pregunta en los dos sentidos a
+1. **Si `i` sigue a `j`, `i` no es celebridad**: sigue a alguien, y una
+   celebridad no sigue a nadie.
+2. **Si `i` no sigue a `j`, `j` no es celebridad**: alguien no la sigue, y a una
+   celebridad la siguen todas.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={1}
+  directed
+  nodes={[{ v: 'i', x: 0, y: 0 }, { v: 'j', x: 2, y: 0 }]}
+  edges={[['i', 'j']]}
+  tones={{ 'i': 'flag' }}
+  caption="i sigue a j: fuera i"
+  label="Un arco de i a j: i sigue a alguien, así que i no es celebridad."
+/>
+<NodeGraph
+  cols={3}
+  rows={1}
+  directed
+  nodes={[{ v: 'i', x: 0, y: 0 }, { v: 'j', x: 2, y: 0 }]}
+  edges={[]}
+  tones={{ 'j': 'flag' }}
+  caption="i no sigue a j: fuera j"
+  label="Sin arco de i a j: alguien no sigue a j, así que j no es celebridad."
+/>
+</div>
+
+Sea cual sea la respuesta, una de las dos queda fuera sin mirar a nadie más.
+Esta mejora existe **solo por la regla**: si la pregunta fuera quién tiene
+más seguidores, que `i` siga a `j` no descartaría a ninguna de las dos, y
+habría que contar los seguidores de todas.
+
+</Slide>
+
+<Slide title="Una celebridad · descartar y comprobar">
+Con esa regla, el algoritmo tiene dos partes:
+
+1. **Una candidata contra todas.** La persona $$0$$ empieza como candidata, y
+   se le pregunta si sigue a cada una de las siguientes. Cada respuesta deja
+   fuera a una de las dos, y la que queda sigue como candidata. Después de
+   $$V - 1$$ preguntas, todas menos una quedaron fuera, cada una por una
+   razón.
+2. **Se comprueba la que queda.** Que las demás quedaran fuera no la hace
+   celebridad: puede no haber ninguna. Se le pregunta en los dos sentidos a
    cada otra persona, $$2(V - 1)$$ preguntas.
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem 1.5rem', alignItems: 'end' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem 1rem', alignItems: 'end' }}>
 <NodeGraph
   cols={3}
   rows={3}
@@ -7210,6 +7250,17 @@ Para hacerlo mejor, se usa que **cada pregunta descarta a alguien**:
   tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 diego': 'mark' }}
   caption="¿beto sigue a diego? sí: fuera beto"
   label="Tercera pregunta: beto sigue a diego, así que beto queda fuera y diego es la única candidata."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+  edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  markEdges={[['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
+  tones={{ '3 diego': 'keep' }}
+  caption="diego: la siguen todas, no sigue a nadie"
+  label="La comprobación: ana, beto y carla siguen a diego, y diego no sigue a nadie. Diego es la celebridad."
 />
 </div>
 
@@ -7250,7 +7301,7 @@ persona en los dos sentidos.
     </Pair>
   </Step>
   <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['1 beto']} rows={2} fresh label="candidate: 1 beto." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1: hasEdge(0, 1) es true, ana sigue a beto. Ana no es celebridad; candidate = 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 1: hasEdge(0, 1) es true, ana sigue a beto: ana queda fuera; candidate = 1.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7270,7 +7321,7 @@ persona en los dos sentidos.
     </Pair>
   </Step>
   <Step lines={[5, 6]} programLines={[1]} under={<OutputBox head="candidate" lines={['1 beto']} rows={2} label="candidate: 1 beto." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2: hasEdge(1, 2) es false, beto no sigue a carla. Carla no es celebridad.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 2: hasEdge(1, 2) es false, beto no sigue a carla: carla queda fuera; candidate sigue en 1.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7289,7 +7340,7 @@ persona en los dos sentidos.
     </Pair>
   </Step>
   <Step lines={[5, 6, 7]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} fresh label="candidate: 3 diego." />}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: hasEdge(1, 3) es true, beto sigue a diego. Beto no es celebridad; candidate = 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 3: hasEdge(1, 3) es true, beto sigue a diego: beto queda fuera; candidate = 3.</div>
     <Pair>
       <NodeGraph
         cols={3}
@@ -7298,6 +7349,25 @@ persona en los dos sentidos.
         nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
         edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         markEdges={[['1 beto', '3 diego']]}
+        tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 diego': 'mark' }}
+        label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana está descartada; beto está descartada; carla está descartada; diego es la candidata. Marcado, el arco de beto a diego."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'true'], ['false', 'false', 'false', 'false']]}
+        mark={[[1, 3]]}
+        label="La matriz de g: true solo en [0][1], [0][3], [1][3] y [2][3]. Marcada, [1][3], true."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[5]} programLines={[1]} under={<OutputBox head="candidate" lines={['3 diego']} rows={2} label="candidate: 3 diego." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>i = 4: la primera vuelta termina. Ana, beto y carla quedaron fuera; queda diego, que todavía hay que comprobar.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: '0 ana', x: 0, y: 0 }, { v: '1 beto', x: 2, y: 0 }, { v: '2 carla', x: 0, y: 2 }, { v: '3 diego', x: 2, y: 2 }]}
+        edges={[['0 ana', '1 beto'], ['0 ana', '3 diego'], ['1 beto', '3 diego'], ['2 carla', '3 diego']]}
         tones={{ '0 ana': 'flag', '1 beto': 'flag', '2 carla': 'flag', '3 diego': 'mark' }}
         label="El grafo dirigido de los seguidores: ana sigue a beto, ana sigue a diego, beto sigue a diego, carla sigue a diego. ana está descartada; beto está descartada; carla está descartada; diego es la candidata. Marcado, el arco de beto a diego."
       />
@@ -7849,7 +7919,7 @@ carreteras. Por eso se recorren **dos veces**:
   codeRange="8-18"
 >
   <Step lines={[8, 9]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El mapa ids y la lista names empiezan vacíos.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El mapa ids y la lista names empiezan vacíos.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={null} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7857,13 +7927,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: [] }, { name: 'ids', cells: [], head: [] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: los dos vacíos."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12, 13, 14, 15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Santiago Valparaíso 116», parts[0] = Santiago: es nueva, y recibe el 0.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Santiago Valparaíso 116», parts[0] = Santiago: es nueva, y recibe el 0.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[0, 0]} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 1." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7871,13 +7941,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago'] }, { name: 'ids', cells: [0], head: ['Santiago'] }]}
         mark={[[0, 0], [1, 0]]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0."
       />
     </Pair>
   </Step>
   <Step lines={[12, 13, 14, 15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Santiago Valparaíso 116», parts[1] = Valparaíso: es nueva, y recibe el 1.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Santiago Valparaíso 116», parts[1] = Valparaíso: es nueva, y recibe el 1.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[0, 1]} read={0} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Valparaíso, de la línea 1." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7885,13 +7955,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso'] }, { name: 'ids', cells: [0, 1], head: ['Santiago', 'Valparaíso'] }]}
         mark={[[0, 1], [1, 1]]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Santiago Rancagua 87», parts[0] = Santiago: ya tiene número.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Santiago Rancagua 87», parts[0] = Santiago: ya tiene número.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[1, 0]} read={1} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 2." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7899,13 +7969,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso'] }, { name: 'ids', cells: [0, 1], head: ['Santiago', 'Valparaíso'] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1."
       />
     </Pair>
   </Step>
   <Step lines={[12, 13, 14, 15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Santiago Rancagua 87», parts[1] = Rancagua: es nueva, y recibe el 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Santiago Rancagua 87», parts[1] = Rancagua: es nueva, y recibe el 2.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[1, 1]} read={1} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Rancagua, de la línea 2." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7913,13 +7983,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua'] }, { name: 'ids', cells: [0, 1, 2], head: ['Santiago', 'Valparaíso', 'Rancagua'] }]}
         mark={[[0, 2], [1, 2]]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Rancagua Talca 172», parts[0] = Rancagua: ya tiene número.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Rancagua Talca 172», parts[0] = Rancagua: ya tiene número.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[2, 0]} read={2} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Rancagua, de la línea 3." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7927,13 +7997,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua'] }, { name: 'ids', cells: [0, 1, 2], head: ['Santiago', 'Valparaíso', 'Rancagua'] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2."
       />
     </Pair>
   </Step>
   <Step lines={[12, 13, 14, 15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Rancagua Talca 172», parts[1] = Talca: es nueva, y recibe el 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Rancagua Talca 172», parts[1] = Talca: es nueva, y recibe el 3.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[2, 1]} read={2} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Talca, de la línea 3." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7941,13 +8011,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }]}
         mark={[[0, 3], [1, 3]]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2, Talca es el 3."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Valparaíso Quillota 52», parts[0] = Valparaíso: ya tiene número.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Valparaíso Quillota 52», parts[0] = Valparaíso: ya tiene número.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[3, 0]} read={3} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Valparaíso, de la línea 4." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7955,13 +8025,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }, { name: 'ids', cells: [0, 1, 2, 3], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca'] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2, Talca es el 3."
       />
     </Pair>
   </Step>
   <Step lines={[12, 13, 14, 15]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Valparaíso Quillota 52», parts[1] = Quillota: es nueva, y recibe el 4.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Valparaíso Quillota 52», parts[1] = Quillota: es nueva, y recibe el 4.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[3, 1]} read={3} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Quillota, de la línea 4." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7969,13 +8039,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
         mark={[[0, 4], [1, 4]]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2, Talca es el 3, Quillota es el 4."
       />
     </Pair>
   </Step>
   <Step lines={[10, 11, 12, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Quillota Santiago 125», parts[0] = Quillota: ya tiene número.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Quillota Santiago 125», parts[0] = Quillota: ya tiene número.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[4, 0]} read={4} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Quillota, de la línea 5." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7983,13 +8053,13 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2, Talca es el 3, Quillota es el 4."
       />
     </Pair>
   </Step>
   <Step lines={[12, 13]}>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>«Quillota Santiago 125», parts[1] = Santiago: ya tiene número.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>«Quillota Santiago 125», parts[1] = Santiago: ya tiene número.</div>
     <Pair stack>
       <InputLines head="roads" lines={['Santiago Valparaíso 116', 'Santiago Rancagua 87', 'Rancagua Talca 172', 'Valparaíso Quillota 52', 'Quillota Santiago 125']} at={[4, 1]} read={4} label="La entrada, línea por línea: Santiago Valparaíso 116, Santiago Rancagua 87, Rancagua Talca 172, Valparaíso Quillota 52, Quillota Santiago 125. Se lee Santiago, de la línea 5." />
       <div style={{ width: '100%', maxWidth: '560px', margin: '0 auto' }}>
@@ -7997,7 +8067,7 @@ carreteras. Por eso se recorren **dos veces**:
       <ArrayRows
         rows={[{ name: 'names', cells: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }, { name: 'ids', cells: [0, 1, 2, 3, 4], head: ['Santiago', 'Valparaíso', 'Rancagua', 'Talca', 'Quillota'] }]}
         mark={[]}
-        cell={84}
+        cell={84} cols={5}
         label="La lista names y el mapa ids: Santiago es el 0, Valparaíso es el 1, Rancagua es el 2, Talca es el 3, Quillota es el 4."
       />
     </Pair>
@@ -8028,7 +8098,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[[], [], [], [], []]}
         mark={[]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, está vacía; la lista de Valparaíso, el 1, está vacía; la lista de Rancagua, el 2, está vacía; la lista de Talca, el 3, está vacía; la lista de Quillota, el 4, está vacía."
       />
     </Pair>
@@ -8048,7 +8118,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[['1 · 116'], ['0 · 116'], [], [], []]}
         mark={[[0, 0], [1, 0]]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116; la lista de Valparaíso, el 1, tiene 0 a 116; la lista de Rancagua, el 2, está vacía; la lista de Talca, el 3, está vacía; la lista de Quillota, el 4, está vacía."
       />
     </Pair>
@@ -8068,7 +8138,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[['1 · 116', '2 · 87'], ['0 · 116'], ['0 · 87'], [], []]}
         mark={[[0, 1], [2, 0]]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87; la lista de Valparaíso, el 1, tiene 0 a 116; la lista de Rancagua, el 2, tiene 0 a 87; la lista de Talca, el 3, está vacía; la lista de Quillota, el 4, está vacía."
       />
     </Pair>
@@ -8088,7 +8158,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[['1 · 116', '2 · 87'], ['0 · 116'], ['0 · 87', '3 · 172'], ['2 · 172'], []]}
         mark={[[2, 1], [3, 0]]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87; la lista de Valparaíso, el 1, tiene 0 a 116; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, está vacía."
       />
     </Pair>
@@ -8108,7 +8178,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[['1 · 116', '2 · 87'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52']]}
         mark={[[1, 1], [4, 0]]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52."
       />
     </Pair>
@@ -8128,7 +8198,7 @@ carreteras. Por eso se recorren **dos veces**:
       <AdjLists
         lists={[['1 · 116', '2 · 87', '4 · 125'], ['0 · 116', '4 · 52'], ['0 · 87', '3 · 172'], ['2 · 172'], ['1 · 52', '0 · 125']]}
         mark={[[4, 1], [0, 2]]}
-        minWidth={290}
+        minWidth={410}
         label="Las listas con pesos: la lista de Santiago, el 0, tiene 1 a 116, 2 a 87, 4 a 125; la lista de Valparaíso, el 1, tiene 0 a 116, 4 a 52; la lista de Rancagua, el 2, tiene 0 a 87, 3 a 172; la lista de Talca, el 3, tiene 2 a 172; la lista de Quillota, el 4, tiene 1 a 52, 0 a 125."
       />
     </Pair>
