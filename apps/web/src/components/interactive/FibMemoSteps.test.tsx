@@ -1,24 +1,29 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { FibMemoSteps } from './FibMemoSteps';
 
+// StepShow keeps every step's frame in the DOM, hidden, so the widget has its
+// final size from the first step; what a step shows is in the current frame.
+const shown = () =>
+  within(document.querySelector('[data-stepshow-frame="current"]') as HTMLElement);
+
 describe('FibMemoSteps', () => {
   it('renders the first snapshot on mount: empty memo, one frame on the stack', () => {
     render(<FibMemoSteps target={5} />);
     // The first snapshot pushes fib(5) onto the stack and asks "is n < 2?".
-    const frames = screen.getAllByTestId('fib-memo-frame');
+    const frames = shown().getAllByTestId('fib-memo-frame');
     expect(frames).toHaveLength(1);
     expect(frames[0]!).toHaveTextContent(/fib\(5\)/);
     // No memo entry filled yet.
-    const memoCells = screen.getAllByTestId('fib-memo-cell');
+    const memoCells = shown().getAllByTestId('fib-memo-cell');
     expect(memoCells).toHaveLength(6);
     memoCells.forEach((cell) => {
       expect(cell).toHaveTextContent(/\?/);
     });
     // No done flag set yet.
-    const doneCells = screen.getAllByTestId('fib-done-cell');
+    const doneCells = shown().getAllByTestId('fib-done-cell');
     expect(doneCells).toHaveLength(6);
     doneCells.forEach((cell) => {
       expect(cell).toHaveTextContent(/^F$/);
@@ -37,16 +42,16 @@ describe('FibMemoSteps', () => {
     // Terminal snapshot: memo[5] = 5. done is set only for n >= 2 (the
     // base cases 0 and 1 return early without touching the cache), so
     // done[0] = done[1] = F, done[2..5] = T.
-    const memoCells = screen.getAllByTestId('fib-memo-cell');
+    const memoCells = shown().getAllByTestId('fib-memo-cell');
     expect(memoCells[5]!).toHaveTextContent(/5/);
-    const doneCells = screen.getAllByTestId('fib-done-cell');
+    const doneCells = shown().getAllByTestId('fib-done-cell');
     expect(doneCells[0]!).toHaveTextContent(/^F$/);
     expect(doneCells[1]!).toHaveTextContent(/^F$/);
     doneCells.slice(2).forEach((cell) => {
       expect(cell).toHaveTextContent(/^T$/);
     });
     // Final caption mentions the return value.
-    expect(screen.getByText(/return 5/i)).toBeInTheDocument();
+    expect(shown().getByText(/return 5/i)).toBeInTheDocument();
   });
 
   it('surfaces at least one cache hit in the fib(5) trace', async () => {
@@ -57,7 +62,7 @@ describe('FibMemoSteps', () => {
       const btn = screen.getByRole('button', { name: /adelante/i }) as HTMLButtonElement;
       if (btn.getAttribute('aria-disabled') === 'true' || btn.disabled) break;
       await userEvent.click(forward);
-      if (screen.queryAllByText(/CACHE HIT/i).length > 0) {
+      if (shown().queryAllByText(/CACHE HIT/i).length > 0) {
         sawHit = true;
         // Do not break: keep walking so we finish the trace naturally.
       }
@@ -67,7 +72,7 @@ describe('FibMemoSteps', () => {
 
   it('defaults target to 5 when omitted', () => {
     render(<FibMemoSteps />);
-    const memoCells = screen.getAllByTestId('fib-memo-cell');
+    const memoCells = shown().getAllByTestId('fib-memo-cell');
     expect(memoCells).toHaveLength(6);
   });
 });

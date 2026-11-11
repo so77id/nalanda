@@ -15,6 +15,7 @@ vi.mock('./interactive/lazyCodeEditor', () => ({
       data-variant={String(props['variant'])}
       data-source={String(props['defaultValue'])}
       data-filename={String(props['showFileName'])}
+      data-name={String(props['fileName'])}
     />
   ),
 }));
@@ -52,6 +53,20 @@ describe('MdxPre', () => {
     render(fence('java', 'import java.util.Scanner;\n'));
 
     expect(screen.getByTestId('editor').dataset['filename']).toBe('false');
+  });
+
+  it('names the file a fence names in its meta, and only that one', () => {
+    render(
+      <MdxPre>
+        <code className="language-java" data-meta="file=Graph.java">
+          {'interface Graph {}\n'}
+        </code>
+      </MdxPre>,
+    );
+
+    const editor = screen.getByTestId('editor');
+    expect(editor.dataset['filename']).toBe('true');
+    expect(editor.dataset['name']).toBe('Graph.java');
   });
 
   it('keeps the blank lines of the listing, dropping only the fence break', () => {

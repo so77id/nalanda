@@ -1,0 +1,1917 @@
+Slides removed from 26-grafos-tda-modelado.mdx (#363) when the class was restructured to its refined arc; copied verbatim from the seed, commit c8ae78c. Paste a block back into an .mdx to restore it; delete this file when the last block lands.
+
+========================================================================
+Situations moved to the classes that answer their question: the street map to Caminos más cortos (#359), the curriculum and the ferryman to Recorridos (#357).
+========================================================================
+
+{/* StreetPlan — a street map in one frame at two stages of the modelling pattern (#356): `city` the four streets with their blocks of buildings, one-way arrows and the minutes each stretch takes; `streets` only the corners, lettered, and the stretches with their minutes and senses. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function StreetPlan({ stage = 'city', label }) {
+  const at = { A: [80, 60], B: [240, 60], C: [80, 180], D: [240, 180] };
+  const stretches = [['A', 'B', 4, true], ['A', 'C', 3, false], ['C', 'D', 5, false], ['D', 'B', 2, false]];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 9;
+    const by = y2 - uy * 9;
+    return `${x2},${y2} ${bx - uy * 5},${by + ux * 5} ${bx + uy * 5},${by - ux * 5}`;
+  };
+  const blocks = [];
+  if (stage === 'city') {
+    for (const [x0, x1] of [[22, 70], [90, 230], [250, 298]]) {
+      for (const [y0, y1] of [[22, 50], [70, 170], [190, 218]]) {
+        const n = Math.max(1, Math.round((x1 - x0) / 50));
+        const m = Math.max(1, Math.round((y1 - y0) / 50));
+        const w = (x1 - x0 - (n - 1) * 5) / n;
+        const h = (y1 - y0 - (m - 1) * 5) / m;
+        for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) blocks.push([x0 + i * (w + 5), y0 + j * (h + 5), w, h]);
+      }
+    }
+  }
+  return (
+    <svg viewBox="0 0 320 240" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'city'
+        ? [[12, 60, 308, 60], [12, 180, 308, 180], [80, 12, 80, 228], [240, 12, 240, 228]].map(([x1, y1, x2, y2], k) => (
+            <line key={`s${k}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-sunk)' }} strokeWidth="18" />
+          ))
+        : null}
+      {blocks.map(([x, y, w, h], k) => (
+        <rect key={`b${k}`} x={x} y={y} width={w} height={h} rx="2" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="0.8" />
+      ))}
+      {stretches.map(([v, w, minutes, both], k) => {
+        const [x1, y1] = at[v];
+        const [x2, y2] = at[w];
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const ux = (x2 - x1) / Math.hypot(x2 - x1, y2 - y1);
+        const uy = (y2 - y1) / Math.hypot(x2 - x1, y2 - y1);
+        const chipX = mx + (uy !== 0 ? 30 : 0);
+        const chipY = my + (uy !== 0 ? 0 : -19);
+        return (
+          <g key={`t${k}`}>
+            {stage === 'streets' ? <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="2" /> : null}
+            <polygon points={tip(mx - ux * 14, my - uy * 14, mx + ux * 14, my + uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} />
+            {both ? <polygon points={tip(mx + ux * 14, my + uy * 14, mx - ux * 14, my - uy * 14)} style={{ fill: 'var(--color-ink-soft)' }} /> : null}
+            <rect x={chipX - 25} y={chipY - 10} width="50" height="20" rx="5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1" />
+            <text x={chipX} y={chipY + 5} textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink)' }}>{minutes} min</text>
+          </g>
+        );
+      })}
+      {stage === 'streets'
+        ? Object.entries(at).map(([v, [x, y]]) => (
+            <g key={v}>
+              <circle cx={x} cy={y} r="13" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.4" />
+              <text x={x} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+            </g>
+          ))
+        : null}
+    </svg>
+  );
+}
+
+<Slide title="Un mapa de calles">
+En un mapa de calles, las esquinas son vértices y los tramos, aristas. Cada
+tramo trae los minutos que toma: es su peso. Una calle de un solo sentido es
+un arco, así que el grafo es dirigido y con pesos.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="city" label="Un plano con cuatro calles que se cruzan en cuatro esquinas, con edificios en las manzanas, flechas de sentido y los minutos de cada tramo: 4 en la calle de arriba, en los dos sentidos; 3 en la de la izquierda, hacia abajo; 5 en la de abajo, hacia la derecha; y 2 en la de la derecha, hacia arriba." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el plano</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<StreetPlan stage="streets" label="El mismo plano sin edificios: las esquinas A, B, C y D, y los cuatro tramos con sus minutos y sentidos." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>esquinas, tramos, minutos y sentidos</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 0, y: 2 }, { v: 'D', x: 2, y: 2 }]}
+  edges={[['A', 'B', 4], ['B', 'A', 4], ['A', 'C', 3], ['C', 'D', 5], ['D', 'B', 2]]}
+  caption="el grafo"
+  label="Cuatro esquinas, A, B, C y D, con los minutos de cada tramo: entre A y B, 4 en cada sentido; de A a C, 3; de C a D, 5; de D a B, 2. Los tramos de un solo sentido son flechas."
+/>
+</div>
+</div>
+
+</Slide>
+
+{/* Curriculum — a curriculum at two stages of the modelling pattern (#356): `table` the courses by semester, each saying which course it asks for; `arrows` the same courses with an arrow from each prerequisite to the course that asks for it. The third stage is the graph, a <NodeGraph> beside it. File-local. */}
+
+export function Curriculum({ stage = 'table', label }) {
+  const W = 118;
+  const H = 50;
+  const at = { 'Cálculo I': [72, 52], 'Álgebra': [206, 52], 'Cálculo II': [72, 146], 'Ecuaciones': [139, 240] };
+  const asks = { 'Cálculo II': ['pide Cálculo I'], 'Ecuaciones': ['pide Cálculo II', 'y Álgebra'] };
+  const arrows = [['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']];
+  const tip = (x1, y1, x2, y2) => {
+    const d = Math.hypot(x2 - x1, y2 - y1);
+    const ux = (x2 - x1) / d;
+    const uy = (y2 - y1) / d;
+    const bx = x2 - ux * 10;
+    const by = y2 - uy * 10;
+    return `${x2},${y2} ${bx - uy * 5.5},${by + ux * 5.5} ${bx + uy * 5.5},${by - ux * 5.5}`;
+  };
+  return (
+    <svg viewBox="0 0 278 282" style={{ width: '100%', maxWidth: '300px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'table'
+        ? ['1.er semestre', '2.º semestre', '3.er semestre'].map((t, k) => (
+            <text key={t} x="13" y={20 + 94 * k} fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink-faint)' }}>{t}</text>
+          ))
+        : null}
+      {stage === 'arrows'
+        ? arrows.map(([v, w]) => {
+            const [x1, y1] = [at[v][0], at[v][1] + H / 2];
+            const [x2, y2] = [at[w][0] + (v === 'Álgebra' ? 24 : v === 'Cálculo II' ? -24 : 0), at[w][1] - H / 2];
+            return (
+              <g key={`${v}-${w}`}>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.8" />
+                <polygon points={tip(x1, y1, x2, y2)} style={{ fill: 'var(--color-ink-soft)' }} />
+              </g>
+            );
+          })
+        : null}
+      {Object.entries(at).map(([name, [x, y]]) => {
+        const lines = stage === 'table' ? asks[name] ?? [] : [];
+        const top = y - 6 - lines.length * 7;
+        return (
+          <g key={name}>
+            <rect x={x - W / 2} y={y - H / 2} width={W} height={H} rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+            <text x={x} y={top + 11} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{name}</text>
+            {lines.map((t, k) => (
+              <text key={t} x={x} y={top + 26 + 13 * k} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{t}</text>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+<Slide title="Una malla curricular">
+En una malla, los ramos son vértices, y cada prerrequisito es un arco que va
+del ramo que se aprueba antes al que lo pide. Si un ramo terminara
+pidiéndose a sí mismo, de prerrequisito en prerrequisito, nadie podría
+tomarlo: la malla no puede tener un ciclo.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="table" label="Una malla de tres semestres: Cálculo I y Álgebra en el primero, Cálculo II en el segundo, que pide Cálculo I, y Ecuaciones en el tercero, que pide Cálculo II y Álgebra." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>la malla</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<Curriculum stage="arrows" label="Los mismos ramos con una flecha de cada prerrequisito al ramo que lo pide: de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones y de Álgebra a Ecuaciones." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>qué ramo pide cuál</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<div style={{ flex: '1 1 190px' }}>
+<NodeGraph
+  cols={3}
+  rows={3}
+  directed
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Álgebra', x: 2, y: 0 }, { v: 'Cálculo II', x: 0, y: 1 }, { v: 'Ecuaciones', x: 1, y: 2 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  caption="el grafo"
+  label="Cuatro ramos con sus prerrequisitos: Cálculo I antes de Cálculo II, y Cálculo II y Álgebra antes de Ecuaciones. Cada arco va del prerrequisito al ramo."
+/>
+</div>
+</div>
+
+</Slide>
+
+{/* River — the ferryman's crossing at two stages of the modelling pattern (#356): `river` the two banks, the river and the boat, with the ferryman, the wolf, the goat and the cabbage on the starting bank; `states` two trips written as states, what stays on the starting bank, so the state graph beside it reads. File-local. */}
+
+export function River({ stage = 'river', label }) {
+  const tag = (x, y, t, k) => (
+    <g key={k}>
+      <rect x={x - 42} y={y - 12} width="84" height="24" rx="12" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+    </g>
+  );
+  const arrow = (x1, x2, y, text, k) => (
+    <g key={k}>
+      <line x1={x1} y1={y} x2={x2 - 8} y2={y} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
+      <polygon points={`${x2},${y} ${x2 - 9},${y - 5} ${x2 - 9},${y + 5}`} style={{ fill: 'var(--color-ink-soft)' }} />
+      <text x={(x1 + x2) / 2} y={y + 18} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{text}</text>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 320 180" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'river' ? (
+        <>
+          <rect x="112" y="8" width="96" height="164" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+          {['barquero', 'lobo', 'cabra', 'repollo'].map((t, k) => tag(56, 34 + 38 * k, t, t))}
+          <polygon points="122,82 168,82 160,100 130,100" style={{ fill: 'var(--color-rule-strong)' }} />
+          <line x1="128" y1="66" x2="192" y2="66" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+          <polygon points="200,66 191,61 191,71" style={{ fill: 'var(--color-ink-soft)' }} />
+          <text x="264" y="94" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>la otra orilla</text>
+        </>
+      ) : (
+        <>
+          {tag(52, 52, 'BLCR', 'a')}
+          {arrow(98, 222, 52, 'cruza con la cabra', 'x')}
+          {tag(268, 52, 'LR', 'b')}
+          {tag(52, 128, 'LR', 'c')}
+          {arrow(98, 222, 128, 'vuelve solo', 'y')}
+          {tag(268, 128, 'BLR', 'd')}
+        </>
+      )}
+    </svg>
+  );
+}
+
+<Slide title="Un grafo de estados">
+Un barquero tiene que cruzar un río con un lobo, una cabra y un repollo. El
+bote lleva al barquero y a lo más una cosa más, y si el barquero no está, el
+lobo se come a la cabra y la cabra se come el repollo. Cada **estado**, lo que
+sigue en la orilla de partida, es un vértice, y cada viaje que no deja a
+nadie en peligro es una arista. Cruzar el río es llegar de un vértice a otro.
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '0.5rem 0.75rem' }}>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="river" label="Un río entre dos orillas. En la orilla de partida están el barquero, el lobo, la cabra y el repollo, y en el agua, el bote, con una flecha hacia la otra orilla." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>el río</figcaption>
+</figure>
+<span aria-hidden="true" style={{ fontSize: '1.6rem', color: 'var(--color-ink-soft)' }}>→</span>
+<figure style={{ flex: '1 1 190px', margin: 0, textAlign: 'center' }}>
+<River stage="states" label="Dos viajes escritos como estados: de BLCR, todos en la orilla de partida, a LR, cuando el barquero cruza con la cabra; y de LR a BLR, cuando vuelve solo." />
+<figcaption style={{ fontSize: '0.85rem', color: 'var(--color-ink-soft)' }}>quién queda en la orilla de partida</figcaption>
+</figure>
+</div>
+
+<NodeGraph
+  cols={12}
+  rows={3}
+  nodes={[{ v: 'BLCR', x: 0, y: 1 }, { v: 'LR', x: 1.5, y: 1 }, { v: 'BLR', x: 3, y: 1 }, { v: 'R', x: 4.5, y: 0 }, { v: 'L', x: 4.5, y: 2 }, { v: 'BCR', x: 6, y: 0 }, { v: 'BLC', x: 6, y: 2 }, { v: 'C', x: 7.5, y: 1 }, { v: 'BC', x: 9, y: 1 }, { v: 'nadie', x: 10.5, y: 1 }]}
+  edges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['BLR', 'L'], ['R', 'BCR'], ['L', 'BLC'], ['BCR', 'C'], ['BLC', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  tones={{ BLCR: 'mark', nadie: 'keep' }}
+  caption="en la orilla de partida: B, el barquero; L, el lobo; C, la cabra; R, el repollo"
+  label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
+/>
+
+En el grafo completo no aparecen los estados donde algo se come: no son
+vértices. Un candado de cuatro ruedas es lo mismo: cada combinación es un
+estado, y girar una rueda una posición pasa de un estado a otro.
+
+</Slide>
+
+========================================================================
+The table of questions behind the situations, and the seed's single modelling slide, replaced by the act «Modelar un problema como grafo».
+========================================================================
+
+<Slide title="Las preguntas detrás de las situaciones">
+Situaciones que no se parecen le hacen la misma pregunta a su grafo, y cada
+pregunta tiene nombre:
+
+| Situaciones | La pregunta | Lo que la responde |
+| --- | --- | --- |
+| el paseo por Königsberg · la figura de un solo trazo · el camión de la basura | ¿Se puede pasar por cada arista una sola vez? Es el **camino euleriano**. | los grados |
+| la red de seguidores | ¿Quién tiene más seguidores? | los grados de entrada |
+| el lobo, la cabra y el repollo · el candado | ¿Se puede llegar de un vértice a otro? Es la **alcanzabilidad**. | ? |
+| el mapa de calles | ¿Qué camino toma menos tiempo? Es el **camino más corto**. | ? |
+| la malla curricular | ¿En qué orden se toman los ramos? Es el **orden topológico**. | ? |
+
+Las dos primeras se responden mirando cada vértice por separado y contando
+sus aristas. Las otras piden seguir caminos de vértice en vértice, y para
+responderlas con un programa, primero hay que guardar el grafo.
+
+</Slide>
+
+<Slide title="Las preguntas de un modelo">
+Modelar un problema como grafo es responder cuatro preguntas antes de
+resolver nada. Un mismo conjunto de cosas da grafos distintos según la
+relación que se mire.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '0.75rem', margin: '1rem 0' }}>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Qué es un vértice?** Las cosas del problema: personas, esquinas, ramos, aeropuertos.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[]}
+  label="Tres vértices, A, B y C, sin aristas: las cosas del problema."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Qué es una arista?** La relación que importa entre dos de esas cosas.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos tres vértices unidos por dos aristas, A con B y B con C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene dirección?** Si la relación puede ir de una cosa a otra sin volver.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  directed
+  edges={[['A', 'B'], ['B', 'C']]}
+  label="Los mismos vértices con flechas: de A a B y de B a C."
+/>
+
+</div>
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', padding: '0.5rem 0.8rem 0.2rem', background: 'var(--color-surface)' }}>
+
+**¿Tiene pesos?** Si cada relación trae un número que el problema usa.
+
+<NodeGraph
+  cols={5}
+  rows={1}
+  nodes={[{ v: 'A', x: 0, y: 0 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 0 }]}
+  edges={[['A', 'B', 4], ['B', 'C', 7]]}
+  label="Los mismos vértices con pesos: la arista de A a B pesa 4 y la de B a C, 7."
+/>
+
+</div>
+</div>
+
+</Slide>
+
+========================================================================
+Reading a numbered edge list, and names to numbers as three slides: folded into the pieces of «Sugerir amigos».
+========================================================================
+
+<Slide title="Leer un grafo">
+La lista de aristas se lee línea a línea. Cada arista entra con `addEdge`, que
+en un grafo sin dirección la deja en las dos listas:
+
+```java
+static Graph read(Scanner in) {
+    int V = in.nextInt();
+    int E = in.nextInt();
+    Graph g = new AdjListGraph(V);
+    for (int i = 0; i < E; i++) {
+        int v = in.nextInt();
+        int w = in.nextInt();
+        g.addEdge(v, w);
+    }
+    return g;
+}
+```
+
+</Slide>
+
+<Slide title="De nombres a números">
+La lista de aristas trae números, pero un problema casi siempre trae nombres:
+ciudades, personas, ramos. El grafo numera sus vértices de $$0$$ a $$V - 1$$
+para usarlos como índices, así que los nombres se traducen a esos números al
+leerlos, con dos estructuras:
+
+- un **Map** del nombre a su número, para traducir al leer;
+- una **lista** del número a su nombre, para traducir de vuelta al escribir
+  la respuesta.
+
+Cada nombre nuevo recibe el siguiente número libre.
+
+| Nombre   | Número |
+| -------- | ------ |
+| Santiago | 0      |
+| Lima     | 1      |
+| Bogotá   | 2      |
+| Quito    | 3      |
+
+</Slide>
+
+<Slide title="De nombres a números en Java">
+En Java, las dos estructuras son un `HashMap` del nombre a su número y un
+`ArrayList` con los nombres, en el orden en que aparecieron:
+
+```java
+Map<String, Integer> ids = new HashMap<>();
+List<String> names = new ArrayList<>();
+
+int idOf(String name) {
+    if (!ids.containsKey(name)) {
+        ids.put(name, names.size());
+        names.add(name);
+    }
+    return ids.get(name);
+}
+```
+
+Un nombre que llega por primera vez recibe el número `names.size()`, el
+siguiente libre. `names.get(v)` devuelve el nombre del vértice `v` al escribir
+la respuesta.
+
+</Slide>
+
+========================================================================
+The joint memory slide, split into each structure's own price slide.
+========================================================================
+
+<Slide title="La memoria de las dos implementaciones">
+- **La matriz** guarda $$V^2$$ casillas, haya las aristas que haya:
+  $$\Theta(V^2)$$.
+- **Las listas** guardan una lista por vértice y una entrada por extremo de
+  arista: $$\Theta(V + E)$$.
+
+Las entradas de las listas se cuentan con el lema del apretón de manos:
+
+$$
+\sum_{v} |\mathrm{adj}(v)| = \sum_{v} \operatorname{grado}(v) = 2E
+$$
+
+Se lee «la suma de los largos de las listas es la suma de los grados, que es
+dos veces la cantidad de aristas». Cuál ocupa menos depende de cuántas aristas
+tiene el grafo.
+
+</Slide>
+
+========================================================================
+The implicit-graph slides before the maze exercise absorbed them.
+========================================================================
+
+<Slide title="Un grafo implícito">
+A veces no hace falta guardar el grafo, ni en una matriz ni en listas: sus
+aristas siguen una regla, y los vecinos de un vértice se calculan cuando se
+necesitan. Es un **grafo implícito**.
+
+- **El candado de cuatro ruedas**: son $$10^4$$ combinaciones, y los 8
+  vecinos de cada una salen de girar una rueda una posición hacia arriba o
+  hacia abajo.
+- **Una grilla**, como un laberinto o un mapa por celdas: cada celda es un
+  vértice, y sus vecinas son las celdas a las que se pasa en un paso.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: '1000', x: 0, y: 0 }, { v: '0100', x: 1.33, y: 0 }, { v: '0010', x: 2.67, y: 0 }, { v: '0001', x: 4, y: 0 }, { v: '0000', x: 2, y: 1 }, { v: '9000', x: 0, y: 2 }, { v: '0900', x: 1.33, y: 2 }, { v: '0090', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '0100'], ['0000', '0010'], ['0000', '0001'], ['0000', '9000'], ['0000', '0900'], ['0000', '0090'], ['0000', '0009']]}
+  tones={{ '0000': 'mark' }}
+  caption="0000 y sus 8 vecinos: cada rueda, una posición hacia arriba o hacia abajo"
+  label="La combinación 0000, destacada, unida con sus ocho vecinas: 1000, 0100, 0010 y 0001 arriba, y 9000, 0900, 0090 y 0009 abajo. Cada una gira una sola rueda una posición."
+/>
+
+</Slide>
+
+<Slide title="El código de las vecinas">
+Las vecinas no se guardan: se calculan con dos arreglos de desplazamientos,
+uno para la fila y otro para la columna. Cada posición `k` es un paso, y una
+vecina cuenta solo si cae dentro de la grilla.
+
+```java
+static final int[] DR = {-1, 1, 0, 0};
+static final int[] DC = {0, 0, -1, 1};
+
+static List<int[]> neighbors(int r, int c, int rows, int cols) {
+    List<int[]> result = new ArrayList<>();
+    for (int k = 0; k < DR.length; k++) {
+        int nr = r + DR[k];
+        int nc = c + DC[k];
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+            result.add(new int[] {nr, nc});
+        }
+    }
+    return result;
+}
+```
+
+En 8 direcciones cambian solo los arreglos; el método queda igual:
+
+```java
+static final int[] DR = {-1, -1, -1, 0, 0, 1, 1, 1};
+static final int[] DC = {-1, 0, 1, -1, 1, -1, 0, 1};
+```
+
+</Slide>
+
+========================================================================
+Worked exercises that left: the airline (its question is «Sugerir amigos»'s, on another network) and the single-stroke figure (now a posed exercise), and the first version of «Sugerir amigos».
+========================================================================
+
+<Slide title="Las rutas de una aerolínea">
+Una aerolínea publica sus rutas como un texto, una ruta por línea: los
+códigos de los dos aeropuertos que une. Cada ruta se vuela en los dos
+sentidos. La aerolínea quiere saber cuál es su aeropuerto con más rutas, y
+a qué aeropuertos vuela desde ahí.
+
+```text
+SCL LIM
+SCL EZE
+SCL GRU
+LIM BOG
+LIM MIA
+BOG MIA
+LIM GRU
+```
+
+**Entrada.** Las rutas, a lo más $$10^5$$, sin repetir ninguna. $$R$$ es la
+cantidad de rutas y $$A$$, la de aeropuertos.
+
+**Salida.** El código del aeropuerto con más rutas —si hay empate, el que
+aparece primero en el texto— y los códigos de sus destinos.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el grafo">
+Los aeropuertos son los vértices y cada ruta es una arista sin dirección,
+porque se vuela en los dos sentidos. Las rutas no traen un número que el
+problema use: no hay pesos. El problema se reduce a buscar el vértice de
+mayor grado y entregar sus vecinos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'SCL', x: 0, y: 1 }, { v: 'EZE', x: 0, y: 2 }, { v: 'LIM', x: 2, y: 1 }, { v: 'GRU', x: 1, y: 0 }, { v: 'BOG', x: 4, y: 0 }, { v: 'MIA', x: 4, y: 2 }]}
+  edges={[['SCL', 'LIM'], ['SCL', 'EZE'], ['SCL', 'GRU'], ['LIM', 'BOG'], ['LIM', 'MIA'], ['BOG', 'MIA'], ['LIM', 'GRU']]}
+  notes={{ SCL: 3, EZE: 1, LIM: 4, GRU: 2, BOG: 2, MIA: 2 }}
+  tones={{ LIM: 'mark' }}
+  caption="LIM tiene 4 rutas: a SCL, BOG, MIA y GRU"
+  label="El grafo de las siete rutas con el grado de cada aeropuerto: SCL 3, EZE 1, LIM 4, GRU 2, BOG 2 y MIA 2. LIM, destacado, es el de más rutas."
+/>
+
+Contar cuántas líneas nombra cada código da los grados, pero no los
+destinos. Buscar los destinos recorriendo el texto completo por cada
+aeropuerto cuesta $$\Theta(A \cdot R)$$. Con el grafo armado, los destinos
+son la lista de un vértice.
+
+</Slide>
+
+<Slide title="Rutas aéreas · la solución">
+Al leer cada línea, los dos códigos se traducen a números con `idOf`, y la
+ruta se guarda. Con la cantidad de aeropuertos conocida se arma el grafo, se
+busca el vértice de mayor grado y se escriben los nombres de sus vecinos.
+
+```java
+static void busiest(Scanner in) {
+    List<int[]> routes = new ArrayList<>();
+    while (in.hasNext()) {
+        int v = idOf(in.next());
+        int w = idOf(in.next());
+        routes.add(new int[] {v, w});
+    }
+    Graph g = new AdjListGraph(names.size());
+    for (int[] r : routes) {
+        g.addEdge(r[0], r[1]);
+    }
+    int best = 0;
+    int bestDegree = degree(g, 0);
+    for (int v = 1; v < g.V(); v++) {
+        int d = degree(g, v);
+        if (d > bestDegree) {
+            best = v;
+            bestDegree = d;
+        }
+    }
+    System.out.print(names.get(best) + ":");
+    for (int w : g.adj(best)) {
+        System.out.print(" " + names.get(w));
+    }
+    System.out.println();
+}
+```
+
+El `>` estricto deja, en un empate, el vértice de número menor: el que
+apareció primero en el texto.
+
+</Slide>
+
+<Slide title="Rutas aéreas · el costo">
+- **Tiempo.** Leer las $$R$$ rutas cuesta $$\Theta(R)$$ esperado, por el `Map`
+  de `idOf`. Calcular el grado de cada vértice recorre todas las listas, que
+  suman $$2R$$ entradas: $$\Theta(A + R)$$.
+- **Memoria.** La lista de rutas, el `Map`, los nombres y el grafo:
+  $$\Theta(A + R)$$.
+
+Si el texto repitiera una ruta, el grafo la guardaría dos veces y la contaría
+dos veces en el grado: el enunciado lo descarta.
+
+</Slide>
+
+<Slide title="Una figura de un solo trazo, y desde dónde">
+Dada una figura conexa, el programa responde si se puede dibujar de un solo
+trazo y, si se puede, desde qué punto empezar.
+
+**Entrada.** Un grafo conexo con $$V$$ puntos, numerados de $$0$$ a
+$$V - 1$$, y $$E$$ trazos entre ellos, como lista de aristas.
+
+**Salida.** Un punto donde empezar, o $$-1$$ si la figura no se puede
+dibujar de un solo trazo.
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem 2rem', alignItems: 'end' }}>
+<NodeGraph
+  cols={3}
+  rows={4}
+  nodes={[{ v: 0, x: 1, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 2, y: 1 }, { v: 5, x: 1, y: 2 }, { v: 3, x: 0, y: 3 }, { v: 4, x: 2, y: 3 }]}
+  edges={[[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 4], [1, 5], [5, 4], [2, 5], [5, 3]]}
+  caption="la casa: empieza en 3"
+  label="La casa numerada de 0 a 5. La respuesta es 3, una de sus dos esquinas de abajo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 4, x: 1, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [2, 3], [0, 2], [1, 3], [0, 4], [4, 3], [1, 4], [4, 2]]}
+  caption="el sobre: −1"
+  label="El sobre numerado de 0 a 4. La respuesta es menos 1: no se puede."
+/>
+</div>
+
+</Slide>
+
+<Slide title="Un solo trazo · la idea">
+Probar todos los órdenes de los trazos funciona, pero $$E$$ trazos se pueden
+ordenar de $$E!$$ maneras. El problema se reduce al camino euleriano, y la
+regla de Euler responde sin probar ninguno: en un grafo conexo, lo deciden los
+vértices de grado impar.
+
+- **Ninguno**: cualquier punto sirve, y el trazo vuelve a él.
+- **Dos**: hay que empezar en uno de los dos.
+- **Más de dos**: no se puede.
+
+Basta con calcular el grado de cada vértice y quedarse con los impares.
+
+</Slide>
+
+<Slide title="Un solo trazo · la solución">
+```java
+static int startOf(Graph g) {
+    List<Integer> odd = new ArrayList<>();
+    for (int v = 0; v < g.V(); v++) {
+        if (degree(g, v) % 2 == 1) {
+            odd.add(v);
+        }
+    }
+    if (odd.isEmpty()) {
+        return 0;
+    }
+    if (odd.size() == 2) {
+        return odd.get(0);
+    }
+    return -1;
+}
+```
+
+Sin vértices impares, cualquier punto sirve, y el método responde el $$0$$.
+Con dos, el trazo empieza en el primero y termina en el segundo.
+
+- **Tiempo.** El grado de cada vértice recorre su lista: $$\Theta(V + E)$$
+  en total.
+- **Memoria.** La lista de impares: $$O(V)$$.
+
+La respuesta vale solo si el grafo es conexo, como dice el enunciado: dos
+figuras separadas pueden tener sus grados pares y no dibujarse de un trazo.
+
+</Slide>
+
+<Slide title="Sugerir amigos">
+Una red social sugiere a cada persona a alguien que todavía no es su amigo:
+la persona con más **amigos en común** con ella.
+
+**Entrada.** Las amistades de $$V$$ personas, numeradas de $$0$$ a $$V - 1$$,
+y la persona `u` que recibe la sugerencia.
+
+**Salida.** La persona que no es `u` ni amiga de `u` con más amigos en común
+con `u` —si hay empate, la de número menor—, o $$-1$$ si nadie tiene un amigo
+en común con `u`.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  tones={{ Ana: 'mark', Dani: 'keep' }}
+  caption="para Ana: Dani, con 2 amigos en común; Eva tiene 1"
+  label="Ana, destacada, es amiga de Beto y de Caro. Beto es amigo de Dani y de Eva, y Caro de Dani. Dani, sugerido, comparte dos amigos con Ana; Eva comparte uno."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la idea">
+Contar los amigos en común de `u` con cada otra persona, uno por uno, compara
+listas de amigos para cada persona de la red, aunque casi todas estén lejos
+de `u`.
+
+Un amigo en común con `w` es un amigo `x` de `u` que también es amigo de `w`.
+Al revés: cada amigo `x` de `u` le suma un amigo en común a **cada uno de sus
+propios amigos**. El problema se reduce a recorrer los vecinos de los vecinos
+de `u`, con un contador por persona, saltándose a `u` y a quienes ya son sus
+amigos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 'Ana', x: 0, y: 1 }, { v: 'Beto', x: 2, y: 0 }, { v: 'Caro', x: 2, y: 2 }, { v: 'Dani', x: 4, y: 1 }, { v: 'Eva', x: 4, y: 0 }]}
+  edges={[['Ana', 'Beto'], ['Ana', 'Caro'], ['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  markEdges={[['Beto', 'Dani'], ['Caro', 'Dani'], ['Beto', 'Eva']]}
+  notes={{ Dani: 2, Eva: 1 }}
+  tones={{ Ana: 'mark' }}
+  caption="los amigos de los amigos de Ana, con su cuenta"
+  label="Desde Beto y Caro, los amigos de Ana, se marcan sus amistades: Beto suma uno a Dani y a Eva, y Caro suma uno a Dani. Dani queda con 2 y Eva con 1."
+/>
+
+</Slide>
+
+<Slide title="Sugerir amigos · la solución">
+```java
+static int suggest(Graph g, int u) {
+    boolean[] friend = new boolean[g.V()];
+    for (int x : g.adj(u)) {
+        friend[x] = true;
+    }
+    int[] common = new int[g.V()];
+    for (int x : g.adj(u)) {
+        for (int w : g.adj(x)) {
+            if (w != u && !friend[w]) {
+                common[w]++;
+            }
+        }
+    }
+    int best = -1;
+    for (int w = 0; w < g.V(); w++) {
+        if (common[w] > 0 && (best == -1 || common[w] > common[best])) {
+            best = w;
+        }
+    }
+    return best;
+}
+```
+
+`friend` marca a los amigos de `u` para saltarlos en tiempo constante, sin
+preguntar `hasEdge`, que en listas recorrería la lista de `u` cada vez.
+
+</Slide>
+
+<Slide title="Sugerir amigos · el costo">
+- **Tiempo.** Recorrer los amigos de los amigos de `u` cuesta la suma de los
+  grados de los amigos de `u`, a lo más $$2E$$. Crear los dos arreglos y
+  buscar el mayor cuesta $$\Theta(V)$$. En total, $$O(V + E)$$, y casi siempre
+  mucho menos que $$E$$ en el recorrido: solo se miran las personas a dos
+  pasos de `u`.
+- **Memoria.** Los dos arreglos: $$\Theta(V)$$.
+
+Si `u` no tiene amigos, o sus amigos no tienen otros amigos, ningún contador
+sube y el método retorna $$-1$$.
+
+</Slide>
+
+========================================================================
+Walks over every neighbour, moved to Recorridos (#357) for the topological order (2026-11-08): Kahn starts from the in-degree of every vertex, and these slides compute it in one pass. They quote two methods of Graphs.java that left the file with them; restore the methods below at the end of Graphs, then point each codeRange at its lines.
+========================================================================
+
+    static int[] degrees(Graph g) {
+        int[] degree = new int[g.V()];
+        for (int v = 0; v < g.V(); v++) {
+            for (int w : g.adj(v)) {
+                degree[v]++;
+            }
+        }
+        return degree;
+    }
+
+    static int[] inDegrees(Graph g) {
+        int[] inDegree = new int[g.V()];
+        for (int v = 0; v < g.V(); v++) {
+            for (int w : g.adj(v)) {
+                inDegree[w]++;
+            }
+        }
+        return inDegree;
+    }
+
+<Slide title="Recorrer todos los vecinos en la matriz">
+Muchos problemas recorren los vecinos de cada vértice. Lo que el algoritmo
+sabe de cada vértice se guarda en un arreglo de largo $$V$$, indexado por el
+vértice, y leer o escribir ese dato cuesta $$\Theta(1)$$. `degrees(g)` guarda
+así el grado de cada vértice. Usa solo el contrato, así que funciona con las
+dos estructuras, y la que esté detrás pone el costo:
+
+<StepShow
+  language="java"
+  beside
+  title="degrees(g) con la matriz"
+  program={`int[] degree = Graphs.degrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="13-21"
+>
+  <Step lines={[14]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 casillas']} rows={1} label="Hasta ahora, adj miró 0 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador por vértice, todos en 0. Cada uno se lee y se escribe en Θ(1), por su número.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[]}
+        label="La matriz de adyacencia del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} fresh label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) recorre las 4 casillas de la fila 0 y encuentra 2 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 0], [0, 1], [0, 2], [0, 3]]}
+        label="La matriz; marcada la fila 0 entera, las cuatro casillas que mira adj(0)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[0] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 1]]}
+        label="La matriz; marcada la casilla [0][1]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [1, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[0] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 2]]}
+        label="La matriz; marcada la casilla [0][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} fresh label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) recorre las 4 casillas de la fila 1 y encuentra 2 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 0], [1, 1], [1, 2], [1, 3]]}
+        label="La matriz; marcada la fila 1 entera, las cuatro casillas que mira adj(1)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 0]]}
+        label="La matriz; marcada la casilla [1][0]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[1] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 2]]}
+        label="La matriz; marcada la casilla [1][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} fresh label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) recorre las 4 casillas de la fila 2 y encuentra 3 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 0], [2, 1], [2, 2], [2, 3]]}
+        label="La matriz; marcada la fila 2 entera, las cuatro casillas que mira adj(2)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 2: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 0]]}
+        label="La matriz; marcada la casilla [2][0]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 2: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 1]]}
+        label="La matriz; marcada la casilla [2][1]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: degree[2] pasa a 3.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 3]]}
+        label="La matriz; marcada la casilla [2][3]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} fresh label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: adj(3) recorre las 4 casillas de la fila 3 y encuentra 1 vecino.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[3, 0], [3, 1], [3, 2], [3, 3]]}
+        label="La matriz; marcada la fila 3 entera, las cuatro casillas que mira adj(3)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 3: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[3, 2]]}
+        label="La matriz; marcada la casilla [3][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+  <Step lines={[20]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna degree. Para encontrar 8 entradas, adj miró 16 casillas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[]}
+        label="La matriz de adyacencia del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con la matriz cuesta $$\Theta(V^2)$$.** Cada `adj(v)` recorre una fila de
+$$V$$ casillas, y son $$V$$ filas, tenga el grafo las aristas que tenga.
+
+</Slide>
+
+<Slide title="Recorrer todos los vecinos en las listas">
+El mismo `degrees(g)`, con las listas: cada `adj(v)` copia solo la lista de
+`v`, sin mirar casillas vacías.
+
+<StepShow
+  language="java"
+  beside
+  title="degrees(g) con listas"
+  program={`int[] degree = Graphs.degrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="13-21"
+>
+  <Step lines={[14]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 entradas']} rows={1} label="Hasta ahora, adj miró 0 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador por vértice, todos en 0. Cada uno se lee y se escribe en Θ(1), por su número.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[]}
+        label="Las listas del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} fresh label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) copia la lista de 0: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 0], [0, 1]]}
+        label="Las listas; marcada la lista de 0 entera, la que copia adj(0)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[0] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 0]]}
+        label="Las listas; marcado el 1 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [1, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[0] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 1]]}
+        label="Las listas; marcado el 2 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} fresh label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) copia la lista de 1: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 0], [1, 1]]}
+        label="Las listas; marcada la lista de 1 entera, la que copia adj(1)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 0]]}
+        label="Las listas; marcado el 0 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[1] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 1]]}
+        label="Las listas; marcado el 2 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} fresh label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) copia la lista de 2: 3 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 0], [2, 1], [2, 2]]}
+        label="Las listas; marcada la lista de 2 entera, la que copia adj(2)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 2: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 0]]}
+        label="Las listas; marcado el 0 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 2: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 1]]}
+        label="Las listas; marcado el 1 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: degree[2] pasa a 3.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 2]]}
+        label="Las listas; marcado el 3 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[15, 16]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} fresh label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: adj(3) copia la lista de 3: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[3, 0]]}
+        label="Las listas; marcada la lista de 3 entera, la que copia adj(3)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[16, 17]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 3: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[3, 0]]}
+        label="Las listas; marcado el 2 de la lista de 3."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+  <Step lines={[20]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna degree. adj miró solo las 8 entradas de las listas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[]}
+        label="Las listas del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con las listas cuesta $$\Theta(V + E)$$.** Las listas suman $$2E$$ entradas,
+una por cada extremo de arista, y se pasa por cada uno de los $$V$$ vértices.
+Es lo que cuesta leer el grafo una vez: **tiempo lineal** en su tamaño, y
+ningún programa que mire cada arista puede hacerlo en menos.
+
+</Slide>
+
+<Slide title="El grado de entrada en un grafo dirigido">
+En un grafo dirigido, `adj(v)` entrega los arcos que **salen** de `v`, y
+`degrees(g)` cuenta el grado de salida. Los arcos que **llegan** a `v` no están
+en su lista: están repartidos en las listas de los otros vértices.
+`inDegrees(g)` los cuenta todos en una pasada: por cada arco $$v \to w$$, suma
+uno al grado de entrada de $$w$$.
+
+<StepShow
+  language="java"
+  beside
+  title="inDegrees(g) con listas dirigidas"
+  program={`int[] inDegree = Graphs.inDegrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="23-31"
+>
+  <Step lines={[24]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 entradas']} rows={1} label="Hasta ahora, adj miró 0 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador de arcos que llegan, uno por vértice, todos en 0.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 0, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} fresh label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) copia la lista de 0: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 0], [0, 1]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 0, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: el arco 0→1 llega a 1, inDegree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 0→1."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 1 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: el arco 0→2 llega a 2, inDegree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 0→2."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 1]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 2 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 1, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['3 entradas']} rows={1} fresh label="Hasta ahora, adj miró 3 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) copia la lista de 1: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[1, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 1, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 1, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['3 entradas']} rows={1} label="Hasta ahora, adj miró 3 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: el arco 1→2 llega a 2, inDegree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 1→2."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[1, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 2 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} fresh label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) copia la lista de 2: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[2, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: el arco 2→3 llega a 3, inDegree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[2, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 3 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: la lista de 3 está vacía; de 3 no sale ningún arco.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+  <Step lines={[30]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna inDegree. adj miró las 4 entradas, una por arco.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con las listas cuesta $$\Theta(V + E)$$**, y con la matriz $$\Theta(V^2)$$,
+como `degrees(g)`. Una pasada da el grado de entrada de todos los vértices a
+la vez; repetir la pasada para cada vértice costaría $$V$$ veces más.
+
+</Slide>
+
+========================================================================
+A third implementation, removed (2026-11-08): a Map from each name to the set of its neighbours. Nothing after it used it, its vertices are Strings so it is not a Graph, and the exercises translate names to numbers instead. Restore NameGraph.java (below) into 26-grafos-tda-modelado.code/ with the slide.
+========================================================================
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public class NameGraph {
+    Map<String, Set<String>> adj = new HashMap<>();
+
+    void addEdge(String v, String w) {
+        if (!adj.containsKey(v)) {
+            adj.put(v, new HashSet<>());
+        }
+        if (!adj.containsKey(w)) {
+            adj.put(w, new HashSet<>());
+        }
+        adj.get(v).add(w);
+        adj.get(w).add(v);
+    }
+}
+
+<Slide title="Los vecinos de cada vértice en un conjunto">
+Las listas pagan $$\Theta(\operatorname{grado}(v))$$ por `hasEdge` porque hay
+que recorrerlas. Un `Map` de cada vértice al **conjunto** de sus vecinos evita
+ese recorrido, y además deja usar los nombres sin traducirlos:
+
+<StepShow
+  language="java"
+  beside
+  title="Un conjunto por vértice"
+  program={`NameGraph g = new NameGraph();
+  g.addEdge("ana", "beto");
+  g.addEdge("ana", "carla");
+  g.addEdge("beto", "carla");
+  g.addEdge("ana", "beto");`}
+  codeSrc="./26-grafos-tda-modelado.code/NameGraph.java"
+  codeRange="7-18"
+>
+  <Step lines={[7]} programLines={[]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>El mapa empieza vacío: todavía no hay ningún nombre.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[]}
+        label="La red de ana, beto, carla, sin amistades."
+      />
+      <AdjLists
+        keys={[]}
+        lists={[]}
+        mark={[]}
+        label="El mapa adj: vacío."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[9, 10, 11]} programLines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto): ana no está en el mapa, y entra con un conjunto vacío.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana']}
+        lists={[[]]}
+        mark={[]}
+        label="El mapa adj: ana con el conjunto {}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[13, 14]} programLines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto tampoco está en el mapa, y entra con un conjunto vacío.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto']}
+        lists={[[], []]}
+        mark={[]}
+        label="El mapa adj: ana con el conjunto {}; beto con el conjunto {}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[16]} programLines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de ana.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto']}
+        lists={[['beto'], []]}
+        mark={[[0, 0]]}
+        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[17]} programLines={[2]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de beto.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto']}
+        lists={[['beto'], ['ana']]}
+        mark={[[1, 0]]}
+        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {ana}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[9, 10, 13, 14]} programLines={[3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, carla): ana ya está en el mapa; carla no, y entra con un conjunto vacío.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla']]}
+        markEdges={[['ana', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto'], ['ana'], []]}
+        mark={[]}
+        label="El mapa adj: ana con el conjunto {beto}; beto con el conjunto {ana}; carla con el conjunto {}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[16]} programLines={[3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de ana.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla']]}
+        markEdges={[['ana', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana'], []]}
+        mark={[[0, 1]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[17]} programLines={[3]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana entra al conjunto de carla.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla']]}
+        markEdges={[['ana', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla; marcada ana-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana'], ['ana']]}
+        mark={[[2, 0]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {ana}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[9, 10, 13]} programLines={[4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(beto, carla): los dos nombres ya están en el mapa.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['beto', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana'], ['ana']]}
+        mark={[]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana}; carla con el conjunto {ana}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[16]} programLines={[4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>carla entra al conjunto de beto.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['beto', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana']]}
+        mark={[[1, 1]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[17]} programLines={[4]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto entra al conjunto de carla.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['beto', 'carla']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada beto-carla, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
+        mark={[[2, 1]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[9, 10, 13]} programLines={[5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>addEdge(ana, beto) otra vez: los dos nombres ya están en el mapa.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
+        mark={[]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[16]} programLines={[5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>beto ya está en el conjunto de ana: add no lo agrega otra vez.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
+        mark={[[0, 0]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
+      />
+    </Pair>
+  </Step>
+  <Step lines={[17]} programLines={[5]}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center' }}>ana ya está en el conjunto de beto: add no lo agrega otra vez.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={2}
+        nodes={[{ v: 'ana', x: 0, y: 0 }, { v: 'beto', x: 2, y: 0 }, { v: 'carla', x: 1, y: 1 }]}
+        edges={[['ana', 'beto'], ['ana', 'carla'], ['beto', 'carla']]}
+        markEdges={[['ana', 'beto']]}
+        label="La red de ana, beto, carla, con las amistades ana-beto, ana-carla, beto-carla; marcada ana-beto, la que entra."
+      />
+      <AdjLists
+        keys={['ana', 'beto', 'carla']}
+        lists={[['beto', 'carla'], ['ana', 'carla'], ['ana', 'beto']]}
+        mark={[[1, 0]]}
+        label="El mapa adj: ana con el conjunto {beto, carla}; beto con el conjunto {ana, carla}; carla con el conjunto {ana, beto}."
+      />
+    </Pair>
+  </Step>
+</StepShow>
+
+- **Lo que gana.** `hasEdge` cuesta $$\Theta(1)$$ esperado, como en la matriz,
+  con la memoria de las listas, $$\Theta(V + E)$$.
+- **Lo que pierde.** Un conjunto no guarda dos veces el mismo vecino, así que
+  no caben aristas paralelas. Un `HashSet` entrega los vecinos en un orden que
+  nadie elige, y cada entrada pesa más que un entero en una lista.
+
+</Slide>

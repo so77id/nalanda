@@ -29,6 +29,7 @@ import {
   LazySequenceStepper,
   LazyMergeStepper,
   LazyPartitionStepper,
+  LazySourceFile,
   LazyStepShow,
   MathTex,
   MdxPre,
@@ -231,6 +232,9 @@ export const mdxComponents = {
   // `LazyPredictOutput` are lazy. `<Step>` stays eager (returns null, no
   // dependencies); the `child.type === Step` identity check inside StepShow
   // reads THIS reference.
+  // Lazy: a listing quoted from a file beside the document (ADR-0091); mounts
+  // <CodeStepper> → CodeMirror and carries the course's source files.
+  SourceFile: LazySourceFile,
   StepShow: LazyStepShow,
   Step,
   // Lazy: composes <StepShow> (which itself pulls CodeStepper /

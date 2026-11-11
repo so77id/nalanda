@@ -7,6 +7,8 @@ export interface Fence {
   /** From the `language-*` class; null for a fence written without one. */
   language: string | null;
   source: string;
+  /** The info-string meta after the language (```` ```java file=Graph.java ````), or null. */
+  meta: string | null;
 }
 
 /**
@@ -27,13 +29,14 @@ export function fenceOf(children: ReactNode): Fence | null {
   const node = only[0];
   if (!isValidElement(node) || node.type !== 'code') return null;
 
-  const props = node.props as { className?: unknown; children?: ReactNode };
+  const props = node.props as { className?: unknown; children?: ReactNode; 'data-meta'?: unknown };
   const className = typeof props.className === 'string' ? props.className : '';
   const language = /(?:^|\s)language-([\w+-]+)(?:\s|$)/.exec(className)?.[1] ?? null;
 
   // Only the break the fence itself adds — blank lines inside the listing are
   // the author's and survive.
-  return { language, source: textOf(props.children).replace(/\n$/, '') };
+  const meta = typeof props['data-meta'] === 'string' ? props['data-meta'] : null;
+  return { language, source: textOf(props.children).replace(/\n$/, ''), meta };
 }
 
 /**

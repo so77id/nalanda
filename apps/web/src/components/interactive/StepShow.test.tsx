@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ModeProvider } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
+import { besideColumns } from './stepShowLayout';
 
 // The breakout writes width/marginLeft after MEASURING an ancestor transform,
 // which jsdom cannot produce — so the hook is stubbed and what the test pins
@@ -22,6 +23,16 @@ vi.mock('../useViewportBreakout', () => ({ useViewportBreakout: vi.fn() }));
 // imports it, so the mock lives one level up here. The wrapper still carries
 // `data-highlight-lines` as a comma-separated 1-based list — the actual
 // per-line paint is confirmed in the browser check (ADR-0049 §Consequences).
+// The files a document keeps beside it (ADR-0091) arrive through a Vite glob
+// the suite does not need to exercise: two made-up files stand in for them.
+vi.mock('../../lib/contentCode', () => ({
+  resolveCode: (src: string) =>
+    ({
+      'asset:x.code/Graph.java': 'a\nb\nc\nd\ne\nf\n',
+      'asset:x.code/Main.java': 'm1\nm2\n',
+    })[src] ?? null,
+}));
+
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => (
     <textarea readOnly value={value} data-testid="code-listing" />
@@ -118,11 +129,41 @@ describe('StepShow', () => {
       </StepShow>,
     );
 
-    expect(screen.getByText('alfa')).toBeTruthy();
-    expect(screen.queryByText('beta')).toBeNull();
+    const shown = container.querySelector('[data-stepshow-frame="current"]') as HTMLElement;
+    expect(within(shown).getByText('alfa')).toBeTruthy();
+    expect(within(shown).queryByText('beta')).toBeNull();
     expect(highlightedLines(container)).toEqual([7]);
     // The counter is a claim about position — the reader has to know which of N.
     expect(screen.getByText('paso 1 de 2')).toBeTruthy();
+  });
+
+  it('keeps every step in the frame from the first one, so the widget never changes size', () => {
+    // Every step's drawing is laid out in the same cell and only the current
+    // one is visible: the cell — and the slide scaled to fit it — is as big as
+    // the biggest step from the start (#363). jsdom lays nothing out, so this
+    // pins the structure; the size itself is checked in a browser.
+    const { container } = render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[7]}>
+          <p>alfa</p>
+        </Step>
+        <Step lines={[7, 8]}>
+          <p>beta</p>
+          <p>gamma</p>
+        </Step>
+      </StepShow>,
+    );
+    const frames = () => [...container.querySelectorAll('[data-stepshow-frame]')] as HTMLElement[];
+    // One frame per step, the second taller than the first.
+    expect(frames()).toHaveLength(2);
+    const states = () => frames().map((f) => f.dataset.stepshowFrame);
+    expect(states()).toEqual(['current', 'reserved']);
+    for (const f of frames().filter((f) => f.dataset.stepshowFrame === 'reserved')) {
+      expect(f.style.visibility).toBe('hidden');
+      expect(f.getAttribute('aria-hidden')).toBe('true');
+    }
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
+    expect(states()).toEqual(['reserved', 'current']);
   });
 
   it('advances with Next, retreats with Previous, and jumps back with Reset', () => {
@@ -241,8 +282,6 @@ describe('StepShow', () => {
 
   it('refuses missing code with an AuthoringError', () => {
     render(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error — the widget owes the author this error, so drive it.
       <StepShow language="java">
         <Step lines={[1]}>
           <span>a</span>
@@ -304,6 +343,188 @@ describe('StepShow', () => {
     fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(live?.textContent).toMatch(/Paso 2 de 2/);
     expect(live?.textContent).toMatch(/líneas 7 y 8/);
+  });
+
+  it('sets a named program over the named listing, each lit with its own lines', () => {
+    render(
+      <StepShow code={CODE} program={'f(1);\nf(2);'} codeName="f" language="java">
+        <Step lines={[7]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[8]} programLines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['programa', 'f']);
+    const lit = (i: number) => highlightedLines(listings[i]!);
+    expect([lit(0), lit(1)]).toEqual([[1], [7]]);
+
+    const live = document.querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toMatch(/programa: línea 1; f: línea 7/);
+
+    fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
+    expect([lit(0), lit(1)]).toEqual([[2], [8]]);
+  });
+
+  it('reads a beside ratio as the two columns, and falls back on a malformed one', () => {
+    expect(besideColumns('40/60')).toBe('minmax(0,40fr) minmax(0,60fr)');
+    expect(besideColumns(undefined)).toBeUndefined();
+    expect(besideColumns('40')).toBeUndefined();
+    expect(besideColumns('0/100')).toBeUndefined();
+  });
+
+  it('sets a helper between the program and the listing, lit on its own', () => {
+    render(
+      <StepShow
+        code={CODE}
+        program={'run();'}
+        helper={'void run() {\n    f();\n}'}
+        helperName="run"
+        codeName="f"
+        language="java"
+      >
+        <Step lines={[7]} programLines={[1]} helperLines={[2]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['programa', 'run', 'f']);
+    expect(listings.map((l) => highlightedLines(l))).toEqual([[1], [2], [7]]);
+    const live = document.querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toMatch(/programa: línea 1; run: línea 2; f: línea 7/);
+  });
+
+  it('heads a lone listing with its file when codeName is given', () => {
+    render(
+      <StepShow code={CODE} codeName="Demo.java" language="java">
+        <Step lines={[7]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listings = screen.getAllByTestId('stepshow-listing');
+    expect(listings.map((l) => l.getAttribute('data-listing'))).toEqual(['Demo.java']);
+    expect(highlightedLines(listings[0]!)).toEqual([7]);
+  });
+
+  it('heads the program with its file when programName is given', () => {
+    render(
+      <StepShow
+        code={CODE}
+        program={'f();'}
+        programName="Main.java"
+        codeName="F.java"
+        language="java"
+      >
+        <Step lines={[7]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(
+      screen.getAllByTestId('stepshow-listing').map((l) => l.getAttribute('data-listing')),
+    ).toEqual(['Main.java', 'F.java']);
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toMatch(
+      /Main\.java: línea 1; F\.java: línea 7/,
+    );
+  });
+
+  it('quotes a range of a file: real numbers, the range, and folds for what it leaves out', () => {
+    const { container } = render(
+      <StepShow codeSrc="asset:x.code/Graph.java" codeRange="3-4" language="java">
+        <Step lines={[4]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    const listing = screen.getByTestId('stepshow-listing');
+    expect(listing.dataset['listing']).toBe('Graph.java');
+    expect(screen.getByTestId('listing-range').textContent).toBe('líneas 3–4 de 6');
+    expect(screen.getAllByTestId('listing-fold').map((f) => f.textContent)).toEqual([
+      '⋯ 2 líneas arriba',
+      '⋯ 2 líneas abajo',
+    ]);
+    // The step names file line 4; the editor lights its own second line, and
+    // its gutter counts from 3.
+    expect(highlightedLines(container)).toEqual([2]);
+    expect(container.querySelector('[data-first-line]')?.getAttribute('data-first-line')).toBe('3');
+    expect((screen.getByTestId('code-listing') as HTMLTextAreaElement).value).toBe('c\nd');
+  });
+
+  it('opens the whole files of the walk, one tab each, and closes on Escape', () => {
+    render(
+      <StepShow
+        programSrc="asset:x.code/Main.java"
+        codeSrc="asset:x.code/Graph.java"
+        codeRange="3-4"
+        language="java"
+      >
+        <Step lines={[4]} programLines={[2]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /ver archivo/i })[1]!);
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog)
+        .getAllByRole('tab')
+        .map((t) => t.textContent),
+    ).toEqual(['Main.java', 'Graph.java']);
+    const file = within(dialog).getByTestId('viewer-file');
+    expect(file.dataset['file']).toBe('Graph.java');
+    // The whole file, the quoted range banded, the step's file line lit.
+    expect(file.querySelector('[data-band-lines]')?.getAttribute('data-band-lines')).toBe('3,4');
+    expect(highlightedLines(file)).toEqual([4]);
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('refuses a file that is not under content/ with an AuthoringError', () => {
+    render(
+      <StepShow codeSrc="asset:x.code/Nope.java" language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/Nope\.java/);
+  });
+
+  it('puts a step’s `under` in the code column, under the listings', () => {
+    render(
+      <StepShow code={CODE} program={'f();'} language="java">
+        <Step lines={[7]} programLines={[1]} under={<span>a = true</span>}>
+          <span>dibujo</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(screen.getByTestId('stepshow-under').textContent).toBe('a = true');
+  });
+
+  it('shows one unnamed listing when no program is given', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[7]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(screen.queryAllByTestId('stepshow-listing')).toHaveLength(0);
+    expect(screen.getAllByTestId('code-listing')).toHaveLength(1);
   });
 
   it('ignores non-Step children so an author cannot accidentally count prose', () => {

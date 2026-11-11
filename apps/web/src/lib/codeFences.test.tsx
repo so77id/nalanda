@@ -117,7 +117,17 @@ describe('fenceOf', () => {
     // carrying `language-*`, and the source with its trailing newline.
     const read = fenceOf(<code className="language-java">{'class A {}\n'}</code>);
 
-    expect(read).toEqual({ language: 'java', source: 'class A {}' });
+    expect(read).toEqual({ language: 'java', source: 'class A {}', meta: null });
+  });
+
+  it('reads the meta a fence carries after its language', () => {
+    const read = fenceOf(
+      <code className="language-java" data-meta="file=Graph.java">
+        {'interface Graph {}\n'}
+      </code>,
+    );
+
+    expect(read?.meta).toBe('file=Graph.java');
   });
 
   it('keeps blank lines inside the source, trimming only the fence break', () => {

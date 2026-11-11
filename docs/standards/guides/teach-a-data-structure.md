@@ -342,13 +342,15 @@ card»), and the moulds fit both contracts as they stand. #305 now owes the
 extraction of seven copies.
 
 **What the next card does is decided when its class is refined, with the
-professor, and written in its issue.** The class that defines the next TDA —
-the graphs unit's (#354) — settles it then: #305 first, as a WP of its own
-before the class, or an eighth copy, stated here as a deviation like the
-fifth, sixth and seventh. If the issue is silent — #356's, refined before
-this rule, is — the developer asks the professor before the card's slice. Neither is the default, and the author does not pick one
-silently. Until #305 lands, the copy's source stays _El TDA Sequence_ in
-`17-edd-introduccion.mdx`.
+professor, and written in its issue.** Neither #305 first nor another copy is
+the default, and the author does not pick one silently. Until #305 lands, the
+copy's source stays _El TDA Sequence_ in `17-edd-introduccion.mdx`.
+
+**The graphs unit made eight, and says so.** Its Graph TDA (#363, _El TDA
+Graph_ in `26-grafos-tda-modelado.mdx`) was settled when that class was
+refined with the professor (2026-11-06): an eighth copy, so as not to block
+the class on the extraction, with the operations `V`, `E`, `adj`, `hasEdge`
+and `addEdge`. #305 now owes the extraction of eight copies.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction

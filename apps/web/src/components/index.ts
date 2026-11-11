@@ -113,6 +113,7 @@ export { LazyKaratsubaViz } from './interactive/lazyKaratsubaViz';
 // of every reader of every page (guarded in `src/architecture.test.ts`). The
 // `StepShowProps` type lives on the lazy wrapper too, so a consumer importing
 // it does not statically pull the real widget into their graph.
+export { LazySourceFile } from './interactive/lazySourceFile';
 export { LazyStepShow } from './interactive/lazyStepShow';
 export type { StepShowProps } from './interactive/lazyStepShow';
 // The marker child stays eager: it returns null and imports nothing heavy. The

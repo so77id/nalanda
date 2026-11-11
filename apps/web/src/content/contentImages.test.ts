@@ -25,11 +25,11 @@ function withImage(url: string): Root {
   };
 }
 
-function withJsx(attributeValue: string): Root {
+function withJsx(attributeValue: string, name = 'src'): Root {
   const element: JsxElement = {
     type: 'mdxJsxFlowElement',
     name: 'Figure',
-    attributes: [{ type: 'mdxJsxAttribute', name: 'src', value: attributeValue }],
+    attributes: [{ type: 'mdxJsxAttribute', name, value: attributeValue }],
     children: [],
   };
   return { type: 'root', children: [element as unknown as RootContent] };
@@ -72,6 +72,17 @@ describe('remarkContentImages', () => {
     const tree = transform(withJsx('./logos/google.svg'));
 
     expect(jsxSrc(tree)).toBe('asset:courses/eda/logos/google.svg');
+  });
+
+  it('rewrites a listing’s file named by any <thing>Src attribute, and no other', () => {
+    // <StepShow codeSrc="./x.code/Graph.java"> names a file the same way a
+    // figure does (ADR-0091); an attribute that merely ends in src is not one.
+    expect(jsxSrc(transform(withJsx('./grafos.code/Graph.java', 'codeSrc')))).toBe(
+      'asset:courses/eda/grafos.code/Graph.java',
+    );
+    expect(jsxSrc(transform(withJsx('./grafos.code/Graph.java', 'description')))).toBe(
+      './grafos.code/Graph.java',
+    );
   });
 
   it.each([
