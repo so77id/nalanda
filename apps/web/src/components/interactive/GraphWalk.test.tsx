@@ -373,7 +373,7 @@ describe('GraphWalk', () => {
     render(
       <GraphWalk
         // @ts-expect-error -- an author's typo, as MDX would pass it
-        algorithm="bfs"
+        algorithm="dijkstra"
         nodes={TRIANGLE}
         edges={[[0, 1]]}
         cols={3}
@@ -383,7 +383,9 @@ describe('GraphWalk', () => {
         label="x"
       />,
     );
-    expect(screen.getByText(/son dfs, dfs-iterative y dfs-mark-on-push/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/son dfs, dfs-iterative, dfs-mark-on-push, bfs y bfs-mark-on-pop/),
+    ).toBeInTheDocument();
   });
 });
 
@@ -488,5 +490,159 @@ describe('GraphWalk over a grid', () => {
     unmount();
     render(<GraphWalk code={MAZE_DFS} lines={MAZE_LINES} label="x" />);
     expect(screen.getByText(/falta el grafo/)).toBeInTheDocument();
+  });
+});
+
+// The breadth-first walks (#357 S10): a diamond, 0 joined to 1 and 2, both
+// joined to 3. Inline listings, numbered from 1.
+const DIAMOND = [
+  { v: 0, x: 1, y: 0 },
+  { v: 1, x: 0, y: 1 },
+  { v: 2, x: 2, y: 1 },
+  { v: 3, x: 1, y: 2 },
+];
+const DIAMOND_EDGES: [number, number][] = [
+  [0, 1],
+  [0, 2],
+  [1, 3],
+  [2, 3],
+];
+
+const BFS = `private void bfs(Graph g, int s) {
+    Queue<Integer> queue = new ArrayDeque<>();
+    marked[s] = true;
+    dist[s] = 0;
+    queue.add(s);
+    while (!queue.isEmpty()) {
+        int v = queue.remove();
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                marked[w] = true;
+                dist[w] = dist[v] + 1;
+                prev[w] = v;
+                queue.add(w);
+            }
+        }
+    }
+}`;
+
+const BFS_LINES = {
+  markStart: 3,
+  distStart: 4,
+  enqueueStart: [2, 5],
+  dequeue: [6, 7],
+  look: [8, 9],
+  mark: 10,
+  dist: 11,
+  prev: 12,
+  enqueue: 13,
+  end: 6,
+};
+
+const ON_POP = `private void bfs(Graph g, int s) {
+    Queue<Integer> queue = new ArrayDeque<>();
+    queue.add(s);
+    while (!queue.isEmpty()) {
+        int v = queue.remove();
+        if (marked[v]) {
+            continue;
+        }
+        marked[v] = true;
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                queue.add(w);
+            }
+        }
+    }
+}`;
+
+const ON_POP_LINES = {
+  enqueueStart: [2, 3],
+  dequeue: [4, 5],
+  skip: [6, 7],
+  mark: 9,
+  look: [10, 11],
+  enqueue: 12,
+  end: 4,
+};
+
+async function stepTo(done: () => boolean, limit = 80) {
+  const user = userEvent.setup();
+  const next = screen.getByRole('button', { name: /adelante/i });
+  for (let i = 0; i < limit && !done(); i++) await user.click(next);
+}
+
+describe('GraphWalk, breadth first', () => {
+  it('draws the queue beside the graph and dist under the listing', async () => {
+    render(
+      <GraphWalk
+        algorithm="bfs"
+        nodes={DIAMOND}
+        edges={DIAMOND_EDGES}
+        cols={3}
+        rows={3}
+        code={BFS}
+        lines={BFS_LINES}
+        label="Un rombo."
+      />,
+    );
+    expect(frame()).toHaveAttribute('data-event', 'markStart');
+    expect(screen.getByRole('img', { name: 'La cola está vacía.' })).toBeInTheDocument();
+    expect(document.querySelector('[data-cell="dist[0]"]')).not.toBeNull();
+    await forward(1);
+    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[0]');
+    await forward(1);
+    expect(screen.getByRole('img', { name: 'Cola, del frente al final: 0.' })).toBeInTheDocument();
+  });
+
+  it('writes each vertex its distance as it enqueues it, and keeps it beside the vertex', async () => {
+    render(
+      <GraphWalk
+        algorithm="bfs"
+        nodes={DIAMOND}
+        edges={DIAMOND_EDGES}
+        cols={3}
+        rows={3}
+        code={BFS}
+        lines={BFS_LINES}
+        label="Un rombo."
+      />,
+    );
+    await stepTo(() => frame().dataset['event'] === 'dist' && frame().dataset['w'] === '3');
+    expect(screen.getByText('dist[3] = dist[1] + 1 = 2.')).toBeInTheDocument();
+    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[3]');
+    await stepTo(() => frame().dataset['event'] === 'end');
+    expect(
+      screen.getByText('La cola quedó vacía: no queda nada por recorrer.'),
+    ).toBeInTheDocument();
+  });
+
+  it('marking on dequeue, paints red a vertex enqueued while already in the queue', async () => {
+    render(
+      <GraphWalk
+        algorithm="bfs-mark-on-pop"
+        nodes={DIAMOND}
+        edges={DIAMOND_EDGES}
+        cols={3}
+        rows={3}
+        code={ON_POP}
+        lines={ON_POP_LINES}
+        label="Un rombo."
+      />,
+    );
+    await stepTo(
+      () =>
+        frame().dataset['event'] === 'enqueue' &&
+        frame().dataset['v'] === '2' &&
+        frame().dataset['w'] === '3',
+    );
+    expect(screen.getByText('Encola 3 por segunda vez: ya estaba en la cola.')).toBeInTheDocument();
+    expect(document.querySelector('[data-node][data-value="3"]')).toHaveAttribute(
+      'data-tone',
+      'flag',
+    );
+    // The tempting version keeps neither dist nor prev.
+    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
+    expect(document.querySelector('[data-cell="dist[0]"]')).toBeNull();
   });
 });

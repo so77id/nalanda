@@ -39,7 +39,25 @@ export type DfsEvent = 'mark' | 'look' | 'prev' | 'recurse' | 'return';
 export type StackDfsEvent =
   'markStart' | 'pushStart' | 'pop' | 'skip' | 'mark' | 'look' | 'prev' | 'push' | 'end';
 
-export type WalkEvent = DfsEvent | StackDfsEvent;
+/**
+ * What a breadth-first walk does in a frame. `distStart`, `dist` and `prev`
+ * belong to the search that marks on enqueue; `skip` to the tempting one that
+ * marks on dequeue.
+ */
+export type BfsEvent =
+  | 'markStart'
+  | 'distStart'
+  | 'enqueueStart'
+  | 'dequeue'
+  | 'skip'
+  | 'mark'
+  | 'look'
+  | 'dist'
+  | 'prev'
+  | 'enqueue'
+  | 'end';
+
+export type WalkEvent = DfsEvent | StackDfsEvent | BfsEvent;
 
 /** Where an iterative walk marks a vertex: as it pops it, or as it pushes it. */
 export type MarkOn = 'pop' | 'push';
@@ -67,14 +85,22 @@ export interface WalkFrame {
   /**
    * Recursive: the calls in progress, the first call at the bottom (Teseo's
    * thread). Iterative: the stack the loop keeps, its bottom first.
+   * Breadth-first: the queue, its front first.
    */
   stack: number[];
+  /** Breadth-first: each vertex's distance from the start, −1 unreached. */
+  dist: number[] | null;
+  /**
+   * Breadth-first, marking on dequeue: the frame enqueued `w` while it was
+   * already in the queue — the duplicate marking on enqueue avoids.
+   */
+  twice: boolean;
   /** Recursive: the vertices whose call has returned, in that order. */
   done: number[];
   /** The vertices in the order the walk reached them. */
   order: number[];
-  /** The cell of `marked` or `prev` this frame wrote, if it wrote one. */
-  wrote: { array: 'marked' | 'prev'; index: number } | null;
+  /** The cell of `marked`, `dist` or `prev` this frame wrote, if it wrote one. */
+  wrote: { array: 'marked' | 'dist' | 'prev'; index: number } | null;
   /**
    * On `look` over a grid: the cell looked at, `[row, col]`, in the grid or
    * off it (`w` is null off it). Null over a graph.
@@ -87,20 +113,23 @@ export interface WalkFrame {
 }
 
 type FrameFields = Pick<WalkFrame, 'event' | 'v' | 'w' | 'text'> &
-  Partial<Pick<WalkFrame, 'seen' | 'unvisited' | 'wrote' | 'cell' | 'blocked'>>;
+  Partial<Pick<WalkFrame, 'seen' | 'unvisited' | 'wrote' | 'cell' | 'blocked' | 'twice'>>;
 
 /** The walk's state, snapshotted into a frame after every step. */
 class Recorder {
   readonly marked: boolean[];
   readonly prev: number[];
+  /** Kept only by a breadth-first walk; null in the others. */
+  readonly dist: number[] | null;
   readonly stack: number[] = [];
   readonly done: number[] = [];
   readonly order: number[] = [];
   readonly frames: WalkFrame[] = [];
 
-  constructor(V: number) {
+  constructor(V: number, withDist = false) {
     this.marked = Array.from({ length: V }, () => false);
     this.prev = Array.from({ length: V }, () => -1);
+    this.dist = withDist ? Array.from({ length: V }, () => -1) : null;
   }
 
   record(f: FrameFields) {
@@ -110,9 +139,11 @@ class Recorder {
       wrote: null,
       cell: null,
       blocked: false,
+      twice: false,
       ...f,
       marked: [...this.marked],
       prev: [...this.prev],
+      dist: this.dist === null ? null : [...this.dist],
       stack: [...this.stack],
       done: [...this.done],
       order: [...this.order],
@@ -440,6 +471,153 @@ export function traceDfsStack(
     v: null,
     w: null,
     text: 'La pila quedó vacía: no queda nada por recorrer.',
+  });
+  return r.frames;
+}
+
+/**
+ * Breadth-first search, as the listing reads when it marks on enqueue
+ * (`markOn = 'push'`):
+ *
+ * ```java
+ * Queue<Integer> queue = new ArrayDeque<>();
+ * marked[s] = true;
+ * dist[s] = 0;
+ * queue.add(s);
+ * while (!queue.isEmpty()) {
+ *     int v = queue.remove();
+ *     for (int w : g.adj(v)) {
+ *         if (!marked[w]) {
+ *             marked[w] = true;
+ *             dist[w] = dist[v] + 1;
+ *             prev[w] = v;
+ *             queue.add(w);
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * and as the tempting version reads, which marks on dequeue (`markOn = 'pop'`)
+ * and keeps neither `dist` nor `prev`: `queue.add(s)`, then `remove`, `if
+ * (marked[v]) continue`, `marked[v] = true` and `queue.add(w)` for every
+ * unmarked neighbour. It ends, but a vertex reached from two vertices of one
+ * layer enters the queue twice (a diamond shows it).
+ *
+ * One frame per assignment (`markStart`, `distStart`, `enqueueStart`,
+ * `dequeue`, `mark`, `dist`, `prev`, `enqueue`), per neighbour looked at
+ * (`look`), per vertex dropped (`skip`), and one when the queue runs out
+ * (`end`).
+ */
+export function traceBfs(
+  adj: readonly (readonly number[])[],
+  start: number,
+  markOn: MarkOn,
+): WalkFrame[] {
+  const V = adj.length;
+  if (!isVertex(V, start)) {
+    throw new RangeError(`start ${start} is not a vertex of 0..${V - 1}`);
+  }
+  const onPush = markOn === 'push';
+  const r = new Recorder(V, onPush);
+  const { marked, prev, order } = r;
+  const dist = r.dist;
+  const queue = r.stack;
+
+  if (onPush && dist !== null) {
+    marked[start] = true;
+    r.record({
+      event: 'markStart',
+      v: null,
+      w: null,
+      wrote: { array: 'marked', index: start },
+      text: `Marca el origen ${start}.`,
+    });
+    dist[start] = 0;
+    r.record({
+      event: 'distStart',
+      v: null,
+      w: null,
+      wrote: { array: 'dist', index: start },
+      text: `dist[${start}] = 0: el origen está a distancia 0 de sí mismo.`,
+    });
+  }
+  queue.push(start);
+  r.record({ event: 'enqueueStart', v: null, w: null, text: `Encola el origen ${start}.` });
+  while (queue.length > 0) {
+    const v = queue.shift()!;
+    if (onPush) order.push(v);
+    r.record({ event: 'dequeue', v, w: null, text: `Saca ${v} del frente de la cola.` });
+    if (!onPush) {
+      if (marked[v]) {
+        r.record({ event: 'skip', v, w: null, text: `${v} ya está marcado: lo descarta.` });
+        continue;
+      }
+      marked[v] = true;
+      order.push(v);
+      r.record({
+        event: 'mark',
+        v,
+        w: null,
+        wrote: { array: 'marked', index: v },
+        text: `Marca ${v}.`,
+      });
+    }
+    for (const w of adj[v]) {
+      const seen = marked[w];
+      const queued = !seen && queue.includes(w);
+      r.record({
+        event: 'look',
+        v,
+        w,
+        seen,
+        text: seen
+          ? `Mira el vecino ${w} de ${v}: ya está marcado, lo salta.`
+          : queued
+            ? `Mira el vecino ${w} de ${v}: no está marcado, aunque ya está en la cola.`
+            : `Mira el vecino ${w} de ${v}: no está marcado.`,
+      });
+      if (seen) continue;
+      if (onPush && dist !== null) {
+        marked[w] = true;
+        r.record({
+          event: 'mark',
+          v,
+          w,
+          wrote: { array: 'marked', index: w },
+          text: `Marca ${w} al encolarlo.`,
+        });
+        dist[w] = dist[v] + 1;
+        r.record({
+          event: 'dist',
+          v,
+          w,
+          wrote: { array: 'dist', index: w },
+          text: `dist[${w}] = dist[${v}] + 1 = ${dist[w]}.`,
+        });
+        prev[w] = v;
+        r.record({
+          event: 'prev',
+          v,
+          w,
+          wrote: { array: 'prev', index: w },
+          text: `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`,
+        });
+      }
+      queue.push(w);
+      r.record({
+        event: 'enqueue',
+        v,
+        w,
+        twice: queued,
+        text: queued ? `Encola ${w} por segunda vez: ya estaba en la cola.` : `Encola ${w}.`,
+      });
+    }
+  }
+  r.record({
+    event: 'end',
+    v: null,
+    w: null,
+    text: 'La cola quedó vacía: no queda nada por recorrer.',
   });
   return r.frames;
 }

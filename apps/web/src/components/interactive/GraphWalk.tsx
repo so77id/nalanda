@@ -11,6 +11,7 @@ import {
   adjacencyOf,
   traceDfs,
   traceDfsStack,
+  traceBfs,
   traceGridDfs,
   type GraphWalkEdge,
   type WalkEvent,
@@ -19,13 +20,27 @@ import {
 import { Step } from './Step';
 import { StepShow } from './StepShow';
 
-export type GraphWalkAlgorithm = 'dfs' | 'dfs-iterative' | 'dfs-mark-on-push';
+export type GraphWalkAlgorithm =
+  'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop';
 
 /** The events of each walk, each lighting the lines an author maps it to. */
 const EVENTS: Record<GraphWalkAlgorithm, readonly WalkEvent[]> = {
   dfs: ['mark', 'look', 'prev', 'recurse', 'return'],
   'dfs-iterative': ['pushStart', 'pop', 'skip', 'mark', 'look', 'prev', 'push', 'end'],
   'dfs-mark-on-push': ['markStart', 'pushStart', 'pop', 'look', 'mark', 'prev', 'push', 'end'],
+  bfs: [
+    'markStart',
+    'distStart',
+    'enqueueStart',
+    'dequeue',
+    'look',
+    'mark',
+    'dist',
+    'prev',
+    'enqueue',
+    'end',
+  ],
+  'bfs-mark-on-pop': ['enqueueStart', 'dequeue', 'skip', 'mark', 'look', 'enqueue', 'end'],
 };
 
 export interface GraphWalkProps {
@@ -102,8 +117,8 @@ export function GraphWalk(props: GraphWalkProps) {
   if (!Object.hasOwn(EVENTS, algorithm)) {
     return (
       <AuthoringError component="GraphWalk">
-        algorithm=&quot;{String(algorithm)}&quot; no existe; son dfs, dfs-iterative y
-        dfs-mark-on-push.
+        algorithm=&quot;{String(algorithm)}&quot; no existe; son dfs, dfs-iterative,
+        dfs-mark-on-push, bfs y bfs-mark-on-pop.
       </AuthoringError>
     );
   }
@@ -198,6 +213,8 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
     const adj = adjacencyOf(V, parsed, directed);
     if (algorithm === 'dfs') return traceDfs(adj, start);
+    if (algorithm === 'bfs') return traceBfs(adj, start, 'push');
+    if (algorithm === 'bfs-mark-on-pop') return traceBfs(adj, start, 'pop');
     return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push');
   }, [algorithm, V, edgesKey, gridKey, directed, start]);
   const depth = Math.max(...frames.map((f) => f.stack.length));
@@ -229,7 +246,11 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
           key={i}
           lines={asLines(lines[frame.event])}
           programLines={programLines}
-          under={gridKey === undefined ? <ArraysPanel frame={frame} /> : undefined}
+          under={
+            gridKey === undefined ? (
+              <ArraysPanel frame={frame} withPrev={algorithm !== 'bfs-mark-on-pop'} />
+            ) : undefined
+          }
         >
           {gridKey !== undefined ? (
             <GridFrame frame={frame} grid={gridKey.split('\n')} depth={depth} label={label} />
@@ -241,7 +262,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               cols={cols}
               rows={rows}
               directed={directed}
-              recursive={algorithm === 'dfs'}
+              bag={algorithm === 'dfs' ? 'calls' : algorithm.startsWith('bfs') ? 'queue' : 'stack'}
               depth={depth}
               label={label}
             />
@@ -259,13 +280,17 @@ interface FrameProps {
   cols: number;
   rows: number;
   directed: boolean;
-  /** The recursive walk draws its call stack; an iterative one, its own stack. */
-  recursive: boolean;
+  /**
+   * What holds the vertices still to walk: the recursive walk's call stack,
+   * the iterative one's own stack, or the breadth-first walk's queue.
+   */
+  bag: 'calls' | 'stack' | 'queue';
   depth: number;
   label: string;
 }
 
-function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, label }: FrameProps) {
+function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }: FrameProps) {
+  const recursive = bag === 'calls';
   // On a slide the drawing has its own column (`beside`) and the code is set
   // large: the graph takes more of it. Both caps are fixed numbers, never a
   // share of the column, so the frame's height never follows its width.
@@ -278,6 +303,15 @@ function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, la
   if (frame.wrote?.array === 'marked') tones[String(frame.wrote.index)] = 'mark';
   // Marking on push: a neighbour skipped though the walk never reached it.
   if (frame.unvisited && frame.w !== null) tones[String(frame.w)] = 'flag';
+  // Marking on dequeue: a vertex enqueued while it is already in the queue.
+  if (frame.twice && frame.w !== null) tones[String(frame.w)] = 'flag';
+  // Breadth-first: each reached vertex carries its distance, its layer.
+  const notes: Record<string, string> = {};
+  if (frame.dist !== null) {
+    frame.dist.forEach((d, v) => {
+      if (d >= 0) notes[String(v)] = `d=${d}`;
+    });
+  }
   const thread = recursive
     ? // The edge each call in progress was entered by.
       frame.stack.slice(1).map((v): NodeGraphEdge => [frame.prev[v], v])
@@ -305,12 +339,15 @@ function Frame({ frame, nodes, edges, cols, rows, directed, recursive, depth, la
             rows={rows}
             directed={directed}
             tones={tones}
+            notes={notes}
             markEdges={[...thread, ...looking]}
             label={`${label} ${frame.text}`}
           />
         </div>
         {recursive ? (
           <CallStack frame={frame} depth={depth} />
+        ) : bag === 'queue' ? (
+          <QueuePanel frame={frame} depth={depth} />
         ) : (
           <StackPanel
             title="pila"
@@ -633,8 +670,79 @@ function StackPanel({ title, items, hot, depth, label }: StackPanelProps) {
   );
 }
 
+/** The breadth-first walk's queue, its front at the left, `depth` cells wide. */
+function QueuePanel({ frame, depth }: { frame: WalkFrame; depth: number }) {
+  const cw = 34;
+  const head = 18;
+  const width = Math.max(1, depth) * (cw + 4) + 8;
+  const height = head + CELL_H + 18;
+  const enqueued = frame.event === 'enqueue' || frame.event === 'enqueueStart';
+  const items = frame.stack;
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ width: `${width}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
+      role="img"
+      aria-label={
+        items.length === 0
+          ? 'La cola está vacía.'
+          : `Cola, del frente al final: ${items.join(', ')}.`
+      }
+      data-testid="graph-walk-queue"
+    >
+      <text x={4} y={12} fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>
+        cola
+      </text>
+      {items.map((v, i) => {
+        const x = 4 + i * (cw + 4);
+        const last = i === items.length - 1;
+        const bad = last && frame.twice;
+        const on = last && enqueued;
+        return (
+          <g key={i} data-queue-cell={v} data-hot={on ? '' : undefined}>
+            <rect
+              x={x}
+              y={head}
+              width={cw}
+              height={CELL_H}
+              rx={4}
+              style={{
+                fill: bad
+                  ? 'var(--color-flag-soft)'
+                  : on
+                    ? 'var(--color-mark-soft)'
+                    : 'var(--color-surface)',
+                stroke: bad
+                  ? 'var(--color-flag)'
+                  : on
+                    ? 'var(--color-mark)'
+                    : 'var(--color-ink-soft)',
+              }}
+              strokeWidth={on || bad ? 2 : 1.2}
+            />
+            <text
+              x={x + cw / 2}
+              y={head + CELL_H / 2 + 4}
+              textAnchor="middle"
+              fontSize="12"
+              fontWeight="700"
+              fontFamily="var(--font-mono, monospace)"
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              {v}
+            </text>
+          </g>
+        );
+      })}
+      <text x={4} y={height - 3} fontSize="10" style={{ fill: 'var(--color-ink-soft)' }}>
+        ↑ frente
+      </text>
+    </svg>
+  );
+}
+
 /** `marked` and `prev`, one cell per vertex, the cell the frame wrote in mark. */
-function ArraysPanel({ frame }: { frame: WalkFrame }) {
+function ArraysPanel({ frame, withPrev = true }: { frame: WalkFrame; withPrev?: boolean }) {
   const V = frame.marked.length;
   const nameW = 62;
   const cw = 46;
@@ -642,19 +750,18 @@ function ArraysPanel({ frame }: { frame: WalkFrame }) {
   const gap = 8;
   const rowH = head + CELL_H + gap;
   const width = nameW + V * cw + 4;
-  const height = 2 * rowH;
+  const minus = (n: number) => (n < 0 ? '−1' : String(n));
+  const hotIn = (array: 'marked' | 'dist' | 'prev') =>
+    frame.wrote?.array === array ? frame.wrote.index : -1;
+  // A breadth-first walk keeps `dist` too; the tempting one keeps no `prev`.
   const rowsData: { name: string; cells: string[]; hot: number }[] = [
-    {
-      name: 'marked',
-      cells: frame.marked.map(String),
-      hot: frame.wrote?.array === 'marked' ? frame.wrote.index : -1,
-    },
-    {
-      name: 'prev',
-      cells: frame.prev.map((p) => (p < 0 ? '−1' : String(p))),
-      hot: frame.wrote?.array === 'prev' ? frame.wrote.index : -1,
-    },
+    { name: 'marked', cells: frame.marked.map(String), hot: hotIn('marked') },
+    ...(frame.dist === null
+      ? []
+      : [{ name: 'dist', cells: frame.dist.map(minus), hot: hotIn('dist') }]),
+    ...(withPrev ? [{ name: 'prev', cells: frame.prev.map(minus), hot: hotIn('prev') }] : []),
   ];
+  const height = rowsData.length * rowH;
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}

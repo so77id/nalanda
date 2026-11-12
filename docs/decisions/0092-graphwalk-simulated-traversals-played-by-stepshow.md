@@ -57,8 +57,8 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - **Walks are added one at a time, each with the slide that first uses it**
   (ADR-0083's rule): S3 shipped the recursive DFS; S5a the iterative DFS and
   the tempting version that marks on push; S5b the recursive DFS over a
-  maze's grid; BFS with its queue and `dist`, and Kahn with its in-degrees
-  and the line layout come with arcs II and III.
+  maze's grid; S10 BFS with its queue and `dist`, and its tempting version;
+  Kahn with its in-degrees and the line layout comes with arc III.
 - **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
   `Stack`, the loop BFS shares with a queue at the close of arc II (la
   bolsa). It is drawn beside its own stack instead of the call stack; the
@@ -92,6 +92,15 @@ Three ways to animate the walks were weighed with Miguel in S3.
   an arrow from each cell back to where it was reached from, the arrows of
   the calls in progress in mark (the thread), and a dashed arrow to the cell
   being looked at. Decided with Miguel in S5b.
+- **The breadth-first search marks on enqueue** (`bfs`), as algs4's
+  `BreadthFirstPaths`: `marked`, `dist` and `prev` under the listing, each
+  reached vertex carrying its distance (`d=…`) beside it so the layers show,
+  and the queue drawn front first beside the graph. `dist` starts at −1, so
+  an unreached vertex reads as such. **The version that marks on dequeue**
+  (`bfs-mark-on-pop`), the tree's level order copied as is, is a walk too:
+  it ends, and paints red a vertex enqueued while it is already in the
+  queue. It keeps neither `dist` nor `prev`, so neither is drawn. Planned in
+  S9, built in S10.
 
 ## Alternatives considered
 
@@ -111,11 +120,12 @@ Three ways to animate the walks were weighed with Miguel in S3.
   walks here, the priority queue being one more bag.
 - The catalog entry quotes the course's files
   (`27-grafos-recorridos.code/DepthFirstPaths.java`,
-  `IterativeDepthFirstPaths.java` and `MazeDepthFirstPaths.java`), as
-  `<SourceFile>`'s quotes class 2's: when the class's code changes, the
-  entry's ranges and `lines` move with it. The trace was checked against
-  those files run on a JDK 21 (S5a, S5b): the same order and the same `prev`
-  on the square, on the counterexample and on the maze.
+  `IterativeDepthFirstPaths.java`, `MazeDepthFirstPaths.java` and
+  `BreadthFirstPaths.java`), as `<SourceFile>`'s quotes class 2's: when the
+  class's code changes, the entry's ranges and `lines` move with it. The
+  trace was checked against those files run on a JDK 21 (S5a, S5b, S10): the
+  same order, `prev` and `dist` on the square, on the counterexample, on the
+  maze and on the five-vertex graph.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit
