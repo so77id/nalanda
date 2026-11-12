@@ -59,30 +59,31 @@ const FRIENDS = {
   caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
 };
 
-// The malla: 0 Álgebra, 1 Cálculo I, 2 Programación, 3 Cálculo II,
-// 4 Ecuaciones, 5 Métodos Numéricos; one arc per prerequisite.
+// The malla: 0 Álgebra, 1 Cálculo II, 2 Cálculo I, 3 Programación,
+// 4 Ecuaciones, 5 Métodos Numéricos; one arc per prerequisite. The numbers are
+// not an order, so Kahn's walk is seen to reorder them.
 const MALLA = {
   directed: true,
   nodes: [
     { v: 0, x: 0, y: 1 },
-    { v: 1, x: 0, y: 0 },
-    { v: 2, x: 0, y: 2 },
-    { v: 3, x: 2, y: 0 },
+    { v: 1, x: 2, y: 0 },
+    { v: 2, x: 0, y: 0 },
+    { v: 3, x: 0, y: 2 },
     { v: 4, x: 4, y: 0 },
     { v: 5, x: 4, y: 2 },
   ],
   edges: [
-    [1, 3],
-    [0, 3],
-    [3, 4],
-    [2, 5],
+    [2, 1],
+    [0, 1],
+    [1, 4],
+    [3, 5],
     [4, 5],
   ] as [number, number][],
   cols: 5,
   rows: 3,
   label: 'La malla.',
   caption:
-    '0 Álgebra · 1 Cálculo I · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Métodos Numéricos',
+    '0 Álgebra · 1 Cálculo II · 2 Cálculo I · 3 Programación · 4 Ecuaciones · 5 Métodos Numéricos',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
