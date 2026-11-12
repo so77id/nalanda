@@ -3725,10 +3725,54 @@ class Solution {
 
 ## Más allá de los recorridos
 
-{/* S24: the topological order by reverse DFS postorder, said plainly as the */}
-{/* method most texts use; strongly connected components. */}
+<Slide title="El orden topológico con la búsqueda en profundidad">
+
+La mayoría de los textos arma el orden topológico de otra manera: con la
+búsqueda en profundidad. Se anota cada vértice cuando su llamada termina, el
+**postorden**. Cuando termina la llamada de `v`, ya terminaron las de todos
+los vértices que se alcanzan desde `v`, así que, en un grafo sin ciclos, por
+cada arco $$v \to w$$ el vértice `w` queda antes que `v` en el postorden.
+Dar vuelta la lista da un orden topológico, el **postorden inverso**. No da
+los semestres, y no dice por sí solo si hay un ciclo: para eso hay que ver si
+algún arco llega a un vértice cuya llamada sigue en curso.
+
+<LineOrder
+  order={[2, 1, 5, 0, 3, 4]}
+  arcs={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  caption="el postorden inverso de la malla: 2, 1, 5, 0, 3, 4"
+  label="La malla de seis ramos en el orden del postorden inverso: 2, 1, 5, 0, 3, 4. Todos los arcos apuntan hacia la derecha."
+/>
+
+</Slide>
+
+<Slide title="Componentes fuertemente conexas">
+
+En un grafo dirigido, que de `u` se llegue a `v` no dice que de `v` se llegue
+a `u`. Dos vértices están en la misma **componente fuertemente conexa**
+cuando cada uno alcanza al otro. Las componentes parten el grafo en pedazos,
+y si cada pedazo se contrae a un solo vértice, queda un grafo sin ciclos. Se
+encuentran en $$\Theta(V + E)$$ con búsquedas en profundidad: dos, una en el
+grafo y otra en su transpuesto (el algoritmo de Kosaraju y Sharir), o una
+sola (el de Tarjan).
+
+<NodeGraph
+  cols={7}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }, { v: 3, x: 4, y: 1 }, { v: 4, x: 6, y: 1 }]}
+  edges={[[0, 1], [1, 2], [2, 0], [2, 3], [3, 4], [4, 3]]}
+  directed
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'mark', 4: 'mark' }}
+  caption="dos componentes fuertemente conexas: 0, 1 y 2; 3 y 4"
+  label="Un grafo dirigido de cinco vértices: un ciclo 0, 1, 2, en verde; un arco de 2 a 3; y un ciclo 3, 4, en amarillo. De 2 se llega a 3, pero de 3 no se vuelve a 2."
+/>
+
+</Slide>
 
 ## Lo que sigue
 
-{/* S24: conectar todas las comunas gastando lo mínimo, with the wiki-link */}
-{/* to #358's document once it exists. */}
+En los recorridos todas las aristas valen lo mismo, y la distancia cuenta
+aristas. Cuando cada arista lleva un número, lo que cuesta construir un
+camino o lo que demora un tramo, las preguntas cambian: ¿cómo se conectan
+todas las comunas de una región gastando lo mínimo? Ninguno de los tres
+recorridos mira esos números. Es lo que sigue, en la clase de árboles
+cobertores mínimos.
