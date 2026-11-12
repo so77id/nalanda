@@ -35,34 +35,474 @@ orden en que se recorre decide qué pregunta responde.
 {/* fields are marked and prev (prev[s] = -1 marks the start), the public */}
 {/* methods hasPathTo and pathTo; IterativeDepthFirstPaths has the same API. */}
 
+{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side. `tones` paints a free cell, keyed by its vertex: mark, keep or flag. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. File-local: only the arc of the depth-first search draws a maze. */}
+
+export function Maze({ grid, numbers = false, ends, ways = false, tones = {}, thread = [], caption, label }) {
+  const cell = 40;
+  const pad = 14;
+  const side = ends ? 72 : pad;
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const gridW = cols * cell;
+  const width = Math.max(gridW + 2 * side, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const height = pad + rows * cell + (caption ? 34 : pad);
+  const fill = { mark: 'var(--color-mark-soft)', keep: 'var(--color-keep-soft)', flag: 'var(--color-flag-soft)' };
+  const stroke = { mark: 'var(--color-mark)', keep: 'var(--color-keep)', flag: 'var(--color-flag)' };
+  const at = (v) => [left + (v % cols) * cell + cell / 2, pad + Math.floor(v / cols) * cell + cell / 2];
+  const free = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c] === '.';
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const v = r * cols + c;
+      const wall = grid[r][c] === '#';
+      const tone = wall ? undefined : tones[v];
+      cells.push(
+        <g key={v}>
+          <rect x={left + c * cell} y={pad + r * cell} width={cell} height={cell} style={{ fill: wall ? 'var(--color-ink-soft)' : 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+          {tone ? <rect x={left + c * cell + 2} y={pad + r * cell + 2} width={cell - 4} height={cell - 4} style={{ fill: fill[tone], stroke: stroke[tone] }} strokeWidth="2.4" /> : null}
+          {numbers && !wall ? <text x={left + c * cell + 4} y={pad + r * cell + 12} fontSize="10" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{v}</text> : null}
+        </g>,
+      );
+    }
+  }
+  const graph = [];
+  if (ways) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!free(r, c)) continue;
+        for (const [dr, dc] of [[0, 1], [1, 0]]) {
+          if (!free(r + dr, c + dc)) continue;
+          const [x1, y1] = at(r * cols + c);
+          const [x2, y2] = at((r + dr) * cols + c + dc);
+          graph.push(<line key={`e${r},${c},${dr}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />);
+        }
+      }
+    }
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!free(r, c)) continue;
+        const [x, y] = at(r * cols + c);
+        graph.push(<circle key={`v${r},${c}`} cx={x} cy={y} r="4.5" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />);
+      }
+    }
+  }
+  const points = thread.map((v) => at(v).join(',')).join(' ');
+  const last = thread.length > 0 ? at(thread[thread.length - 1]) : null;
+  const doors = [];
+  if (ends) {
+    const y0 = at(ends[0])[1];
+    const y1 = at(ends[1])[1];
+    const inX = left;
+    const outX = left + gridW;
+    doors.push(
+      <g key="in">
+        <line x1={inX - 26} y1={y0} x2={inX - 6} y2={y0} style={{ stroke: 'var(--color-ink)' }} strokeWidth="2" />
+        <polygon points={`${inX - 2},${y0} ${inX - 9},${y0 - 4.5} ${inX - 9},${y0 + 4.5}`} style={{ fill: 'var(--color-ink)' }} />
+        <text x={inX - 30} y={y0 + 4} textAnchor="end" fontSize="12" style={{ fill: 'var(--color-ink)' }}>entrada</text>
+      </g>,
+      <g key="out">
+        <line x1={outX + 2} y1={y1} x2={outX + 22} y2={y1} style={{ stroke: 'var(--color-ink)' }} strokeWidth="2" />
+        <polygon points={`${outX + 26},${y1} ${outX + 19},${y1 - 4.5} ${outX + 19},${y1 + 4.5}`} style={{ fill: 'var(--color-ink)' }} />
+        <text x={outX + 30} y={y1 + 4} fontSize="12" style={{ fill: 'var(--color-ink)' }}>salida</text>
+      </g>,
+    );
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {cells}
+      {graph}
+      {thread.length > 1 ? <polyline points={points} fill="none" style={{ stroke: 'var(--color-mark)' }} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" /> : null}
+      {last ? <circle cx={last[0]} cy={last[1]} r="6.5" style={{ fill: 'var(--color-mark)', stroke: 'var(--color-surface)' }} strokeWidth="2" /> : null}
+      {doors}
+      {caption ? <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
+    </svg>
+  );
+}
+
+{/* Calls — the calls in progress, the first at the bottom: a frame per call, `depth` frames tall whatever it holds, so a walk's drawing keeps its size; the top one, the call that runs, in mark, and `flag` paints the frames of a call that should never have been made. File-local. */}
+
+export function Calls({ items, depth, flag = [], label }) {
+  const rowH = 24;
+  const head = 18;
+  const width = Math.max(110, 16 + Math.max(0, ...items.map((t) => t.length)) * 8.4);
+  const height = head + depth * (rowH + 4) + 4;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <text x={width / 2} y={12} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>pila de llamadas</text>
+      {items.map((t, i) => {
+        const y = height - (i + 1) * (rowH + 4);
+        const top = i === items.length - 1;
+        const bad = flag.includes(i);
+        return (
+          <g key={i}>
+            <rect x={4} y={y} width={width - 8} height={rowH} rx="4" style={{ fill: bad ? 'var(--color-flag-soft)' : top ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: bad ? 'var(--color-flag)' : top ? 'var(--color-mark)' : 'var(--color-ink-soft)' }} strokeWidth={top || bad ? 2 : 1.2} />
+            <text x={width / 2} y={y + rowH / 2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* OutputBox — what a walk has printed or returned so far: a titled box with one row per value, `rows` rows tall whatever it holds, so the frame keeps its size; `fresh` outlines the last row, the one this step wrote. File-local. */}
+
+export function OutputBox({ lines = [], rows = 3, head = 'salida', fresh = false, label }) {
+  const rowH = 26;
+  const pad = 10;
+  const headH = 20;
+  const width = Math.max(120, pad * 2 + Math.max(0, ...lines.map((l) => String(l).length)) * 9.6 + 16);
+  const height = headH + rows * rowH + pad;
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <text x={pad} y={14} fontSize="11" fontWeight="700" letterSpacing="0.08em" style={{ fill: 'var(--color-ink-faint)' }}>{head.toUpperCase()}</text>
+      <rect x={1} y={headH} width={width - 2} height={rows * rowH + pad - 2} rx="6" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+      {lines.map((t, r) => {
+        const y = headH + 4 + r * rowH;
+        const hot = fresh && r === lines.length - 1;
+        return (
+          <g key={r}>
+            {hot ? <rect x={pad - 4} y={y + 1} width={String(t).length * 9.6 + 8} height={rowH - 4} rx="4" style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="1.6" /> : null}
+            <text x={pad} y={y + 18} fontSize="16" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: valueTone(String(t).split(' ').pop()) }}>{String(t)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+{/* valueTone — the colour of a value in a drawing: true in keep; false, ∞ and null in flag; nothing in faint; anything else in ink. */}
+
+export function valueTone(t) {
+  const v = String(t);
+  if (v === 'true') return 'var(--color-keep)';
+  if (v === 'false' || v === '∞' || v === 'null') return 'var(--color-flag)';
+  if (v === '') return 'var(--color-ink-faint)';
+  return 'var(--color-ink)';
+}
+
+{/* Pair — the graph and the structure that stores it, side by side, wrapping to one over the other when the column is narrow: every frame of a walk over an implementation shows both, so the reader sees which edge a line of code is writing and where it lands. `stack` puts one over the other always: for a wide graph beside a listing. */}
+
+export function Pair({ stack = false, children }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: stack ? '1fr' : 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.25rem 1.5rem', alignItems: 'center' }}>
+      {children}
+    </div>
+  );
+}
+
 {/* Beat 1 · the question, on something already seen. */}
 
-<Slide title="¿Se llega a la salida?">
+<Slide title="La salida de un laberinto">
 
-{/* A maze of 3 x 4 with eight free cells (decided in S5b, the one slide 9 */}
-{/* walks: ...#, .#.., .##.), the entrance (0, 0) and the exit (2, 3) */}
-{/* marked, its implicit graph drawn over it (the free cells, the steps). */}
-{/* Asks, without answering, whether the exit is reached from the entrance, */}
-{/* and by which way. [MazeGrid with `ways`] */}
+Un laberinto es una grilla de celdas libres y de muros, con una entrada y una
+salida. Desde una celda libre se avanza a cualquiera de las cuatro que
+comparten un lado con ella, si también está libre. Su grafo ya está en la
+grilla: un vértice por celda libre, numerado $$r \cdot C + c$$ en la fila
+$$r$$ y la columna $$c$$ de una grilla de $$C$$ columnas, y una arista entre
+cada par de celdas libres vecinas.
+
+Desde la entrada, ¿se llega a la salida? Y si se llega, ¿por qué celdas?
+
+<Maze
+  grid={["...#", ".#..", ".##."]}
+  numbers
+  ends={[0, 11]}
+  ways
+  caption="un vértice por celda libre, una arista por cada paso"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 6 y 7 en la fila 1; 8 y 11 en la fila 2. Encima, su grafo: una arista entre cada par de celdas libres que comparten un lado."
+/>
 
 </Slide>
 
 {/* Beat 2 · what the student knows does not reach. */}
 
-<Slide title="El preorden no termina en un grafo">
+<Slide title="El preorden en un grafo">
 
-{/* The rule of Árboles I, «visit, then each neighbour with the same rule», */}
-{/* on a graph of two or three vertices: 0 to 1 and back from 1 to 0, */}
-{/* forever. A node's children never include its parent; a vertex's */}
-{/* neighbours do. [NodeGraph, the walk numbered in red (`flag`)] */}
+El preorden de un árbol visita un nodo y después recorre cada hijo con la
+misma regla. Copiada a un grafo, la regla visita un vértice y después recorre
+cada vecino con la misma regla. En un árbol termina, porque entre los hijos de
+un nodo nunca está su padre. En un grafo, entre los vecinos de un vértice está
+aquel desde el que se llegó: la regla vuelve por la misma arista y desde ahí
+vuelve a avanzar, sin terminar nunca.
+
+<StepShow
+  language="java"
+  beside
+  title="preorder(g, 0) en un grafo de dos vértices"
+  program={`Graph g = new AdjListGraph(2);
+g.addEdge(0, 1);
+preorder(g, 0);`}
+  code={`static void preorder(Graph g, int v) {
+    System.out.println(v);
+    for (int w : g.adj(v)) {
+        preorder(g, w);
+    }
+}`}
+>
+  <Step lines={[2]} programLines={[3]} under={<OutputBox head="salida" lines={["0"]} rows={1} label="Lo impreso hasta ahora: 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>preorder(0) imprime 0.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de dos vértices unidos por una arista. preorder(0) imprime 0."
+      />
+      <Calls items={["preorder(0)"]} depth={4} label="Pila de llamadas, del fondo al tope: preorder(0)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4]} programLines={[3]} under={<OutputBox head="salida" lines={["0"]} rows={1} label="Lo impreso hasta ahora: 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El primer vecino de 0 es 1: llama a preorder(1).</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de dos vértices unidos por una arista. El primer vecino de 0 es 1: llama a preorder(1)."
+      />
+      <Calls items={["preorder(0)"]} depth={4} label="Pila de llamadas, del fondo al tope: preorder(0)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[3]} under={<OutputBox head="salida" lines={["0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>preorder(1) imprime 1.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo de dos vértices unidos por una arista. preorder(1) imprime 1."
+      />
+      <Calls items={["preorder(0)", "preorder(1)"]} depth={4} label="Pila de llamadas, del fondo al tope: preorder(0), preorder(1)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4]} programLines={[3]} under={<OutputBox head="salida" lines={["0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El primer vecino de 1 es 0, el vértice desde el que se llegó: llama a preorder(0) otra vez.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark', 0: 'flag' }}
+        label="El grafo de dos vértices unidos por una arista. El primer vecino de 1 es 0, el vértice desde el que se llegó: llama a preorder(0) otra vez."
+      />
+      <Calls items={["preorder(0)", "preorder(1)"]} depth={4} label="Pila de llamadas, del fondo al tope: preorder(0), preorder(1)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[3]} under={<OutputBox head="salida" lines={["0 1 0"]} rows={1} label="Lo impreso hasta ahora: 0 1 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>preorder(0) imprime 0 por segunda vez.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        tones={{ 0: 'flag' }}
+        label="El grafo de dos vértices unidos por una arista. preorder(0) imprime 0 por segunda vez."
+      />
+      <Calls items={["preorder(0)", "preorder(1)", "preorder(0)"]} depth={4} flag={[2]} label="Pila de llamadas, del fondo al tope: preorder(0), preorder(1), preorder(0)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4]} programLines={[3]} under={<OutputBox head="salida" lines={["0 1 0"]} rows={1} label="Lo impreso hasta ahora: 0 1 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Su primer vecino es 1 otra vez: llama a preorder(1), y la vuelta se repite.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'flag', 1: 'flag' }}
+        label="El grafo de dos vértices unidos por una arista. Su primer vecino es 1 otra vez: llama a preorder(1), y la vuelta se repite."
+      />
+      <Calls items={["preorder(0)", "preorder(1)", "preorder(0)"]} depth={4} flag={[2]} label="Pila de llamadas, del fondo al tope: preorder(0), preorder(1), preorder(0)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[3]} under={<OutputBox head="salida" lines={["0 1 0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>La pila de llamadas crece sin fin, hasta que Java la agota y lanza StackOverflowError.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={1}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }]}
+        edges={[[0, 1]]}
+        tones={{ 1: 'flag' }}
+        label="El grafo de dos vértices unidos por una arista. La pila de llamadas crece sin fin, hasta que Java la agota y lanza StackOverflowError."
+      />
+      <Calls items={["preorder(0)", "preorder(1)", "preorder(0)", "preorder(1)"]} depth={4} flag={[2, 3]} label="Pila de llamadas, del fondo al tope: preorder(0), preorder(1), preorder(0), preorder(1)." />
+    </Pair>
+  </Step>
+</StepShow>
 
 </Slide>
 
-<Slide title="No volver por donde se llegó tampoco basta">
+<Slide title="No volver al vértice anterior">
 
-{/* The tempting fix, skip the vertex the walk came from, works on a tree */}
-{/* and fails on a triangle: 0 → 1 → 2 → 0 → 1… The trouble is the cycles, */}
-{/* not the edge back. [NodeGraph, the triangle, in red] */}
+El arreglo tentador es recordar desde qué vértice se llegó, y no volver a
+él. En un árbol basta: el único vecino de un nodo que el preorden ya recorrió
+es su padre. En un grafo con un ciclo no basta: la regla da la vuelta al
+ciclo y llega otra vez al primer vértice, ahora por otra arista, que no es la
+de llegada. El problema no es la arista de vuelta: son los ciclos.
+
+<StepShow
+  language="java"
+  beside
+  title="walk(g, 0, −1) en un triángulo"
+  program={`Graph g = new AdjListGraph(3);
+g.addEdge(0, 1);
+g.addEdge(1, 2);
+g.addEdge(2, 0);
+walk(g, 0, -1);`}
+  code={`static void walk(Graph g, int v, int from) {
+    System.out.println(v);
+    for (int w : g.adj(v)) {
+        if (w != from) {
+            walk(g, w, v);
+        }
+    }
+}`}
+>
+  <Step lines={[2]} programLines={[5]} under={<OutputBox head="salida" lines={["0"]} rows={1} label="Lo impreso hasta ahora: 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>walk(0, −1) imprime 0.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        tones={{ 0: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. walk(0, −1) imprime 0."
+      />
+      <Calls items={["walk(0, \u22121)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4, 5]} programLines={[5]} under={<OutputBox head="salida" lines={["0"]} rows={1} label="Lo impreso hasta ahora: 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El vecino 1 de 0 no es −1: llama a walk(1, 0).</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. El vecino 1 de 0 no es −1: llama a walk(1, 0)."
+      />
+      <Calls items={["walk(0, \u22121)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>walk(1, 0) imprime 1.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        tones={{ 1: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. walk(1, 0) imprime 1."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El vecino 0 de 1 es el vértice desde el que se llegó: lo salta.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. El vecino 0 de 1 es el vértice desde el que se llegó: lo salta."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4, 5]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1"]} rows={1} label="Lo impreso hasta ahora: 0 1." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El vecino 2 de 1 no es 0: llama a walk(2, 1).</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. El vecino 2 de 1 no es 0: llama a walk(2, 1)."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1 2"]} rows={1} label="Lo impreso hasta ahora: 0 1 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>walk(2, 1) imprime 2.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        tones={{ 2: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. walk(2, 1) imprime 2."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)", "walk(2, 1)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0), walk(2, 1)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1 2"]} rows={1} label="Lo impreso hasta ahora: 0 1 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El vecino 1 de 2 es el vértice desde el que se llegó: lo salta.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        markEdges={[[1, 2]]}
+        tones={{ 2: 'mark' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. El vecino 1 de 2 es el vértice desde el que se llegó: lo salta."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)", "walk(2, 1)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0), walk(2, 1)." />
+    </Pair>
+  </Step>
+  <Step lines={[3, 4, 5]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1 2"]} rows={1} label="Lo impreso hasta ahora: 0 1 2." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>El vecino 0 de 2 no es 1: llama a walk(0, 2). Llega a 0 por otra arista.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        markEdges={[[2, 0]]}
+        tones={{ 2: 'mark', 0: 'flag' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. El vecino 0 de 2 no es 1: llama a walk(0, 2). Llega a 0 por otra arista."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)", "walk(2, 1)"]} depth={4} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0), walk(2, 1)." />
+    </Pair>
+  </Step>
+  <Step lines={[2]} programLines={[5]} under={<OutputBox head="salida" lines={["0 1 2 0"]} rows={1} label="Lo impreso hasta ahora: 0 1 2 0." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>walk(0, 2) imprime 0 por segunda vez, y desde ahí da otra vuelta al ciclo, sin terminar nunca.</div>
+    <Pair>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+        edges={[[0, 1], [1, 2], [2, 0]]}
+        tones={{ 0: 'flag' }}
+        label="Un triángulo: 0, 1 y 2, cada uno unido a los otros dos. walk(0, 2) imprime 0 por segunda vez, y desde ahí da otra vuelta al ciclo, sin terminar nunca."
+      />
+      <Calls items={["walk(0, \u22121)", "walk(1, 0)", "walk(2, 1)", "walk(0, 2)"]} depth={4} flag={[3]} label="Pila de llamadas, del fondo al tope: walk(0, −1), walk(1, 0), walk(2, 1), walk(0, 2)." />
+    </Pair>
+  </Step>
+</StepShow>
 
 </Slide>
 
@@ -70,30 +510,84 @@ orden en que se recorre decide qué pregunta responde.
 
 <Slide title="El hilo de Teseo">
 
-{/* Teseo walks into the labyrinth of Crete with Ariadne's ball of thread: */}
-{/* he goes forward, and at a dead end he walks back winding the thread. */}
-{/* The thread is the way back from where he stands to the entrance. */}
-{/* [the maze with the thread drawn] */}
+En el mito griego, Teseo entra al laberinto de Creta con un ovillo de hilo
+que le da Ariadna. Ata la punta en la entrada y avanza desenrollándolo. Cuando
+llega a un callejón sin salida, vuelve enrollando el hilo hasta el último
+cruce y prueba otro pasillo desde ahí. El hilo es, en cada momento, el camino
+de vuelta desde donde está Teseo hasta la entrada.
+
+<Pair>
+<Maze
+  grid={["...#", ".#..", ".##."]}
+  numbers
+  ends={[0, 11]}
+  thread={[0, 4, 8]}
+  caption="avanza hasta un callejón sin salida"
+  label="El laberinto, con el hilo de Teseo desde la entrada, en 0, bajando por 4 hasta 8, un callejón sin salida."
+/>
+<Maze
+  grid={["...#", ".#..", ".##."]}
+  numbers
+  ends={[0, 11]}
+  thread={[0, 1, 2, 6]}
+  caption="enrolla el hilo y prueba otro pasillo"
+  label="El mismo laberinto: Teseo enrolló el hilo hasta 0 y avanzó por otro pasillo; el hilo va de 0 a 1, a 2 y a 6."
+/>
+</Pair>
 
 </Slide>
 
 <Slide title="La tiza de Trémaux">
 
-{/* Winding the thread, Teseo forgets the corridors he already tried, and */}
-{/* in a maze with cycles he may walk them forever. Trémaux, in the 19th */}
-{/* century (told by Édouard Lucas in 1882), marks every corridor he walks */}
-{/* with chalk and never enters a marked one. The chalk is the visited. */}
-{/* [the maze with the marks] */}
+Al enrollar el hilo, Teseo no guarda nada de los pasillos que ya probó. En un
+laberinto con un ciclo, alrededor de una columna, puede dar la vuelta, volver
+a entrar por otro lado a un pasillo ya recorrido y seguir dando vueltas sin
+fin. El método de Trémaux, que Édouard Lucas cuenta en 1882 en el primer tomo
+de sus _Récréations mathématiques_, agrega una tiza: se marca cada lugar por
+el que se pasa, y nunca se entra a uno marcado.
+
+En un grafo, la tiza es un arreglo de booleanos con una casilla por vértice:
+`marked[v]` dice si ya se pasó por `v`.
+
+<Pair>
+<Maze
+  grid={["...", ".#.", "..."]}
+  numbers
+  thread={[0, 1, 2, 5, 8, 7, 6, 3, 0]}
+  tones={{ 0: 'flag' }}
+  caption="sin tiza: da la vuelta y vuelve a 0"
+  label="Un laberinto de tres por tres con una columna al medio. Sin tiza, el hilo da la vuelta completa, de 0 por 1, 2, 5, 8, 7, 6 y 3, y vuelve a entrar a 0."
+/>
+<Maze
+  grid={["...", ".#.", "..."]}
+  numbers
+  thread={[0, 1, 2, 5, 8, 7, 6, 3]}
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 5: 'keep', 8: 'keep', 7: 'keep', 6: 'keep', 3: 'keep' }}
+  caption="con tiza: en 3, la celda 0 ya está marcada"
+  label="El mismo laberinto con tiza: cada celda recorrida queda marcada. En 3, la celda 0 está marcada y no se entra: hay que volver."
+/>
+</Pair>
 
 </Slide>
 
 <Slide title="La regla de la búsqueda en profundidad">
 
-{/* The rule: mark the vertex, and walk each unmarked neighbour with the */}
-{/* same rule; when none is left, go back. Named for going as deep as it */}
-{/* can before going back: DFS, depth-first search. [pills «marcar → cada */}
-{/* vecino sin marcar», the graph with the visit order numbered, arrows */}
-{/* from visit to visit and the strip with the sequence] */}
+Con la tiza, la regla queda así: **marcar el vértice, y recorrer con la
+misma regla cada vecino sin marcar.** Cuando no le quedan vecinos sin marcar,
+la llamada termina y la búsqueda vuelve al vértice desde el que se llegó, como
+Teseo enrollando el hilo. Avanza tan hondo como puede antes de volver: por eso
+se llama **búsqueda en profundidad**, en inglés _depth-first search_ (DFS).
+
+<NodeGraph
+  cols={7}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }, { v: 4, x: 6, y: 1 }]}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]}
+  markEdges={[[0, 1], [1, 3], [3, 2], [3, 4]]}
+  notes={{ 0: '1.º', 1: '2.º', 3: '3.º', 2: '4.º', 4: '5.º' }}
+  caption="orden de visita desde 0: 0, 1, 3, 2, 4"
+  label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4. Marcadas las aristas por las que avanza la búsqueda desde 0: 0-1, 1-3, 3-2 y 3-4. Junto a cada vértice, su lugar en el orden de visita: 0 primero, 1 segundo, 3 tercero, 2 cuarto y 4 quinto."
+/>
 
 </Slide>
 
@@ -101,71 +595,978 @@ orden en que se recorre decide qué pregunta responde.
 
 <Slide title="El código de la búsqueda en profundidad">
 
-{/* DepthFirstPaths, quoted from 27-grafos-recorridos.code/: the */}
-{/* constructor and the private recursive dfs, with marked and prev. */}
-{/* prev[w] = v is the thread: where each vertex was reached from. */}
-{/* [GraphWalk over a graph of 4 or 5 vertices] */}
+La clase `DepthFirstPaths` guarda la tiza y el hilo de una búsqueda desde un
+origen `s`. `marked[v]` dice si la búsqueda pasó por `v`, y `prev[w] = v`
+anota desde qué vértice llegó a `w`: es el hilo, guardado vértice por vértice.
+El constructor deja todo `prev` en −1 y llama a `dfs(g, s)`, un método privado
+y recursivo que es la regla escrita en Java:
+
+<GraphWalk
+  beside
+  title="new DepthFirstPaths(g, 0) en un grafo de cinco vértices"
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }, { v: 4, x: 6, y: 1 }]}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]}
+  cols={7}
+  rows={3}
+  program={`Graph g = new AdjListGraph(5);
+Graphs.readEdges(in, g);
+DepthFirstPaths paths = new DepthFirstPaths(g, 0);`}
+  programLines={[3]}
+  codeSrc="./27-grafos-recorridos.code/DepthFirstPaths.java"
+  codeRange="10-25"
+  lines={{ mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 }}
+  label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
+/>
 
 </Slide>
 
+{/* AdjMatrix — an adjacency matrix as Java holds it: `rows[v][w]` is the text of the cell in row v and column w ('true', 'false', a weight, '∞'), with the vertex numbers along the top and the left. A cell that holds an edge — anything but 'false', '∞' or '' — keeps a plain ground; its TEXT carries the meaning (`valueTone`): an edge — 'true' or a weight — in keep, no edge — 'false' or '∞' — in flag. The grid is one set of even lines, so every cell closes the same; `mark` outlines the cells [v, w] the slide talks about, on top. File-local, with AdjLists below: the two drawings of the implementations act. */}
+
+export function AdjMatrix({ rows, mark = [], caption, label }) {
+  const n = rows.length;
+  const cw = 50;
+  const ch = 30;
+  const head = 26;
+  const pad = 10;
+  const gridW = head + n * cw;
+  const width = Math.max(gridW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - gridW) / 2;
+  const top = pad;
+  const height = top + head + n * ch + (caption ? 34 : pad);
+  const x0 = left + head;
+  const y0 = top + head;
+  const empty = (t) => t === 'false' || t === '∞' || t === '';
+  const tone = (t) => (empty(t) ? valueTone(t) : 'var(--color-keep)');
+  const parts = [];
+  for (let v = 0; v < n; v++) {
+    parts.push(<text key={`r${v}`} x={left + head / 2} y={y0 + v * ch + ch / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{v}</text>);
+    parts.push(<text key={`c${v}`} x={x0 + v * cw + cw / 2} y={top + head / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink-soft)' }}>{v}</text>);
+    for (let w = 0; w < n; w++) {
+      const t = String(rows[v][w]);
+      parts.push(<text key={`t${v},${w}`} x={x0 + w * cw + cw / 2} y={y0 + v * ch + ch / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: tone(t) }}>{t}</text>);
+    }
+  }
+  const lines = [];
+  for (let i = 0; i <= n; i++) {
+    lines.push(<line key={`h${i}`} x1={x0} y1={y0 + i * ch} x2={x0 + n * cw} y2={y0 + i * ch} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeLinecap="square" />);
+    lines.push(<line key={`v${i}`} x1={x0 + i * cw} y1={y0} x2={x0 + i * cw} y2={y0 + n * ch} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeLinecap="square" />);
+  }
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <rect x={x0} y={y0} width={n * cw} height={n * ch} style={{ fill: 'var(--color-surface)' }} />
+      {lines}
+      {mark.map(([v, w]) => (
+        <rect key={`m${v},${w}`} x={x0 + w * cw + 1.5} y={y0 + v * ch + 1.5} width={cw - 3} height={ch - 3} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="3" />
+      ))}
+      {parts}
+      {caption ? (
+        <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight written `w · weight`, which draws the chip as the `Edge` Java keeps — three fields, `from` (the row's vertex), `to` and `weight`, each named small above its value. `keys` writes a name in each box instead of the number, for a map from names to their neighbours. `side` adds a column at the right with one value per vertex — an array the program fills by vertex, headed `sideHead` — and `sideMark` lists the vertices whose value it outlines. `minWidth` holds the lists' width from the first frame of a walk that fills them, so the drawing does not grow. `mark` lists the [vertex, position] chips the slide talks about. */}
+
+export function AdjLists({ lists, keys, side, sideHead, sideMark = [], minWidth = 0, mark = [], caption, label }) {
+  const weighted = lists.some((l) => l.some((t) => String(t).includes(' · ')));
+  const rowH = weighted ? 46 : 36;
+  const box = keys ? Math.max(30, ...keys.map((k) => String(k).length * 8 + 14)) : 30;
+  const chipH = weighted ? 38 : 26;
+  const gap = 8;
+  const pad = 12;
+  const fieldsOf = (v, t) => {
+    const [to, weight] = String(t).split(' · ');
+    return [['from', String(v)], ['to', to], ['weight', weight]];
+  };
+  const fieldW = ([name, value]) => Math.max(name.length * 6 + 12, value.length * 8 + 14);
+  const chipW = (t, v) => (weighted ? fieldsOf(v, t).reduce((acc, f) => acc + fieldW(f), 0) : Math.max(32, String(t).length * 8 + 16));
+  const rowW = (l, v) => box + 24 + l.reduce((acc, t) => acc + chipW(t, v) + gap, 0);
+  const listsW = Math.max(...lists.map(rowW), box + 24 + 40, minWidth);
+  const sideW = side ? Math.max(60, ...side.map((t) => String(t).length * 7.6 + 16), sideHead ? sideHead.length * 7.6 : 0) : 0;
+  const innerW = listsW + (side ? 18 + sideW : 0);
+  const top = pad + (sideHead ? 18 : 0);
+  const width = Math.max(innerW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = pad + (width - 2 * pad - innerW) / 2;
+  const height = top + lists.length * rowH + (caption ? 30 : pad);
+  const sideOn = new Set(sideMark);
+  const marked = new Set(mark.map(([v, i]) => `${v},${i}`));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {sideHead ? (
+        <text x={left + listsW + 18 + sideW / 2} y={top - 6} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{sideHead}</text>
+      ) : null}
+      {lists.map((l, v) => {
+        const y = top + v * rowH;
+        const mid = y + (weighted ? chipH : box) / 2;
+        const boxY = mid - box / 2;
+        const chipY = mid - chipH / 2;
+        let x = left + box + 24;
+        return (
+          <g key={v}>
+            <rect x={left} y={boxY} width={box} height={box} style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+            <text x={left + box / 2} y={mid + 5} textAnchor="middle" fontSize="13" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{keys ? keys[v] : v}</text>
+            <line x1={left + box} y1={mid} x2={left + box + 18} y2={mid} style={{ stroke: 'var(--color-rule-strong)' }} strokeWidth="1.3" />
+            {l.map((t, i) => {
+              const w = chipW(t, v);
+              const hot = marked.has(`${v},${i}`);
+              const cx = x;
+              x += w + gap;
+              const frame = (
+                <rect x={cx} y={chipY} width={w} height={chipH} rx="6" style={{ fill: hot ? 'var(--color-mark-soft)' : 'var(--color-surface)', stroke: hot ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={hot ? 2.2 : 1} />
+              );
+              if (!weighted) {
+                return (
+                  <g key={i}>
+                    {frame}
+                    <text x={cx + w / 2} y={mid + 4} textAnchor="middle" fontSize="12" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+                  </g>
+                );
+              }
+              let fx = cx;
+              return (
+                <g key={i}>
+                  {frame}
+                  {fieldsOf(v, t).map((f, k) => {
+                    const fw = fieldW(f);
+                    const at = fx;
+                    fx += fw;
+                    return (
+                      <g key={k}>
+                        {k > 0 ? <line x1={at} y1={chipY + 4} x2={at} y2={chipY + chipH - 4} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1" /> : null}
+                        <text x={at + fw / 2} y={chipY + 12} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink-soft)' }}>{f[0]}</text>
+                        <text x={at + fw / 2} y={chipY + 29} textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{f[1]}</text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+            {side ? (
+              <g>
+                <rect x={left + listsW + 18} y={mid - 13} width={sideW} height={26} style={{ fill: sideOn.has(v) ? 'var(--color-mark-soft)' : 'var(--color-sunk)', stroke: sideOn.has(v) ? 'var(--color-mark)' : 'var(--color-rule-strong)' }} strokeWidth={sideOn.has(v) ? 2.2 : 1} />
+                <text x={left + listsW + 18 + sideW / 2} y={mid + 4} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: valueTone(side[v]) }}>{side[v]}</text>
+              </g>
+            ) : null}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
+{/* ArrayRows — the arrays, lists and maps a program keeps beside its graph, one per row: its Java name on the left, then a cell per entry with the index above it (`head` overrides the indices: the keys of a map). A row whose `cells` is null keeps its place blank, `size` cells wide: an array the program has not created yet, so every frame of a walk has the same size; `cell` is the least width of a cell and `cols` the least number of cells, for the same reason. `mark` outlines the [row, cell] entries the frame talks about. */}
+
+export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label }) {
+  const pad = 10;
+  const headH = 16;
+  const ch = 28;
+  const gapY = 10;
+  const nameW = Math.max(...rows.map((r) => r.name.length * 8 + 14));
+  const cw = Math.max(cell, ...rows.flatMap((r) => [...(r.cells ?? []), ...(r.head ?? [])].map((t) => String(t).length * 7.6 + 14)));
+  const innerW = nameW + Math.max(cols, ...rows.map((r) => (r.cells ? r.cells.length : r.size ?? 0))) * cw;
+  const width = Math.max(innerW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - innerW) / 2;
+  const rowH = headH + ch + gapY;
+  const height = pad + rows.length * rowH + (caption ? 24 : 0);
+  const marked = new Set(mark.map(([r, i]) => `${r},${i}`));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {rows.map((row, r) => {
+        const y = pad + r * rowH + headH;
+        return (
+          <g key={r}>
+            {row.cells === null ? null : (
+              <text x={left + nameW - 10} y={y + ch / 2 + 5} textAnchor="end" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{row.name}</text>
+            )}
+            {(row.cells ?? []).map((t, i) => {
+              const x = left + nameW + i * cw;
+              return (
+                <g key={i}>
+                  <text x={x + cw / 2} y={y - 4} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>{row.head ? row.head[i] : i}</text>
+                  <rect x={x} y={y} width={cw} height={ch} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+                </g>
+              );
+            })}
+            {(row.cells ?? []).map((t, i) =>
+              marked.has(`${r},${i}`) ? <rect key={`m${i}`} x={left + nameW + i * cw + 1.5} y={y + 1.5} width={cw - 3} height={ch - 3} style={{ fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' }} strokeWidth="3" /> : null,
+            )}
+            {(row.cells ?? []).map((t, i) => (
+              <text key={`t${i}`} x={left + nameW + i * cw + cw / 2} y={y + ch / 2 + 4} textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: valueTone(t) }}>{String(t)}</text>
+            ))}
+          </g>
+        );
+      })}
+      {caption ? (
+        <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
+      ) : null}
+    </svg>
+  );
+}
+
 <Slide title="El camino de vuelta">
 
-{/* pathTo(t): from t, follow prev back to s, and turn the sequence around */}
-{/* with a stack. Is it reached? hasPathTo(t), which is marked[t]. By */}
-{/* which way? pathTo(t). [prev drawn as arrows back, and the stack that */}
-{/* turns it around] */}
+Al terminar la búsqueda, `marked` dice a qué vértices se llega desde `s`:
+`hasPathTo(t)` retorna `marked[t]`. `prev` dice por dónde: desde `t`, seguir
+`prev` lleva de vuelta hasta `s`, el único vértice alcanzado cuyo `prev` es
+−1. Ese recorrido da el camino al revés, de `t` a `s`. `pathTo(t)` lo apila y
+después lo saca de la pila hacia una lista, que queda de `s` a `t`; si `t` no
+se alcanza, la lista queda vacía.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/DepthFirstPaths.java" range="27-44" />
+
+<div>
+<NodeGraph
+  cols={7}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }, { v: 4, x: 6, y: 1 }]}
+  edges={[[1, 0], [2, 3], [3, 1], [4, 3]]}
+  directed
+  markEdges={[[4, 3], [3, 1], [1, 0]]}
+  tones={{ 4: 'mark', 0: 'keep' }}
+  caption="prev, como flechas: de 4 se vuelve a 3, a 1 y a 0"
+  label="El arreglo prev de la búsqueda desde 0, dibujado como una flecha de cada vértice al vértice desde el que se llegó: de 1 a 0, de 3 a 1, de 2 a 3 y de 4 a 3. Marcado el camino de vuelta desde 4: 4, 3, 1, 0."
+/>
+<ArrayRows
+  rows={[{ name: 'back', cells: [4, 3, 1, 0] }, { name: 'path', cells: [0, 1, 3, 4] }]}
+  cols={4}
+  caption="pathTo(4): se apila de 4 a 0 y se saca de 0 a 4"
+  label="La pila back, del fondo al tope: 4, 3, 1, 0. La lista path, que se llena sacando de la pila: 0, 1, 3, 4."
+/>
+</div>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="La búsqueda en profundidad en el laberinto">
 
-{/* The same rule over the grid, with no Graph built (decided in S5): the */}
-{/* vertex is r · C + c, the neighbours computed with DR4/DC4 and free, as */}
-{/* in class 2; MazeDepthFirstPaths, the same API. Answers slide 1: the */}
-{/* exit is reached, by this way. [GraphWalk with grid: the maze of slide */}
-{/* 1, eight free cells, a dead end the walk takes first] */}
+En el laberinto no hace falta construir un `Graph`. Los vecinos de una celda
+se calculan cuando se piden: los arreglos `DR4` y `DC4` dan los pasos hacia
+arriba, abajo, izquierda y derecha, y `free` dice si la celda a la que se
+llega está dentro de la grilla y libre. `MazeDepthFirstPaths` tiene la misma
+API que `DepthFirstPaths`. Su `dfs` mira las cuatro direcciones de cada celda,
+y en una libre y sin marcar anota `prev` y sigue desde ahí. Al terminar,
+`hasPathTo` de la salida dice si se llega a ella, y `pathTo`, por qué celdas.
+
+<GraphWalk
+  beside
+  title="new MazeDepthFirstPaths(grid, 0) en el laberinto"
+  grid={['...#', '.#..', '.##.']}
+  program={`String[] grid = {"...#", ".#..", ".##."};
+MazeDepthFirstPaths paths =
+        new MazeDepthFirstPaths(grid, 0);`}
+  programLines={[2, 3]}
+  codeSrc="./27-grafos-recorridos.code/MazeDepthFirstPaths.java"
+  codeRange="30-41"
+  lines={{ mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 }}
+  label="El laberinto de tres filas y cuatro columnas, con la entrada en la celda 0 y la salida en la celda 11."
+/>
 
 </Slide>
 
-<Slide title="Un laberinto de 1000 × 1000 revienta la pila">
+<Slide title="La pila de llamadas en un laberinto grande">
 
-{/* A long corridor takes the recursion to hundreds of thousands of calls, */}
-{/* and Java throws StackOverflowError. The depth where it breaks is */}
-{/* MEASURED on a real JVM, never inherited from another source. [the call */}
-{/* stack growing beside the corridor] */}
+Cada llamada a `dfs` en curso ocupa un marco en la pila de llamadas de Java,
+y la búsqueda tiene en curso una llamada por cada celda del hilo. En un
+laberinto sin muros, la búsqueda baja por la primera columna, sube por la
+segunda y sigue así, serpenteando, hasta pasar por todas las celdas sin volver
+nunca: el hilo llega a tener todas las celdas a la vez.
+
+En un laberinto de $$1000 \times 1000$$ eso es un millón de llamadas en
+curso, y la pila de Java no da para tanto. Medido en un JDK 21, con la pila que
+trae por defecto, `dfs` lanza `StackOverflowError` con unas 17 000 llamadas en
+curso; un laberinto de $$100 \times 100$$ sin muros, que llega a 10 000,
+todavía termina. El número exacto cambia de una máquina a otra, pero queda
+lejos del millón.
+
+<Maze
+  grid={['....', '....', '....', '....']}
+  numbers
+  thread={[0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3]}
+  caption="sin muros: 16 celdas, 16 llamadas en curso a la vez"
+  label="Una grilla de cuatro por cuatro sin muros. El hilo de la búsqueda desde 0 baja por la primera columna, sube por la segunda, baja por la tercera y sube por la cuarta, y pasa por las 16 celdas sin volver: 0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3."
+/>
 
 </Slide>
 
-<Slide title="Marcar al apilar no recorre en profundidad">
+<Slide title="Marcar al apilar">
 
-{/* The tempting idea: replace the recursion with a stack and mark on */}
-{/* push, as the level order enqueues the children. Played against the */}
-{/* rule, in one walk, on the smallest counterexample (edges 0-1, 0-2, */}
-{/* 0-3, 1-3; algs4 §4.1, web exercise 29): from 3 it skips 1, marked when */}
-{/* pushed but never reached, and then jumps from 3 to 2, with no edge */}
-{/* between them. «Marcado» has come to mean «visto». Teseo could not walk */}
-{/* that order. [GraphWalk dfs-mark-on-push, the skipped vertex in red] */}
+Sin recursión, el hilo se guarda en una pila propia, un `Stack` que el
+programa maneja. La idea tentadora copia el recorrido por niveles de un árbol,
+que encola cada hijo una sola vez: marcar cada vecino al apilarlo, para no
+apilarlo dos veces. Llega a los mismos vértices, pero no en profundidad. Un
+vecino marcado al apilarlo queda marcado sin que la búsqueda haya pasado por
+él, y otro vértice que lo mira lo salta: «marcado» deja de decir «visitado» y
+pasa a decir «visto». El orden de visita salta, además, entre vértices sin
+arista entre ellos: Teseo no podría caminarlo.
+
+<GraphWalk
+  beside
+  algorithm="dfs-mark-on-push"
+  title="marcar al apilar, desde 0"
+  nodes={[{ v: 0, x: 1, y: 0 }, { v: 1, x: 0, y: 2 }, { v: 2, x: 3, y: 0 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [0, 2], [0, 3], [1, 3]]}
+  cols={4}
+  rows={3}
+  code={`private void dfs(Graph g, int s) {
+    Stack<Integer> stack = new Stack<>();
+    marked[s] = true;
+    stack.push(s);
+    while (!stack.empty()) {
+        int v = stack.pop();
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                marked[w] = true;
+                prev[w] = v;
+                stack.push(w);
+            }
+        }
+    }
+}`}
+  lines={{ markStart: [2, 3], pushStart: 4, pop: [5, 6], look: [7, 8], mark: 9, prev: 10, push: 11, end: 5 }}
+  label="Un triángulo 0-1-3, y el vértice 2 colgando de 0."
+/>
 
 </Slide>
 
 <Slide title="El código de la búsqueda en profundidad iterativa">
 
-{/* Mark on pop: pop a vertex; if it is marked, drop it; if not, mark it */}
-{/* and push its neighbours. IterativeDepthFirstPaths, quoted from its */}
-{/* file. Not paired with the recursive one (decided in S5): their steps do */}
-{/* not go one to one, and the stack turns the neighbours' order around (0 */}
-{/* 3 2 1 against 0 1 2 3 on a square), which the slide says. [GraphWalk */}
-{/* dfs-iterative, beside its own stack] */}
+La versión correcta marca al sacar: saca un vértice; si ya está marcado lo
+descarta, y si no, lo marca y apila cada vecino sin marcar, anotando su
+`prev`. Como el último apilado sale primero, visita los vecinos en el orden
+inverso al de la recursiva, pero siempre avanza desde el último vértice que
+alcanzó: sigue siendo en profundidad.
+
+<GraphWalk
+  beside
+  algorithm="dfs-iterative"
+  title="new IterativeDepthFirstPaths(g, 0) en el mismo grafo"
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }, { v: 4, x: 6, y: 1 }]}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]}
+  cols={7}
+  rows={3}
+  program={`IterativeDepthFirstPaths paths =
+        new IterativeDepthFirstPaths(g, 0);`}
+  programLines={[1, 2]}
+  codeSrc="./27-grafos-recorridos.code/IterativeDepthFirstPaths.java"
+  codeRange="17-33"
+  lines={{ pushStart: [18, 19], pop: [20, 21], skip: [22, 23], mark: 25, look: [26, 27], prev: 28, push: 29, end: 20 }}
+  label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
+/>
+
+</Slide>
+
+<Slide title="Recorrer todos los vecinos en la matriz">
+Muchos problemas recorren los vecinos de cada vértice. Lo que el algoritmo
+sabe de cada vértice se guarda en un arreglo de largo $$V$$, indexado por el
+vértice, y leer o escribir ese dato cuesta $$\Theta(1)$$. `degrees(g)` guarda
+así el grado de cada vértice. Usa solo el contrato, así que funciona con las
+dos estructuras, y la que esté detrás pone el costo:
+
+<StepShow
+  language="java"
+  beside
+  title="degrees(g) con la matriz"
+  program={`int[] degree = Graphs.degrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="23-31"
+>
+  <Step lines={[24]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 casillas']} rows={1} label="Hasta ahora, adj miró 0 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador por vértice, todos en 0. Cada uno se lee y se escribe en Θ(1), por su número.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[]}
+        label="La matriz de adyacencia del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} fresh label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) recorre las 4 casillas de la fila 0 y encuentra 2 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 0], [0, 1], [0, 2], [0, 3]]}
+        label="La matriz; marcada la fila 0 entera, las cuatro casillas que mira adj(0)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[0] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 1]]}
+        label="La matriz; marcada la casilla [0][1]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [1, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 casillas']} rows={1} label="Hasta ahora, adj miró 4 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[0] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[0, 2]]}
+        label="La matriz; marcada la casilla [0][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} fresh label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) recorre las 4 casillas de la fila 1 y encuentra 2 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 0], [1, 1], [1, 2], [1, 3]]}
+        label="La matriz; marcada la fila 1 entera, las cuatro casillas que mira adj(1)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 0]]}
+        label="La matriz; marcada la casilla [1][0]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 casillas']} rows={1} label="Hasta ahora, adj miró 8 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[1] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[1, 2]]}
+        label="La matriz; marcada la casilla [1][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} fresh label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) recorre las 4 casillas de la fila 2 y encuentra 3 vecinos.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 0], [2, 1], [2, 2], [2, 3]]}
+        label="La matriz; marcada la fila 2 entera, las cuatro casillas que mira adj(2)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 2: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 0]]}
+        label="La matriz; marcada la casilla [2][0]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 2: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 1]]}
+        label="La matriz; marcada la casilla [2][1]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['12 casillas']} rows={1} label="Hasta ahora, adj miró 12 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: degree[2] pasa a 3.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[2, 3]]}
+        label="La matriz; marcada la casilla [2][3]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} fresh label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: adj(3) recorre las 4 casillas de la fila 3 y encuentra 1 vecino.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[3, 0], [3, 1], [3, 2], [3, 3]]}
+        label="La matriz; marcada la fila 3 entera, las cuatro casillas que mira adj(3)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 3: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[[3, 2]]}
+        label="La matriz; marcada la casilla [3][2]."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+  <Step lines={[30]} programLines={[1]} under={<OutputBox head="miradas" lines={['16 casillas']} rows={1} label="Hasta ahora, adj miró 16 casillas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna degree. Para encontrar 8 entradas, adj miró 16 casillas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjMatrix
+        rows={[['false', 'true', 'true', 'false'], ['true', 'false', 'true', 'false'], ['true', 'true', 'false', 'true'], ['false', 'false', 'true', 'false']]}
+        mark={[]}
+        label="La matriz de adyacencia del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con la matriz cuesta $$\Theta(V^2)$$.** Cada `adj(v)` recorre una fila de
+$$V$$ casillas, y son $$V$$ filas, tenga el grafo las aristas que tenga.
+
+</Slide>
+
+<Slide title="Recorrer todos los vecinos en las listas">
+El mismo `degrees(g)`, con las listas: cada `adj(v)` copia solo la lista de
+`v`, sin mirar casillas vacías.
+
+<StepShow
+  language="java"
+  beside
+  title="degrees(g) con listas"
+  program={`int[] degree = Graphs.degrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="23-31"
+>
+  <Step lines={[24]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 entradas']} rows={1} label="Hasta ahora, adj miró 0 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador por vértice, todos en 0. Cada uno se lee y se escribe en Θ(1), por su número.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[]}
+        label="Las listas del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} fresh label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) copia la lista de 0: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 0], [0, 1]]}
+        label="Las listas; marcada la lista de 0 entera, la que copia adj(0)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 0, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[0] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 0]]}
+        label="Las listas; marcado el 1 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [1, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 1, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[0] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[0, 1]]}
+        label="Las listas; marcado el 2 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[[0, 0]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} fresh label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) copia la lista de 1: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 0], [1, 1]]}
+        label="Las listas; marcada la lista de 1 entera, la que copia adj(1)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 0, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 1: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-1."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 0]]}
+        label="Las listas; marcado el 0 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 1, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[1] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[1, 1]]}
+        label="Las listas; marcado el 2 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} fresh label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) copia la lista de 2: 3 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 0], [2, 1], [2, 2]]}
+        label="Las listas; marcada la lista de 2 entera, la que copia adj(2)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 0, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 0, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 0: degree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 2: 'mark', 0: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 0-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 0]]}
+        label="Las listas; marcado el 0 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 1, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: degree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 2: 'mark', 1: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 1-2."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 1]]}
+        label="Las listas; marcado el 1 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 2, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['7 entradas']} rows={1} label="Hasta ahora, adj miró 7 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: degree[2] pasa a 3.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[2, 2]]}
+        label="Las listas; marcado el 3 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[25, 26]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} fresh label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: adj(3) copia la lista de 3: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[3, 0]]}
+        label="Las listas; marcada la lista de 3 entera, la que copia adj(3)."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 0] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 0." />
+  </Step>
+  <Step lines={[26, 27]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: degree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 3: 'mark', 2: 'keep' }}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3; marcada la arista 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[[3, 0]]}
+        label="Las listas; marcado el 2 de la lista de 3."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+  <Step lines={[30]} programLines={[1]} under={<OutputBox head="miradas" lines={['8 entradas']} rows={1} label="Hasta ahora, adj miró 8 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna degree. adj miró solo las 8 entradas de las listas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo de cuatro vértices con las aristas 0-1, 0-2, 1-2 y 2-3."
+      />
+      <AdjLists
+        lists={[[1, 2], [0, 2], [0, 1, 3], [2]]}
+        mark={[]}
+        label="Las listas del grafo."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'degree', cells: [2, 2, 3, 1] }]} mark={[]} cols={4} label="El arreglo degree: degree[0] = 2, degree[1] = 2, degree[2] = 3, degree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con las listas cuesta $$\Theta(V + E)$$.** Las listas suman $$2E$$ entradas,
+una por cada extremo de arista, y se pasa por cada uno de los $$V$$ vértices.
+Es lo que cuesta leer el grafo una vez: **tiempo lineal** en su tamaño, y
+ningún programa que mire cada arista puede hacerlo en menos.
 
 </Slide>
 
 <Slide title="El costo de la búsqueda en profundidad">
 
-{/* Each vertex is marked once, and its neighbours are read once when it */}
-{/* is: all the lists in total, whose sum is 2E (the handshake lemma). */}
-{/* Θ(V + E) with lists; with the matrix each adj(v) reads a whole row: */}
-{/* Θ(V²). [class 2's archived sweeps, matrix against lists, with their */}
-{/* counter] */}
+La búsqueda marca cada vértice que alcanza una sola vez, y lee sus vecinos una
+sola vez, al marcarlo. Cuando alcanza todo el grafo, recorre los vecinos de
+cada vértice una vez, lo mismo que `degrees(g)`:
+
+- **Con las listas, $$\Theta(V + E)$$.** Las listas suman $$2E$$ entradas,
+  y cada una se lee una vez.
+- **Con la matriz, $$\Theta(V^2)$$.** Cada `adj(v)` recorre una fila
+  completa de $$V$$ casillas.
+- **Memoria, $$\Theta(V)$$** para `marked` y `prev`. La recursiva tiene
+  además hasta $$V$$ llamadas en curso en la pila de llamadas; la iterativa
+  apila un vértice cada vez que lo ve sin marcar, y su pila llega a tener
+  hasta $$2E + 1$$ entradas.
+
+Si no alcanza todo el grafo, cuesta lo que mide la parte que alcanza.
 
 </Slide>
 
