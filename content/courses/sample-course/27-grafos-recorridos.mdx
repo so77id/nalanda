@@ -2665,7 +2665,8 @@ herramienta, con un cambio pequeño en su código.
 ## Ejercicios
 
 {/* Worked, on slides (S19-S22), easiest first: las islas de un mapa */}
-{/* satelital, el barquero, la escalera de palabras, ¿es posible la malla?. */}
+{/* satelital, el barquero, la escalera de palabras, una malla que se pueda */}
+{/* terminar (the issue's «¿Es posible la malla?», a title made a noun). */}
 {/* Each modelled from scratch with #363's graph-exercise pattern and a */}
 {/* runnable <Exercise>; each solution is a file in its folder of */}
 {/* 27-grafos-recorridos.code/, run on a JDK 21 with the Exercise's tests. */}
@@ -3264,6 +3265,216 @@ check(Solution.ladder("gato", "casa", words), 5);
 check(Solution.ladder("gato", "gato", words), 0);
 check(Solution.ladder("gato", "mono", words), -1);
 check(Solution.ladder("rama", "gato", new String[] {"rata", "gata", "gato"}), 3);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Una malla que se pueda terminar">
+
+Una universidad propone una malla: los nombres de sus ramos y una lista de
+pares, cada uno con un ramo y otro que se toma después. ¿Se pueden tomar
+todos los ramos respetando cada par? Si se puede, el programa da un orden en
+que tomarlos; si no, la malla es imposible.
+
+**Entrada.** Los nombres de a lo más $$10^4$$ ramos y a lo más $$10^5$$
+pares de nombres.
+
+**Salida.** Los nombres en un orden que respeta cada par, o una lista vacía
+si la malla es imposible.
+
+```text
+Cálculo I     →  Cálculo II
+Cálculo II    →  Ecuaciones
+Álgebra       →  Ecuaciones
+Programación  →  Estructuras de Datos
+Álgebra       →  Estructuras de Datos
+```
+
+</Slide>
+
+<Slide title="Malla · el modelo">
+
+- **Los vértices** son los ramos, numerados por su lugar en la lista de
+  nombres: un mapa de cada nombre a su número convierte los pares en arcos.
+- **Los arcos** van de cada ramo al que se toma después. Tienen dirección y
+  no tienen peso.
+- **La pregunta**: un orden topológico del grafo, o saber que tiene un
+  ciclo.
+- **El tamaño**: hasta $$10^4$$ vértices y $$10^5$$ arcos.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  caption="0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, 4 Ecuaciones, 5 Estructuras de Datos"
+  label="La malla como grafo dirigido, con cada ramo numerado por su lugar en la lista: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, 4 Ecuaciones, 5 Estructuras de Datos. Arcos 0 a 3, 3 a 4, 1 a 4, 2 a 5 y 1 a 5."
+/>
+
+</Slide>
+
+<Slide title="Malla · probar todos los órdenes">
+
+Probar cada orden de los ramos y revisar los pares en cada uno no termina:
+$$n$$ ramos tienen $$n!$$ órdenes, y con solo 20 ramos son más de
+$$2 \cdot 10^{18}$$. Tampoco sirve recorrer el grafo en profundidad o en
+anchura, que pueden poner un ramo antes que su prerrequisito. La regla de
+Kahn arma un orden válido mirando cada arco una vez, y si el grafo tiene un
+ciclo, lo dice.
+
+</Slide>
+
+<Slide title="Malla · la idea">
+
+Primero, de nombres a números: el mapa da el número de cada ramo, y cada par
+se vuelve un arco del grafo. Después, la regla de Kahn: los grados de
+entrada, la cola de fuentes y la línea. Si la cola se vacía con todos los
+ramos en la línea, ese es el orden; si quedan ramos fuera, hay un ciclo y la
+malla es imposible.
+
+<Pair>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'keep', 4: 'keep', 5: 'keep' }}
+  caption="todos los ramos llegan a la línea"
+  label="La malla numerada, con todos sus ramos en verde: todos llegan a la línea."
+/>
+<LineOrder
+  order={[0, 1, 2, 3, 5, 4]}
+  arcs={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  caption="la línea de Kahn: 0, 1, 2, 3, 5, 4"
+  label="La línea de Kahn: 0, 1, 2, 3, 5, 4, todos los arcos hacia la derecha. En nombres: Cálculo I, Álgebra, Programación, Cálculo II, Estructuras de Datos, Ecuaciones."
+/>
+</Pair>
+
+</Slide>
+
+<Slide title="Malla · la solución">
+
+`order` arma el grafo con el mapa de nombres, cuenta los grados de entrada y
+sigue la regla de Kahn; si la línea quedó corta, retorna una lista vacía:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+<SourceFile src="./27-grafos-recorridos.code/malla/Solution.java" range="37-57" />
+
+<SourceFile src="./27-grafos-recorridos.code/malla/Solution.java" range="58-73" />
+
+</Split>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Malla · casos y costo">
+
+- **Un ciclo**, aunque sea entre dos ramos: sus ramos nunca llegan a la
+  cola, la línea queda corta y la respuesta es una lista vacía.
+- **Ramos sin pares**: son fuentes desde el comienzo y entran a la línea en
+  el orden de la lista.
+- **Varios órdenes válidos**: la respuesta es uno, el que da la cola.
+- **Costo**: el mapa y el grafo se arman en $$\Theta(V + E)$$, y la regla de
+  Kahn cuesta lo mismo con las listas: $$\Theta(V + E)$$ en total.
+
+</Slide>
+
+<Slide title="Malla · el programa completo">
+
+<PresentationWide fraction={0.75}>
+<Exercise title="Una malla que se pueda terminar">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+
+interface Graph {
+    int V();
+    Iterable<Integer> adj(int v);
+    void addEdge(int v, int w);
+}
+
+class AdjListDigraph implements Graph {
+    private final List<List<Integer>> lists = new ArrayList<>();
+
+    AdjListDigraph(int V) {
+        for (int v = 0; v < V; v++) {
+            lists.add(new ArrayList<>());
+        }
+    }
+
+    public int V() {
+        return lists.size();
+    }
+
+    public Iterable<Integer> adj(int v) {
+        return new ArrayList<>(lists.get(v));
+    }
+
+    public void addEdge(int v, int w) {
+        lists.get(v).add(w);
+    }
+}
+
+class Solution {
+    static List<String> order(String[] courses, String[][] prerequisites) {
+        Map<String, Integer> index = new HashMap<>();
+        for (int v = 0; v < courses.length; v++) {
+            index.put(courses[v], v);
+        }
+        Graph g = new AdjListDigraph(courses.length);
+        for (String[] pair : prerequisites) {
+            g.addEdge(index.get(pair[0]), index.get(pair[1]));
+        }
+        int[] inDegree = new int[g.V()];
+        for (int v = 0; v < g.V(); v++) {
+            for (int w : g.adj(v)) {
+                inDegree[w]++;
+            }
+        }
+        Queue<Integer> sources = new ArrayDeque<>();
+        for (int v = 0; v < g.V(); v++) {
+            if (inDegree[v] == 0) {
+                sources.add(v);
+            }
+        }
+        List<String> order = new ArrayList<>();
+        while (!sources.isEmpty()) {
+            int v = sources.remove();
+            order.add(courses[v]);
+            for (int w : g.adj(v)) {
+                inDegree[w]--;
+                if (inDegree[w] == 0) {
+                    sources.add(w);
+                }
+            }
+        }
+        if (order.size() < g.V()) {
+            return new ArrayList<>();
+        }
+        return order;
+    }
+}
+```
+
+```java test
+String[] courses = {"Cálculo I", "Álgebra", "Programación", "Cálculo II", "Ecuaciones", "Estructuras de Datos"};
+String[][] pairs = {{"Cálculo I", "Cálculo II"}, {"Cálculo II", "Ecuaciones"}, {"Álgebra", "Ecuaciones"}, {"Programación", "Estructuras de Datos"}, {"Álgebra", "Estructuras de Datos"}};
+check(Solution.order(courses, pairs), java.util.Arrays.asList("Cálculo I", "Álgebra", "Programación", "Cálculo II", "Estructuras de Datos", "Ecuaciones"));
+String[][] cycle = {{"Cálculo I", "Cálculo II"}, {"Cálculo II", "Ecuaciones"}, {"Ecuaciones", "Cálculo II"}};
+check(Solution.order(new String[] {"Cálculo I", "Cálculo II", "Ecuaciones"}, cycle).size(), 0);
+check(Solution.order(new String[] {"A", "B"}, new String[0][]), java.util.Arrays.asList("A", "B"));
 ```
 
 </Exercise>
