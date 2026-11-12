@@ -283,7 +283,7 @@ queda es la del dibujo sin él. ¿Qué postes y casas quedaron sin luz? Es saber
 qué vértices se llega desde la central, un problema con nombre: la
 **alcanzabilidad**, ¿se puede llegar de aquí a allá?
 
-**Entrada.** El número de vértices, contando la central, hasta $$10^4$$, y los
+**Entrada.** El número de vértices, contando la central, hasta $$10^3$$, y los
 cables que quedan, como una lista de aristas, con la central en el vértice 0.
 
 **Salida.** Los vértices sin luz.
@@ -305,8 +305,8 @@ cables que quedan, como una lista de aristas, con la central en el vértice 0.
 El preorden de un árbol visita un nodo y después recorre cada hijo con la misma
 regla. En un árbol, cada nodo conoce a sus hijos y cada arista se recorre una
 sola vez, hacia abajo: desde la raíz, la regla llega a todos los nodos que
-cuelgan de ella, una vez a cada uno. Si la red fuera un árbol, una regla así
-llegaría desde la central a todo lo que tiene luz.
+cuelgan de ella, una vez a cada uno. Una red, en cambio, sabe los vecinos de
+cada vértice, no cuáles son sus hijos.
 
 <NodeGraph
   cols={7}
@@ -698,7 +698,7 @@ alcanzado. Después, `marked(v)` dice si la búsqueda llegó a `v`.
 <Slide title="La búsqueda en profundidad con una pila">
 
 La misma búsqueda se escribe con una pila propia, un `Stack` que el programa
-maneja, en lugar de la pila de llamadas de Java: **sacar un vértice; si ya está
+maneja, en lugar de la pila de llamadas de Java, que tiene un límite: **sacar un vértice; si ya está
 marcado, descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
 La pila de llamadas guarda cada llamada a medio camino; esta guarda los
@@ -1356,8 +1356,8 @@ después de las que necesita?
   nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Cálculo II', x: 2.5, y: 0 }, { v: 'Ecuaciones', x: 5, y: 1 }, { v: 'Álgebra', x: 0, y: 2 }]}
   edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
   directed
-  markEdges={[['Cálculo II', 'Ecuaciones']]}
   tones={{ Ecuaciones: 'flag' }}
+  caption="Ecuaciones, visitado antes que Cálculo II"
   label="Cuatro ramos: Cálculo I es prerrequisito de Cálculo II, y Cálculo II y Álgebra lo son de Ecuaciones. En rojo, Ecuaciones."
 />
 <OutputBox head="por capas desde Álgebra y Cálculo I" lines={["Álgebra", "Cálculo I", "Ecuaciones", "Cálculo II"]} rows={4} label="El orden de una búsqueda en anchura con Álgebra y Cálculo I en la cola desde el comienzo: Álgebra, Cálculo I, Ecuaciones, Cálculo II. Ecuaciones queda antes que Cálculo II, su prerrequisito." />
@@ -1386,11 +1386,11 @@ lista de arcos entre ramos numerados.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 0, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 0, y: 2 }]}
+  edges={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   directed
-  caption="0 Álgebra · 1 Cálculo II · 2 Cálculo I · 3 Programación · 4 Ecuaciones · 5 Métodos Numéricos"
-  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo II, 2 Cálculo I, 3 Programación, 4 Ecuaciones y 5 Métodos Numéricos. Arcos de Cálculo I y de Álgebra a Cálculo II, de Cálculo II a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
+  caption="0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación"
+  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo I, 2 Cálculo II, 3 Métodos Numéricos, 4 Ecuaciones y 5 Programación. Arcos de Cálculo I a Cálculo II, de Cálculo II y de Álgebra a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
 />
 
 </Slide>
@@ -1408,10 +1408,10 @@ a su primer vértice.
 
 <Pair>
 <LineOrder
-  order={[0, 2, 3, 1, 4, 5]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
+  order={[0, 1, 5, 2, 4, 3]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   caption="la malla: todos los arcos hacia la derecha"
-  label="La malla en una línea, en el orden 0, 2, 3, 1, 4, 5. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
+  label="La malla en una línea, en el orden 0, 1, 5, 2, 4, 3. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
 />
 <LineOrder
   order={[0, 1, 2]}
@@ -1435,28 +1435,28 @@ aun empezando desde todos los ramos que no piden nada:
 - **en anchura**, con todos ellos en la cola desde el comienzo, cada ramo queda
   en la capa siguiente a la de su prerrequisito más cercano, y tiene que esperar
   al más lejano;
-- **por cantidad de prerrequisitos**, un ramo que pide uno solo puede pedir uno
-  que pide dos.
+- **por cantidad de prerrequisitos**, dos ramos que piden la misma cantidad
+  quedan en cualquier orden, aunque uno pida al otro.
 
 <PresentationWide fraction={0.95}>
 <Pair>
 <LineOrder
-  order={[0, 1, 4, 5, 2, 3]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="en profundidad: 1 antes que 2"
-  label="La malla en el preorden de la búsqueda en profundidad desde 0, 2 y 3: 0, 1, 4, 5, 2, 3. Los arcos de 2 a 1 y de 3 a 5, en rojo, apuntan hacia la izquierda."
+  order={[0, 4, 3, 1, 2, 5]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="en profundidad: Ecuaciones antes que Cálculo II"
+  label="La malla en el preorden de la búsqueda en profundidad desde 0, 1 y 5: 0, 4, 3, 1, 2, 5. Los arcos de 2 a 4, de Cálculo II a Ecuaciones, y de 5 a 3, de Programación a Métodos Numéricos, en rojo, apuntan hacia la izquierda."
 />
 <LineOrder
-  order={[0, 2, 3, 1, 5, 4]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="en anchura: 5 antes que 4"
-  label="La malla en el orden de la búsqueda en anchura desde 0, 2 y 3: 0, 2, 3, 1, 5, 4. El arco de 4 a 5, en rojo, apunta hacia la izquierda."
+  order={[0, 1, 5, 4, 2, 3]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="en anchura: Ecuaciones antes que Cálculo II"
+  label="La malla en el orden de la búsqueda en anchura desde 0, 1 y 5: 0, 1, 5, 4, 2, 3. El arco de 2 a 4, de Cálculo II a Ecuaciones, en rojo, apunta hacia la izquierda."
 />
 <LineOrder
-  order={[0, 2, 3, 4, 1, 5]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="por grado de entrada: 4 antes que 1"
-  label="La malla ordenada por grado de entrada, 0, 2, 0, 0, 1 y 2: 0, 2, 3, 4, 1, 5. El arco de 1 a 4, en rojo, apunta hacia la izquierda."
+  order={[0, 1, 5, 2, 3, 4]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="por grado de entrada: Métodos Numéricos antes que Ecuaciones"
+  label="La malla ordenada por grado de entrada, 0, 0, 1, 2, 2 y 0: 0, 1, 5, 2, 3, 4. El arco de 4 a 3, de Ecuaciones a Métodos Numéricos, en rojo, apunta hacia la izquierda."
 />
 </Pair>
 </PresentationWide>
@@ -1478,13 +1478,13 @@ un vértice al que no llega ningún arco: una fuente.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 0, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 0, y: 2 }]}
+  edges={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   directed
-  markEdges={[[4, 5], [1, 4], [2, 1]]}
-  tones={{ 5: 'mark', 4: 'mark', 1: 'mark', 2: 'keep' }}
-  caption="desde 5, hacia atrás: 4, 1 y después 2, una fuente"
-  label="La malla. Desde 5, Métodos Numéricos, se retrocede por el arco que llega desde 4, Ecuaciones, desde ahí por el que llega desde 1, Cálculo II, y desde ahí por el que llega desde 2, Cálculo I, al que no llega ningún arco: una fuente. Marcados los tres arcos del retroceso."
+  markEdges={[[4, 3], [2, 4], [1, 2]]}
+  tones={{ 3: 'mark', 4: 'mark', 2: 'mark', 1: 'keep' }}
+  caption="desde 3, hacia atrás: 4, 2 y después 1, una fuente"
+  label="La malla. Desde 3, Métodos Numéricos, se retrocede por el arco que llega desde 4, Ecuaciones, desde ahí por el que llega desde 2, Cálculo II, y desde ahí por el que llega desde 1, Cálculo I, al que no llega ningún arco: una fuente. Marcados los tres arcos del retroceso."
 />
 
 </Slide>
@@ -1507,18 +1507,18 @@ apuntan: por eso todos los arcos apuntan hacia la derecha.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 1, x: 2, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[1, 4], [3, 5], [4, 5]]}
+  nodes={[{ v: 2, x: 2, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 0, y: 2 }]}
+  edges={[[2, 4], [5, 3], [4, 3]]}
   directed
-  tones={{ 1: 'mark' }}
-  caption="sin 0 ni 2, ni sus arcos: 1 es una fuente nueva"
-  label="Lo que queda de la malla después de sacar las fuentes 0 y 2 con sus arcos: los ramos 1, 3, 4 y 5, y los arcos de 1 a 4, de 3 a 5 y de 4 a 5. A 1, Cálculo II, ya no le llega ningún arco: es una fuente nueva, en amarillo."
+  tones={{ 2: 'mark' }}
+  caption="sin 0 ni 1, ni sus arcos: 2 es una fuente nueva"
+  label="Lo que queda de la malla después de sacar las fuentes 0 y 1 con sus arcos: los ramos 2, 3, 4 y 5, y los arcos de 2 a 4, de 5 a 3 y de 4 a 3. A 2, Cálculo II, ya no le llega ningún arco: es una fuente nueva, en amarillo."
 />
 <LineOrder
-  order={[0, 2]}
+  order={[0, 1]}
   arcs={[]}
-  caption="la línea hasta ahora: las fuentes 0 y 2, ya sacadas"
-  label="La línea hasta ahora: 0 y 2."
+  caption="la línea hasta ahora: las fuentes 0 y 1, ya sacadas"
+  label="La línea hasta ahora: 0 y 1."
 />
 </Pair>
 
@@ -1539,12 +1539,12 @@ arco de `v` a `w` de cada lista, suma uno al grado de entrada de `w`.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 0, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 0, y: 2 }]}
+  edges={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   directed
-  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo II, 2 Cálculo I, 3 Programación, 4 Ecuaciones y 5 Métodos Numéricos. Arcos de Cálculo I y de Álgebra a Cálculo II, de Cálculo II a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
+  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo I, 2 Cálculo II, 3 Métodos Numéricos, 4 Ecuaciones y 5 Programación. Arcos de Cálculo I a Cálculo II, de Cálculo II y de Álgebra a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
 />
-<ArrayRows rows={[{ name: 'inDegree', cells: [0, 2, 0, 0, 1, 2] }]} caption="las fuentes, 0, 2 y 3, tienen grado de entrada 0" label="El arreglo inDegree de la malla: 0, 2, 0, 0, 1, 2. Las fuentes 0, 2 y 3 tienen grado de entrada 0; a 1 y a 5 les llegan dos arcos; a 4, uno." />
+<ArrayRows rows={[{ name: 'inDegree', cells: [0, 0, 1, 2, 2, 0] }]} caption="las fuentes, 0, 1 y 5, tienen grado de entrada 0" label="El arreglo inDegree de la malla: 0, 0, 1, 2, 2, 0. Las fuentes 0, 1 y 5 tienen grado de entrada 0; a 2 le llega un arco; a 3 y a 4, dos." />
 </Pair>
 
 </Split>
@@ -1564,8 +1564,8 @@ entrada, y una cola guarda las fuentes que esperan. Cada fuente que sale pasa a
   directed
   ratio="45/55"
   title="new Topological(g) en la malla"
-  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 0, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 0, y: 0 }, { v: 2, x: 2, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 0, y: 2 }]}
+  edges={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   cols={5}
   rows={3}
   program={`Graph g = new AdjListDigraph(6);
@@ -1575,8 +1575,8 @@ entrada, y una cola guarda las fuentes que esperan. Cada fuente que sale pasa a
   codeSrc="./27-grafos-recorridos.code/Topological.java"
   codeRange="11-28"
   lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
-  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo II, 2 Cálculo I, 3 Programación, 4 Ecuaciones y 5 Métodos Numéricos. Arcos de Cálculo I y de Álgebra a Cálculo II, de Cálculo II a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
-  caption="0 Álgebra · 1 Cálculo II · 2 Cálculo I · 3 Programación · 4 Ecuaciones · 5 Métodos Numéricos"
+  label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo I, 2 Cálculo II, 3 Métodos Numéricos, 4 Ecuaciones y 5 Programación. Arcos de Cálculo I a Cálculo II, de Cálculo II y de Álgebra a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
+  caption="0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación"
 />
 
 </Slide>
@@ -1602,17 +1602,17 @@ elección da otra línea: un grafo dirigido sin ciclos puede tener muchos órden
 topológicos, y todos sirven.
 
 <LineOrder
-  order={[0, 2, 3, 1, 4, 5]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="el orden de la cola: 0, 2, 3, 1, 4, 5"
-  label="La malla en el orden que da Topological: 0, 2, 3, 1, 4, 5, todos los arcos hacia la derecha."
+  order={[0, 1, 5, 2, 4, 3]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="Álgebra, Cálculo I, Programación, Cálculo II, Ecuaciones, Métodos Numéricos"
+  label="La malla en el orden que da Topological: 0, 1, 5, 2, 4, 3, es decir Álgebra, Cálculo I, Programación, Cálculo II, Ecuaciones y Métodos Numéricos; todos los arcos hacia la derecha."
 />
 
 <LineOrder
-  order={[2, 0, 1, 4, 3, 5]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="otro orden válido: 2, 0, 1, 4, 3, 5"
-  label="La malla en el orden 2, 0, 1, 4, 3, 5: también todos los arcos hacia la derecha."
+  order={[5, 1, 0, 2, 4, 3]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="otro orden válido: Programación, Cálculo I, Álgebra, Cálculo II, Ecuaciones, Métodos Numéricos"
+  label="La malla en el orden 5, 1, 0, 2, 4, 3: también todos los arcos hacia la derecha."
 />
 
 </Slide>
@@ -1676,7 +1676,7 @@ por esos arcos alguna se repite, en un ciclo.
   codeRange="11-28"
   lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
   label="La misma hoja, con C1 = A1 + D1: 0 es C1 = A1 + D1; 1 es A1, que vale 5; 2 es D1 = B1 + C1; 3 es B1 = A1 * 2. Arcos de 1 a 3 y a 0, de 3 y de 0 a 2, y de 2 a 0: C1 y D1 se leen una a la otra, un ciclo."
-  caption="la misma hoja con C1 = A1 + D1 · 0: C1 · 1: A1 · 2: D1 · 3: B1"
+  caption="la misma hoja, con C1 = A1 + D1; los números: 0 es C1, 1 es A1, 2 es D1, 3 es B1"
 />
 
 </Slide>
@@ -1740,10 +1740,10 @@ dice si hay un ciclo: para eso hay que ver si algún arco llega a
 un vértice cuya llamada sigue en curso.
 
 <LineOrder
-  order={[3, 2, 0, 1, 4, 5]}
-  arcs={[[2, 1], [0, 1], [1, 4], [3, 5], [4, 5]]}
-  caption="el postorden inverso de la malla: 3, 2, 0, 1, 4, 5"
-  label="La malla en el orden del postorden inverso: 3, 2, 0, 1, 4, 5. Todos los arcos apuntan hacia la derecha."
+  order={[5, 1, 2, 0, 4, 3]}
+  arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
+  caption="el postorden inverso de la malla: 5, 1, 2, 0, 4, 3"
+  label="La malla en el orden del postorden inverso: 5, 1, 2, 0, 4, 3. Todos los arcos apuntan hacia la derecha."
 />
 
 </Slide>

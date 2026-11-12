@@ -271,6 +271,15 @@ export function StepShow({
     }
   }, [clamped, count]);
 
+  // On a slide a control is momentary: after it acts, the keyboard goes back
+  // to the walk, so the next Space or page key steps the walk (or, at its
+  // end, moves the deck) instead of pressing that control again (#357 review
+  // round 8).
+  const handBack = (action: () => void) => () => {
+    action();
+    if (isPresentation) outerRef.current?.focus({ preventScroll: true });
+  };
+
   const codeSpec = specOf(code, codeSrc, codeRange, codeName);
   const programSpec = specOf(program, programSrc, programRange, programName);
   const helperSpec = specOf(helper, helperSrc, helperRange, helperName);
@@ -486,20 +495,20 @@ export function StepShow({
         #116, and now an invariant of the shared button.
       */}
       <footer className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
-        <ControlButton onClick={reset} disabled={first} label="Reiniciar">
+        <ControlButton onClick={handBack(reset)} disabled={first} label="Reiniciar">
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={retreat} disabled={first} label="Atrás">
+        <ControlButton onClick={handBack(retreat)} disabled={first} label="Atrás">
           <SkipBack className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={togglePlay} label={isPlaying ? 'Pausar' : 'Reproducir'}>
+        <ControlButton onClick={handBack(togglePlay)} label={isPlaying ? 'Pausar' : 'Reproducir'}>
           {isPlaying ? (
             <Pause className="h-3.5 w-3.5" aria-hidden />
           ) : (
             <Play className="h-3.5 w-3.5" aria-hidden />
           )}
         </ControlButton>
-        <ControlButton onClick={advance} disabled={last} label="Adelante">
+        <ControlButton onClick={handBack(advance)} disabled={last} label="Adelante">
           <SkipForward className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
