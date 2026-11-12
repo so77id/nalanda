@@ -45,6 +45,23 @@ const ON_PUSH = `private void dfs(Graph g, int s) {
     }
 }`;
 
+const ON_POP = `private void bfs(Graph g, int s) {
+    Queue<Integer> queue = new ArrayDeque<>();
+    queue.add(s);
+    while (!queue.isEmpty()) {
+        int v = queue.remove();
+        if (marked[v]) {
+            continue;
+        }
+        marked[v] = true;
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                queue.add(w);
+            }
+        }
+    }
+}`;
+
 const CASES: [string, GraphWalkProps, string, number][] = [
   [
     'El código de la búsqueda en profundidad',
@@ -123,6 +140,64 @@ const CASES: [string, GraphWalkProps, string, number][] = [
         prev: 28,
         push: 29,
         end: 20,
+      },
+    },
+    'end',
+    0,
+  ],
+  [
+    'El recorrido por niveles en un grafo',
+    {
+      beside: true,
+      algorithm: 'bfs-mark-on-pop',
+      nodes: [
+        { v: 0, x: 1, y: 0 },
+        { v: 1, x: 0, y: 1 },
+        { v: 2, x: 2, y: 1 },
+        { v: 3, x: 1, y: 2 },
+      ],
+      edges: [
+        [0, 1],
+        [0, 2],
+        [1, 3],
+        [2, 3],
+      ],
+      cols: 3,
+      rows: 3,
+      code: ON_POP,
+      lines: {
+        enqueueStart: [2, 3],
+        dequeue: [4, 5],
+        skip: [6, 7],
+        mark: 9,
+        look: [10, 11],
+        enqueue: 12,
+        end: 4,
+      },
+      label: 'Un rombo.',
+    },
+    'end',
+    0,
+  ],
+  [
+    'El código de la búsqueda en anchura',
+    {
+      ...FIVE,
+      beside: true,
+      algorithm: 'bfs',
+      codeSrc: `${CODE}BreadthFirstPaths.java`,
+      codeRange: '22-38',
+      lines: {
+        markStart: 24,
+        distStart: 25,
+        enqueueStart: [23, 26],
+        dequeue: [27, 28],
+        look: [29, 30],
+        mark: 31,
+        dist: 32,
+        prev: 33,
+        enqueue: 34,
+        end: 27,
       },
     },
     'end',
