@@ -2643,9 +2643,21 @@ prepararla. El mismo `Topological` da uno.
 
 ## Las preguntas de un recorrido
 
-{/* S18: one markdown table with only the questions this document raised — */}
-{/* named problem · question · situations seen · tool (epic #354, «Dónde */}
-{/* aparecen las tablas»). */}
+Un mismo recorrido responde varias preguntas con nombre. Cada una aparece en
+situaciones que no se parecen entre sí, y se responde con la misma
+herramienta, con un cambio pequeño en su código.
+
+<Slide title="Los problemas con nombre de los recorridos">
+
+| Problema | Pregunta | Situaciones | Herramienta |
+| --- | --- | --- | --- |
+| Alcanzabilidad | ¿Puedo llegar de aquí a allá? | la salida de un laberinto · la luz que llega a una casa | búsqueda en profundidad |
+| Componentes conexas | ¿En cuántos pedazos se parte? | los caminos que faltan para unir las ciudades | una búsqueda en profundidad desde cada vértice sin marcar |
+| Camino más corto sin pesos | ¿Con cuántos pasos, como mínimo? | la salida de un laberinto · los giros de un candado · los saltos del caballo · un incendio con varios focos | búsqueda en anchura |
+| Grafo bipartito | ¿Se pueden repartir en dos grupos sin conflictos dentro de cada uno? | dos equipos sin rivales adentro | búsqueda en anchura, por la paridad de la capa |
+| Orden topológico | ¿En qué orden se hacen las cosas? | los ramos de una malla y sus semestres · las celdas de una hoja de cálculo · los pasos de una receta | la regla de Kahn |
+
+</Slide>
 
 <SectionBreak />
 
