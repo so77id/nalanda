@@ -402,6 +402,25 @@ describe('StepShow', () => {
     expect(fireEvent.keyDown(group, { key: ' ' })).toBe(true);
   });
 
+  it('gives the keyboard back to the walk after one of its controls acts, on a slide', () => {
+    render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    const forward = screen.getByRole('button', { name: /adelante/i });
+    forward.focus();
+    fireEvent.click(forward);
+    expect(document.activeElement).toBe(screen.getByRole('group'));
+  });
+
   it('takes the keyboard on a slide even when a deck control had it (#357 round 6)', () => {
     const fullscreen = document.createElement('button');
     document.body.append(fullscreen);

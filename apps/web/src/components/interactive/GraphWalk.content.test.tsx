@@ -59,31 +59,31 @@ const FRIENDS = {
   caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
 };
 
-// The malla: 0 Álgebra, 1 Cálculo II, 2 Cálculo I, 3 Programación,
-// 4 Ecuaciones, 5 Métodos Numéricos; one arc per prerequisite. The numbers are
-// not an order, so Kahn's walk is seen to reorder them.
+// The malla: class 1's, two courses more. 0 Álgebra, 1 Cálculo I, 2 Cálculo
+// II, 3 Métodos Numéricos, 4 Ecuaciones, 5 Programación: the numbers are not
+// an order, so Kahn's walk is seen to reorder them.
 const MALLA = {
   directed: true,
   nodes: [
     { v: 0, x: 0, y: 1 },
-    { v: 1, x: 2, y: 0 },
-    { v: 2, x: 0, y: 0 },
-    { v: 3, x: 0, y: 2 },
+    { v: 1, x: 0, y: 0 },
+    { v: 2, x: 2, y: 0 },
+    { v: 3, x: 4, y: 2 },
     { v: 4, x: 4, y: 0 },
-    { v: 5, x: 4, y: 2 },
+    { v: 5, x: 0, y: 2 },
   ],
   edges: [
-    [2, 1],
-    [0, 1],
-    [1, 4],
-    [3, 5],
-    [4, 5],
+    [1, 2],
+    [2, 4],
+    [0, 4],
+    [5, 3],
+    [4, 3],
   ] as [number, number][],
   cols: 5,
   rows: 3,
   label: 'La malla.',
   caption:
-    '0 Álgebra · 1 Cálculo II · 2 Cálculo I · 3 Programación · 4 Ecuaciones · 5 Métodos Numéricos',
+    '0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -301,7 +301,7 @@ const CASES: [string, GraphWalkProps, string][] = [
       codeRange: '11-28',
       lines: KAHN_LINES,
       label: 'Una hoja con una referencia circular.',
-      caption: 'la misma hoja con C1 = A1 + D1 · 0: C1 · 1: A1 · 2: D1 · 3: B1',
+      caption: 'la misma hoja, con C1 = A1 + D1; los números: 0 es C1, 1 es A1, 2 es D1, 3 es B1',
     },
     'end',
   ],
