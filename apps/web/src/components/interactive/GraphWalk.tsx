@@ -12,6 +12,7 @@ import {
   traceDfs,
   traceDfsStack,
   traceBfs,
+  traceKahn,
   traceGridDfs,
   type GraphWalkEdge,
   type WalkEvent,
@@ -21,7 +22,7 @@ import { Step } from './Step';
 import { StepShow } from './StepShow';
 
 export type GraphWalkAlgorithm =
-  'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop';
+  'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop' | 'kahn';
 
 /** The events of each walk, each lighting the lines an author maps it to. */
 const EVENTS: Record<GraphWalkAlgorithm, readonly WalkEvent[]> = {
@@ -41,6 +42,7 @@ const EVENTS: Record<GraphWalkAlgorithm, readonly WalkEvent[]> = {
     'end',
   ],
   'bfs-mark-on-pop': ['enqueueStart', 'dequeue', 'skip', 'mark', 'look', 'enqueue', 'end'],
+  kahn: ['inDegrees', 'check', 'enqueueStart', 'dequeue', 'append', 'lower', 'enqueue', 'end'],
 };
 
 export interface GraphWalkProps {
@@ -118,7 +120,7 @@ export function GraphWalk(props: GraphWalkProps) {
     return (
       <AuthoringError component="GraphWalk">
         algorithm=&quot;{String(algorithm)}&quot; no existe; son dfs, dfs-iterative,
-        dfs-mark-on-push, bfs y bfs-mark-on-pop.
+        dfs-mark-on-push, bfs, bfs-mark-on-pop y kahn.
       </AuthoringError>
     );
   }
@@ -179,6 +181,13 @@ export function GraphWalk(props: GraphWalkProps) {
       </AuthoringError>
     );
   }
+  if (algorithm === 'kahn' && !props.directed) {
+    return (
+      <AuthoringError component="GraphWalk">
+        kahn ordena un grafo dirigido: escribe directed.
+      </AuthoringError>
+    );
+  }
   if (code === undefined && codeSrc === undefined) {
     return (
       <AuthoringError component="GraphWalk">
@@ -213,6 +222,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
     const adj = adjacencyOf(V, parsed, directed);
     if (algorithm === 'dfs') return traceDfs(adj, start);
+    if (algorithm === 'kahn') return traceKahn(adj);
     if (algorithm === 'bfs') return traceBfs(adj, start, 'push');
     if (algorithm === 'bfs-mark-on-pop') return traceBfs(adj, start, 'pop');
     return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push');
@@ -251,7 +261,18 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
           programLines={programLines}
           under={
             gridKey === undefined ? (
-              <ArraysPanel frame={frame} withPrev={algorithm !== 'bfs-mark-on-pop'} />
+              <ArraysPanel
+                frame={frame}
+                rows={
+                  algorithm === 'kahn'
+                    ? ['inDegree', 'order']
+                    : algorithm === 'bfs'
+                      ? ['marked', 'dist', 'prev']
+                      : algorithm === 'bfs-mark-on-pop'
+                        ? ['marked']
+                        : ['marked', 'prev']
+                }
+              />
             ) : undefined
           }
         >
@@ -265,7 +286,15 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               cols={cols}
               rows={rows}
               directed={directed}
-              bag={algorithm === 'dfs' ? 'calls' : algorithm.startsWith('bfs') ? 'queue' : 'stack'}
+              bag={
+                algorithm === 'dfs'
+                  ? 'calls'
+                  : algorithm === 'kahn'
+                    ? 'sources'
+                    : algorithm.startsWith('bfs')
+                      ? 'queue'
+                      : 'stack'
+              }
               depth={depth}
               label={label}
             />
@@ -287,7 +316,7 @@ interface FrameProps {
    * What holds the vertices still to walk: the recursive walk's call stack,
    * the iterative one's own stack, or the breadth-first walk's queue.
    */
-  bag: 'calls' | 'stack' | 'queue';
+  bag: 'calls' | 'stack' | 'queue' | 'sources';
   depth: number;
   label: string;
 }
@@ -308,6 +337,16 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   if (frame.unvisited && frame.w !== null) tones[String(frame.w)] = 'flag';
   // Marking on dequeue: a vertex enqueued while it is already in the queue.
   if (frame.twice && frame.w !== null) tones[String(frame.w)] = 'flag';
+  if (bag === 'sources') {
+    // Kahn: the vertex the first loop asks about, and, once the queue runs
+    // out, the vertices a cycle left off the line.
+    if (frame.v === null && frame.w !== null) tones[String(frame.w)] = 'mark';
+    if (frame.event === 'end') {
+      for (let v = 0; v < frame.marked.length; v++) {
+        if (!frame.order.includes(v)) tones[String(v)] = 'flag';
+      }
+    }
+  }
   // Breadth-first: each reached vertex carries its distance, its layer.
   const notes: Record<string, string> = {};
   if (frame.dist !== null) {
@@ -346,11 +385,18 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
             markEdges={[...thread, ...looking]}
             label={`${label} ${frame.text}`}
           />
+          {bag === 'sources' ? (
+            <LinePanel order={frame.order} edges={edges} V={nodes.length} />
+          ) : null}
         </div>
         {recursive ? (
           <CallStack frame={frame} depth={depth} />
-        ) : bag === 'queue' ? (
-          <QueuePanel frame={frame} depth={depth} />
+        ) : bag === 'queue' || bag === 'sources' ? (
+          <QueuePanel
+            frame={frame}
+            depth={depth}
+            title={bag === 'sources' ? 'cola de fuentes' : 'cola'}
+          />
         ) : (
           <StackPanel
             title="pila"
@@ -673,11 +719,100 @@ function StackPanel({ title, items, hot, depth, label }: StackPanelProps) {
   );
 }
 
+/**
+ * Kahn's line: the vertices in the order they were appended, each arc between
+ * two of them drawn above as a bow from tail to head. In a topological order
+ * every bow points right.
+ */
+function LinePanel({ order, edges, V }: { order: number[]; edges: [number, number][]; V: number }) {
+  const gap = 46;
+  const r = 13;
+  const width = Math.max(1, V) * gap + 16;
+  const y = 70;
+  const height = y + r + 8;
+  const at = new Map(order.map((v, i) => [v, 16 + gap / 2 + i * gap - gap / 2 + r]));
+  const bows = edges.filter(([u, v]) => at.has(u) && at.has(v));
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      style={{
+        width: '100%',
+        maxWidth: `${width}px`,
+        height: 'auto',
+        display: 'block',
+        margin: '0 auto',
+      }}
+      role="img"
+      aria-label={
+        order.length === 0
+          ? 'La línea está vacía.'
+          : `La línea, de izquierda a derecha: ${order.join(', ')}.`
+      }
+      data-testid="graph-walk-line"
+    >
+      <text x={4} y={12} fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>
+        línea
+      </text>
+      <line
+        x1={4}
+        y1={y}
+        x2={width - 4}
+        y2={y}
+        style={{ stroke: 'var(--color-rule)' }}
+        strokeWidth={1.2}
+        strokeDasharray="4 3"
+      />
+      {bows.map(([u, v]) => {
+        const x1 = at.get(u)!;
+        const x2 = at.get(v)!;
+        const right = x2 > x1;
+        const lift = 14 + Math.abs(x2 - x1) * 0.28;
+        const color = right ? 'var(--color-ink-soft)' : 'var(--color-flag)';
+        return (
+          <g key={`${u}-${v}`} data-bow={`${u}-${v}`} data-right={right ? '' : undefined}>
+            <path
+              d={`M ${x1} ${y - r} Q ${(x1 + x2) / 2} ${y - r - lift} ${x2} ${y - r - 2}`}
+              fill="none"
+              style={{ stroke: color }}
+              strokeWidth={1.6}
+            />
+            <polygon
+              points={`${x2},${y - r} ${x2 + (right ? -7 : 7)},${y - r - 6} ${x2 + (right ? -1 : 1)},${y - r - 9}`}
+              style={{ fill: color }}
+            />
+          </g>
+        );
+      })}
+      {order.map((v) => (
+        <g key={v}>
+          <circle
+            cx={at.get(v)}
+            cy={y}
+            r={r}
+            style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }}
+            strokeWidth={1.8}
+          />
+          <text
+            x={at.get(v)}
+            y={y + 4}
+            textAnchor="middle"
+            fontSize="12"
+            fontWeight="700"
+            style={{ fill: 'var(--color-ink)' }}
+          >
+            {v}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 /** The breadth-first walk's queue, its front at the left, `depth` cells wide. */
-function QueuePanel({ frame, depth }: { frame: WalkFrame; depth: number }) {
+function QueuePanel({ frame, depth, title }: { frame: WalkFrame; depth: number; title: string }) {
   const cw = 34;
   const head = 18;
-  const width = Math.max(1, depth) * (cw + 4) + 8;
+  const width = Math.max(1, depth, 4) * (cw + 4) + 8;
   const height = head + CELL_H + 18;
   const enqueued = frame.event === 'enqueue' || frame.event === 'enqueueStart';
   const items = frame.stack;
@@ -694,7 +829,7 @@ function QueuePanel({ frame, depth }: { frame: WalkFrame; depth: number }) {
       data-testid="graph-walk-queue"
     >
       <text x={4} y={12} fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>
-        cola
+        {title}
       </text>
       {items.map((v, i) => {
         const x = 4 + i * (cw + 4);
@@ -745,25 +880,33 @@ function QueuePanel({ frame, depth }: { frame: WalkFrame; depth: number }) {
 }
 
 /** `marked` and `prev`, one cell per vertex, the cell the frame wrote in mark. */
-function ArraysPanel({ frame, withPrev = true }: { frame: WalkFrame; withPrev?: boolean }) {
+type ArrayName = 'marked' | 'dist' | 'prev' | 'inDegree' | 'order';
+
+/**
+ * The program's arrays, one cell per vertex, the cell the frame wrote in
+ * mark: `marked` and `prev` for a search, `dist` too for the breadth-first
+ * one; `inDegree` and the list `order`, filled from its start, for Kahn's.
+ */
+function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
   const V = frame.marked.length;
-  const nameW = 62;
+  const nameW = 76;
   const cw = 46;
   const head = 14;
   const gap = 8;
   const rowH = head + CELL_H + gap;
   const width = nameW + V * cw + 4;
   const minus = (n: number) => (n < 0 ? '−1' : String(n));
-  const hotIn = (array: 'marked' | 'dist' | 'prev') =>
-    frame.wrote?.array === array ? frame.wrote.index : -1;
-  // A breadth-first walk keeps `dist` too; the tempting one keeps no `prev`.
-  const rowsData: { name: string; cells: string[]; hot: number }[] = [
-    { name: 'marked', cells: frame.marked.map(String), hot: hotIn('marked') },
-    ...(frame.dist === null
-      ? []
-      : [{ name: 'dist', cells: frame.dist.map(minus), hot: hotIn('dist') }]),
-    ...(withPrev ? [{ name: 'prev', cells: frame.prev.map(minus), hot: hotIn('prev') }] : []),
-  ];
+  const hotIn = (array: ArrayName) => (frame.wrote?.array === array ? frame.wrote.index : -1);
+  const cellsOf = (name: ArrayName): string[] => {
+    if (name === 'marked') return frame.marked.map(String);
+    if (name === 'prev') return frame.prev.map(minus);
+    if (name === 'dist') return (frame.dist ?? []).map(minus);
+    if (name === 'inDegree') return (frame.inDegree ?? []).map(String);
+    return Array.from({ length: V }, (_, i) =>
+      i < frame.order.length ? String(frame.order[i]) : '',
+    );
+  };
+  const rowsData = rows.map((name) => ({ name, cells: cellsOf(name), hot: hotIn(name) }));
   const height = rowsData.length * rowH;
   return (
     <svg

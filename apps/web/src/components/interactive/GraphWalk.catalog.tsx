@@ -10,6 +10,30 @@ const ITER_SRC =
   'asset:courses/sample-course/27-grafos-recorridos.code/IterativeDepthFirstPaths.java';
 const MAZE_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/MazeDepthFirstPaths.java';
 const BFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/BreadthFirstPaths.java';
+const KAHN_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/Topological.java';
+
+// Kahn's walk is the constructor of Topological, from 10.
+const KAHN_LINES = {
+  inDegrees: 11,
+  check: [13, 14],
+  enqueueStart: [14, 15],
+  dequeue: [18, 19],
+  append: 20,
+  lower: [21, 22],
+  enqueue: [23, 24],
+  end: [18, 28],
+};
+
+// The six-course malla: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II,
+// 4 Ecuaciones, 5 Estructuras de Datos.
+const MALLA = [
+  { v: 0, x: 0, y: 0 },
+  { v: 1, x: 0, y: 1 },
+  { v: 2, x: 0, y: 2 },
+  { v: 3, x: 2, y: 0 },
+  { v: 4, x: 4, y: 0 },
+  { v: 5, x: 2, y: 2 },
+];
 
 // The breadth-first search's bfs starts at 22.
 const BFS_LINES = {
@@ -155,16 +179,16 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   name: 'GraphWalk',
   family: 'interactive',
   description:
-    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. The recursive one also walks a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `marked` the cells’ paint and `prev` an arrow from each cell back to where it was reached from, the thread in mark. The breadth-first search marks on enqueue and keeps `dist`, each vertex carrying its distance beside it and the queue drawn front first; its tempting version marks on dequeue and paints red a vertex enqueued while it is already in the queue.',
+    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. The recursive one also walks a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `marked` the cells’ paint and `prev` an arrow from each cell back to where it was reached from, the thread in mark. Kahn’s topological order (`kahn`, over a directed graph) draws its queue of sources, `inDegree` and `order` under the listing, and the line it builds under the graph, each arc a bow pointing right; a cycle leaves its vertices off the line, in red. The breadth-first search marks on enqueue and keeps `dist`, each vertex carrying its distance beside it and the queue drawn front first; its tempting version marks on dequeue and paints red a vertex enqueued while it is already in the queue.',
   whenToUse:
     'When a slide walks a traversal over a small graph step by step and the frames would otherwise be written by hand — fifteen to thirty `<Step>`s, each a `<NodeGraph>` and its arrays, where one copied wrong is caught by nobody. ' +
     'NOT for a single picture of a graph (`<NodeGraph>`), nor for a walk whose lesson is a structure the trace does not draw.',
   props: [
     {
       name: 'algorithm',
-      type: "'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop'",
+      type: "'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop' | 'kahn'",
       description:
-        'The walk to simulate. Default `dfs`, the recursive depth-first search; `dfs-iterative`, with a stack of its own, marking on pop; `dfs-mark-on-push`, the tempting version, which does not walk depth first; `bfs`, the breadth-first search with a queue, marking on enqueue, with `dist`; `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice.',
+        'The walk to simulate. Default `dfs`, the recursive depth-first search; `dfs-iterative`, with a stack of its own, marking on pop; `dfs-mark-on-push`, the tempting version, which does not walk depth first; `bfs`, the breadth-first search with a queue, marking on enqueue, with `dist`; `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice; `kahn`, the topological order of a directed graph.',
     },
     {
       name: 'nodes',
@@ -197,7 +221,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'lines',
       type: 'Record<event, number | number[]>',
       description:
-        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`; over a grid, also the lines computing the cell), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. For `bfs`: `markStart`, `distStart`, `enqueueStart`, `dequeue`, `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`, `enqueue`, `end`. A missing one is an authoring error.',
+        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`; over a grid, also the lines computing the cell), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. For `bfs`: `markStart`, `distStart`, `enqueueStart`, `dequeue`, `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`, `enqueue`, `end`. For `kahn`: `inDegrees`, `check`, `enqueueStart`, `dequeue`, `append`, `lower`, `enqueue`, `end`. A missing one is an authoring error.',
     },
     {
       name: 'codeSrc / codeRange',
@@ -455,6 +479,42 @@ MazeDepthFirstPaths paths = new MazeDepthFirstPaths(grid, 0);\`}
           code={ON_POP}
           lines={ON_POP_LINES}
           label="Un rombo: 0 unido a 1 y a 2, y los dos unidos a 3."
+        />
+      ),
+    },
+    {
+      title: 'Kahn on a malla of six courses: the line every arc points right on',
+      code: `<GraphWalk
+  algorithm="kahn"
+  directed
+  nodes={MALLA}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  cols={5}
+  rows={3}
+  codeSrc="./27-grafos-recorridos.code/Topological.java"
+  codeRange="10-29"
+  lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19],
+           append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
+  label="Una malla de seis ramos."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="kahn"
+          directed
+          nodes={MALLA}
+          edges={[
+            [0, 3],
+            [3, 4],
+            [1, 4],
+            [2, 5],
+            [1, 5],
+          ]}
+          cols={5}
+          rows={3}
+          codeSrc={KAHN_SRC}
+          codeRange="10-29"
+          lines={KAHN_LINES}
+          label="Una malla de seis ramos: Cálculo I, Álgebra, Programación, Cálculo II, Ecuaciones y Estructuras de Datos."
         />
       ),
     },
