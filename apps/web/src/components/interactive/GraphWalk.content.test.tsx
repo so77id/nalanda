@@ -62,6 +62,17 @@ const ON_POP = `private void bfs(Graph g, int s) {
     }
 }`;
 
+const KAHN_LINES = {
+  inDegrees: 11,
+  check: [13, 14],
+  enqueueStart: [14, 15],
+  dequeue: [18, 19],
+  append: 20,
+  lower: [21, 22],
+  enqueue: [23, 24],
+  end: [18, 28],
+};
+
 const CASES: [string, GraphWalkProps, string, number][] = [
   [
     'El código de la búsqueda en profundidad',
@@ -202,6 +213,65 @@ const CASES: [string, GraphWalkProps, string, number][] = [
     },
     'end',
     0,
+  ],
+  [
+    'El código del orden topológico',
+    {
+      beside: true,
+      algorithm: 'kahn',
+      directed: true,
+      nodes: [
+        { v: 0, x: 0, y: 0 },
+        { v: 1, x: 0, y: 1 },
+        { v: 2, x: 0, y: 2 },
+        { v: 3, x: 2, y: 0 },
+        { v: 4, x: 4, y: 0 },
+        { v: 5, x: 2, y: 2 },
+      ],
+      edges: [
+        [0, 3],
+        [3, 4],
+        [1, 4],
+        [2, 5],
+        [1, 5],
+      ],
+      cols: 5,
+      rows: 3,
+      codeSrc: `${CODE}Topological.java`,
+      codeRange: '11-28',
+      lines: KAHN_LINES,
+      label: 'La malla.',
+    },
+    'end',
+    28,
+  ],
+  [
+    'Un ciclo en la malla',
+    {
+      beside: true,
+      algorithm: 'kahn',
+      directed: true,
+      nodes: [
+        { v: 0, x: 0, y: 0 },
+        { v: 1, x: 2, y: 0 },
+        { v: 2, x: 4, y: 0 },
+        { v: 3, x: 2, y: 2 },
+      ],
+      edges: [
+        [0, 1],
+        [1, 2],
+        [2, 1],
+        [3, 2],
+      ],
+      cols: 5,
+      rows: 3,
+      codeSrc: `${CODE}Topological.java`,
+      codeRange: '11-28',
+      lines: KAHN_LINES,
+      label: 'Una malla con un ciclo.',
+    },
+    'end',
+    12,
   ],
 ];
 
