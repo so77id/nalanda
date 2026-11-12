@@ -331,7 +331,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
           {props.caption ? (
             <p
               className="m-0 text-center"
-              style={{ fontSize: onSlide ? '1.05rem' : '0.8rem', color: 'var(--color-ink-soft)' }}
+              style={{ fontSize: onSlide ? '1.2rem' : '0.8rem', color: 'var(--color-ink-soft)' }}
               data-testid="graph-walk-caption"
             >
               {props.caption}

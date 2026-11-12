@@ -177,11 +177,15 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       if (event.defaultPrevented) return;
       switch (event.key) {
         case 'ArrowRight':
+        case 'PageDown':
         case ' ':
+          // PageDown and PageUp are what most presentation clickers send.
           event.preventDefault();
           go(index + 1);
           break;
         case 'ArrowLeft':
+        case 'PageUp':
+          event.preventDefault();
           go(index - 1);
           break;
         case 'Home':

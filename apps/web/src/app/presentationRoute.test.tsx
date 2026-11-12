@@ -121,6 +121,15 @@ describe('PresentationPage viewer', () => {
     expect(counter).toHaveTextContent(/^2 \//);
   });
 
+  it('moves with PageDown/PageUp, which most clickers send', async () => {
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    fireEvent.keyDown(window, { key: 'PageDown' });
+    expect(counter).toHaveTextContent(/^2 \//);
+    fireEvent.keyDown(window, { key: 'PageUp' });
+    expect(counter).toHaveTextContent(/^1 \//);
+  });
+
   it('advances with Space and jumps with Home/End', async () => {
     await renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();

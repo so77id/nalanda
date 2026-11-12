@@ -735,9 +735,9 @@ la profundidad.
 
 Un vecino queda marcado antes de que la búsqueda pase por él. Otro vértice que
 lo mira lo salta, y la búsqueda sale de ese vértice con un vecino sin recorrer,
-cosa que la regla de avanzar tan hondo como se pueda nunca hace. Sigue marcando
-lo mismo, pero ya no es una búsqueda en profundidad: sale de un vértice antes de
-agotar sus vecinos, y visita en otro orden.
+cosa que la regla de avanzar tan hondo como se pueda nunca hace. Para saber qué
+se alcanza sirve igual; lo que dependa del orden en que una búsqueda en
+profundidad recorre y termina los vértices, no.
 
 <GraphWalk
   beside
@@ -988,12 +988,11 @@ lista de aristas entre personas numeradas; y las dos personas.
 
 <Pair>
 <NodeGraph
-  cols={8}
+  cols={7}
   rows={3}
-  nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 0 }, { v: 2, x: 3, y: 2 }, { v: 3, x: 5, y: 1 }, { v: 4, x: 7, y: 2 }]}
-  edges={[[0, 1], [0, 2], [2, 3], [1, 2], [1, 3], [3, 4]]}
-  tones={{ 0: 'mark', 4: 'mark' }}
-  caption="0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena"
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena. Destacadas Ana, 0, y Elena, 4."
 />
 <Pair stack>
@@ -1304,12 +1303,10 @@ La búsqueda en profundidad con una pila y la búsqueda en anchura son el mismo
 ciclo: sacar un vértice de una **bolsa** de pendientes y meter en ella sus
 vecinos sin marcar. Cambian dos cosas:
 
-- **la bolsa, con sus métodos**: un `Stack` (`push`, `pop`), que saca el último
-  que entró, o una `Queue` (`add`, `remove`), que saca el primero;
-- **el momento de marcar**: la pila marca al sacar, porque sale primero la
-  última copia de un vértice, la del vecino más reciente, y eso la lleva en
-  profundidad; la cola marca al meter, porque la primera copia que entra es la
-  primera que sale, y marcar antes no cambia el orden y evita copias repetidas.
+- **la bolsa**: un `Stack` saca el último que entró; una `Queue`, el primero;
+- **el momento de marcar**: la pila marca al sacar, porque la copia que sale
+  primero es la del vecino más reciente, y eso la lleva en profundidad; la cola
+  marca al meter, porque la primera copia que entra es la primera que sale.
 
 <PresentationWide fraction={0.95}>
 <SideBySide left="con una pila" right="con una cola">
