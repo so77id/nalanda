@@ -474,6 +474,27 @@ describe('presentation while the reader is typing in a slide', () => {
     expect(counter).toHaveTextContent(/^2 \//);
   });
 
+  it('leaves a key a widget on the slide already handled to that widget', async () => {
+    // A focused <StepShow> walks its steps with ArrowRight and prevents the
+    // default (#357 review round 4): the deck must not also change slide.
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    const widget = document.createElement('div');
+    widget.addEventListener('keydown', (event) => event.preventDefault());
+    document.body.append(widget);
+
+    try {
+      fireEvent.keyDown(widget, { key: 'ArrowRight' });
+      expect(counter).toHaveTextContent(/^1 \//);
+    } finally {
+      widget.remove();
+    }
+
+    // Positive control: a key nobody handled still moves the deck.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
   it('still leaves the deck on Escape from an editable target', async () => {
     // The one shortcut the guard deliberately lets through, matching the
     // portrait branch above it (SlideDeck.tsx §portrait short-circuit): a

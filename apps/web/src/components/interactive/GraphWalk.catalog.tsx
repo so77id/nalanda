@@ -200,7 +200,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'grid',
       type: 'string[]',
       description:
-        'A maze instead of a graph: its rows, all of one length, `.` a free cell and `#` a wall. The cell in row r and column c is the vertex r · C + c, its neighbours computed up, down, left, right (`DR4`/`DC4`); every direction is a `look`, a wall and the border included. `dfs` only, for now.',
+        'A maze instead of a graph: its rows, all of one length, `.` a free cell and `#` a wall. The cell in row r and column c is the vertex r · C + c, its neighbours computed up, down, left, right (`DR4`/`DC4`); every direction is a `look`, a wall and the border included. `dfs`, and `dfs-iterative`, which draws its own stack beside the grid.',
     },
     {
       name: 'edges',
