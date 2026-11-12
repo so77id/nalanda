@@ -283,8 +283,8 @@ queda es la del dibujo sin él. ¿Qué postes y casas quedaron sin luz? Es saber
 qué vértices se llega desde la central, un problema con nombre: la
 **alcanzabilidad**, ¿se puede llegar de aquí a allá?
 
-**Entrada.** Los cables que quedan, como una lista de aristas, con la central en
-el vértice 0; hasta $$10^5$$ postes y casas.
+**Entrada.** El número de postes y casas, hasta $$10^5$$, y los cables que
+quedan, como una lista de aristas, con la central en el vértice 0.
 
 **Salida.** Los vértices sin luz.
 
@@ -294,7 +294,7 @@ el vértice 0; hasta $$10^5$$ postes y casas.
   nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
   edges={[[0, 1], [1, 2], [1, 3], [2, 3], [2, 4], [3, 5], [6, 7], [2, 6]]}
   cutEdges={[[2, 6]]}
-  caption="0 central; 1, 2, 3 y 6 postes; 4, 5 y 7 casas; en rojo, el cable cortado"
+  caption="0 central; 1, 2, 3 y 6 postes; 4, 5 y 7 casas; punteado, el cable cortado"
   label="Una red eléctrica después de una tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 1-2, 1-3, 2-3, 2-4, 3-5 y 6-7. El cable cortado, entre el poste 2 y el poste 6, va punteado en rojo."
 />
 
@@ -315,7 +315,7 @@ llegaría desde la central a todo lo que tiene luz.
   edges={[[0, 1], [1, 2], [1, 3], [2, 4], [3, 5]]}
   markEdges={[[0, 1], [1, 2], [1, 3], [2, 4], [3, 5]]}
   notes={{ 0: '1.º', 1: '2.º', 2: '3.º', 4: '4.º', 3: '5.º', 5: '6.º' }}
-  caption="la red sin el cable 2-3 es un árbol; su preorden: 0, 1, 2, 4, 3, 5"
+  caption="sin el cable 2-3, lo que cuelga de la central es un árbol"
   label="Un árbol con raíz 0: 0 con hijo 1; 1 con hijos 2 y 3; 2 con hijo 4; 3 con hijo 5. Junto a cada nodo, su lugar en el preorden; el orden es 0, 1, 2, 4, 3, 5."
 />
 
@@ -647,7 +647,8 @@ búsqueda vuelve al vértice desde el que llegó. Avanza tan hondo como puede an
 de volver: por eso se llama **búsqueda en profundidad**, en inglés
 _depth-first search_ (DFS).
 
-Marca exactamente lo que se alcanza desde el origen. Solo eso, porque avanza por
+Marca exactamente lo que se alcanza desde el vértice en que parte, el **origen**.
+Solo eso, porque avanza por
 aristas; y todo eso, porque si un vértice alcanzable quedara sin marcar, en su
 camino desde el origen habría una arista de un marcado a uno sin marcar, y la
 regla, en el marcado, habría recorrido ese vecino.
@@ -697,14 +698,13 @@ alcanzado. Después, `marked(v)` dice si la búsqueda llegó a `v`.
 <Slide title="La búsqueda en profundidad con una pila">
 
 Escrita con recursión, la búsqueda deja lo pendiente en la pila de llamadas de
-Java, que admite unas decenas de miles de llamadas en curso. La misma búsqueda
-se escribe con una pila propia, un `Stack` que el programa maneja: **sacar un
-vértice; si ya está marcado, descartarlo; si no, marcarlo y apilar sus vecinos
-sin marcar.**
+Java, que tiene un límite. La misma búsqueda se escribe con una pila propia, un
+`Stack` que el programa maneja: **sacar un vértice; si ya está marcado,
+descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
-Guarda los vértices pendientes, no las llamadas a medio camino, así que visita
-los vecinos en el orden inverso. Un vértice puede quedar dos veces en la pila:
-por eso se revisa al sacarlo.
+Apila todos los vecinos de una vez, y la pila saca primero el último: visita los
+vecinos en el orden inverso. Un vértice puede quedar dos veces en la pila: por
+eso se revisa al sacarlo.
 
 <GraphWalk
   beside
@@ -735,8 +735,9 @@ la profundidad.
 
 Un vecino queda marcado antes de que la búsqueda pase por él. Otro vértice que
 lo mira lo salta, y la búsqueda sale de ese vértice con un vecino sin recorrer,
-cosa que la regla de avanzar tan hondo como se pueda nunca hace. Las aristas por
-las que llega a cada vértice ya no son las de una búsqueda en profundidad.
+cosa que la regla de avanzar tan hondo como se pueda nunca hace. Para saber qué
+se alcanza da lo mismo, pero ya no es una búsqueda en profundidad: visita en
+otro orden.
 
 <GraphWalk
   beside
@@ -776,8 +777,9 @@ vez: en total, la búsqueda lee cada lista de adyacencia una sola vez.
   por cada extremo de arista, y se pasa una vez por cada vértice.
 - **Con la matriz, $$\Theta(V^2)$$.** Cada `adj(v)` recorre una fila completa
   de $$V$$ casillas.
-- **Memoria de la recursiva, $$\Theta(V)$$**: el arreglo `marked`, y hasta $$V$$
-  llamadas en curso en la pila de llamadas.
+- **Memoria de la recursiva, $$O(V + E)$$**: `marked`, hasta $$V$$ llamadas en
+  curso, y en cada una la copia de su lista que entrega `adj(v)`; en total,
+  hasta $$2E$$ entradas.
 - **Memoria de la versión con pila, $$O(V + E)$$**: `marked`, y una pila que
   recibe un vértice cada vez que se apila, hasta una vez por cada extremo de
   arista, más el origen.
@@ -792,8 +794,8 @@ crear `marked`, de $$V$$ casillas.
 Una búsqueda desde la central marca todo lo que se alcanza desde ella, y lo que
 quedó sin marcar quedó sin luz. El programa lee la red como una lista de
 aristas, busca desde la central e imprime los vértices sin marcar. Usa la
-versión con pila: con los postes en fila, la recursiva tendría hasta $$10^5$$
-llamadas en curso a la vez, más de las que admite la pila de llamadas de Java.
+versión con pila, que no depende del límite de la pila de llamadas: con hasta
+$$10^5$$ postes en fila, la recursiva tendría $$10^5$$ llamadas en curso.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -842,18 +844,18 @@ celda de arriba a la izquierda y la salida, la de abajo a la derecha.
 
 </Slide>
 
-<Slide title="La tiza, el hilo y las notas">
+<Slide title="La tiza y el hilo">
 
 La búsqueda en profundidad recorre un laberinto como el método de Trémaux, que
-Édouard Lucas cuenta en 1882, simplificado: Trémaux marca con tiza los pasillos
-por los que entra; la búsqueda marca cada celda por la que pasa y no vuelve a
-entrar a una marcada. La tiza es `marked`.
+Édouard Lucas cuenta en 1882: marcar la entrada de cada pasillo por el que se
+pasa, y no volver a entrar por uno marcado. La búsqueda marca cada celda por la
+que pasa, como con una tiza: la tiza es `marked`.
 
 El hilo de Ariadna, que en el mito une a Teseo con la entrada, es el camino que
 la búsqueda tiene en curso: sus llamadas abiertas, que se enrollan al volver.
 
-Para saber al final por dónde se llega, la búsqueda deja además una nota junto a
-cada marca: desde qué celda entró. Esa nota es `prev[w] = v`.
+Para saber al final por dónde se llega, la búsqueda anota además, en cada celda
+que marca, desde qué celda entró: `prev[w] = v`.
 
 <Maze
   grid={["...#", "...#", "#..."]}
@@ -861,16 +863,16 @@ cada marca: desde qué celda entró. Esa nota es `prev[w] = v`.
   ends={[0, 11]}
   thread={[0, 4, 5, 1, 2]}
   tones={{ 0: 'keep', 4: 'keep', 5: 'keep', 1: 'keep', 2: 'keep' }}
-  caption="a mitad de la búsqueda: la tiza en lo visitado, el hilo en el camino en curso"
-  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. A mitad de la búsqueda: las celdas 0, 4, 5, 1 y 2 tienen tiza, en verde, y el hilo va de la entrada por 4, 5 y 1 hasta 2, donde está la búsqueda."
+  caption="a mitad de la búsqueda: lo marcado en verde, el hilo en el camino en curso"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. A mitad de la búsqueda: las celdas 0, 4, 5, 1 y 2 están marcadas, en verde, y el hilo va de la entrada por 4, 5 y 1 hasta 2, donde está la búsqueda."
 />
 
 </Slide>
 
 <Slide title="La búsqueda en profundidad en el laberinto">
 
-`MazeDepthFirstPaths` es la búsqueda recursiva sobre la grilla, con la tiza y
-las notas. Su `dfs` mira las cuatro direcciones de cada celda, y en una libre y
+`MazeDepthFirstPaths` es la búsqueda recursiva sobre la grilla, con `marked` y
+`prev`. Su `dfs` mira las cuatro direcciones de cada celda, y en una libre y
 sin marcar anota `prev` y sigue desde ahí.
 
 <GraphWalk
@@ -895,8 +897,8 @@ cuesta $$\Theta(R \cdot C)$$, sin armar ninguna lista de adyacencia.
 <Slide title="El camino a la salida">
 
 Al terminar, `hasPathTo(t)` dice si se llega a `t`: es `marked[t]`. `pathTo(t)`
-lee las notas al revés: desde `t` sigue `prev` hasta la entrada, cuya nota es
-−1, y da vuelta el recorrido con una pila, para que quede de la entrada a `t`.
+lee `prev` al revés: desde `t` lo sigue hasta la entrada, cuyo `prev` es −1, e
+invierte el recorrido con una pila, para que quede de la entrada a `t`.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -924,10 +926,9 @@ laberinto sin muros, el hilo pasa por todas las celdas sin volver: en uno de
 $$1000 \times 1000$$, un millón de llamadas en curso. Medido en un JDK 21 sobre
 Linux arm64, la recursión lanza `StackOverflowError` con unas 17 000.
 
-La versión con un `Stack` guarda los pendientes en el heap, mucho más grande, y
-recorre el laberinto completo. Anota `prev[w] = v` cada vez que apila `w`; si
-`w` se apila otra vez, la nota se reescribe, y vale la última: esa copia de `w`
-es la que sale primero de la pila y lo marca.
+La versión con un `Stack` guarda los pendientes en el heap, donde viven los
+objetos, mucho más grande que la pila de llamadas, y recorre el laberinto
+completo.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -944,6 +945,33 @@ es la que sale primero de la pila y lo marca.
 
 </Split>
 </PresentationWide>
+
+</Slide>
+
+<Slide title="El camino de la versión con pila">
+
+La versión con pila también anota `prev[w] = v`, al apilar `w`. Si `w` se apila
+otra vez, desde otro vértice, `prev[w]` se reescribe, y vale la última: esa
+copia de `w` es la que sale primero de la pila y lo marca. `hasPathTo` y
+`pathTo` son los mismos de la recursiva.
+
+<GraphWalk
+  beside
+  algorithm="dfs-iterative"
+  ratio="45/55"
+  title="new IterativeDepthFirstPaths(g, 0) en la red eléctrica"
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
+  edges={[[0, 1], [1, 2], [1, 3], [2, 3], [2, 4], [3, 5], [6, 7]]}
+  cols={9}
+  rows={3}
+  program={`IterativeDepthFirstPaths paths =
+          new IterativeDepthFirstPaths(g, 0);`}
+  programLines={[1, 2]}
+  codeSrc="./27-grafos-recorridos.code/IterativeDepthFirstPaths.java"
+  codeRange="17-33"
+  lines={{ pushStart: [18, 19], pop: [20, 21], skip: [22, 23], mark: 25, look: [26, 27], prev: 28, push: 29, end: 20 }}
+  label="Una red eléctrica después de una tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 1-2, 1-3, 2-3, 2-4, 3-5 y 6-7."
+/>
 
 </Slide>
 
@@ -1018,11 +1046,9 @@ lista de aristas entre personas numeradas; y las dos personas.
 
 <Slide title="El camino de la búsqueda en profundidad">
 
-Las dos búsquedas en profundidad responden si se llega. Con las notas `prev` del
-laberinto, `pathTo` da además una cadena de amigos: `DepthFirstPaths` es la
-recursiva con `prev`, e `IterativeDepthFirstPaths`, la de la pila. Ninguna de
-las dos busca la más corta: cada una sigue un vecino tan hondo como puede, sin
-mirar si hay un atajo.
+Con `prev`, que anota desde qué vértice se llegó a cada uno, las dos búsquedas
+en profundidad dan una cadena de amigos. Ninguna busca la más corta: cada una
+sigue un vecino tan hondo como puede, sin mirar si hay un atajo.
 
 <PresentationWide fraction={0.95}>
 <Pair>
@@ -1096,10 +1122,11 @@ de distancia.
 <Slide title="Marcar al sacar de la cola">
 
 Copiado tal cual a un grafo, con la marca de la búsqueda en profundidad, el
-recorrido por niveles marca cada vértice al sacarlo de la cola. Termina, pero un
-vértice que dos vértices miran antes de que salga entra dos veces a la cola. La
-cola crece de más, y si la distancia se anotara al encolar, la segunda vez
-pisaría a la primera con una distancia mayor.
+recorrido por niveles marca cada vértice al sacarlo de la cola. Termina, y
+visita por capas, pero un vértice que dos vértices miran antes de que salga
+entra dos veces a la cola. La cola puede llegar a tener una entrada por cada
+extremo de arista, en vez de una por vértice, y no gana nada: la primera vez que
+se ve un vértice ya es desde la capa más cercana.
 
 <GraphWalk
   beside
@@ -1162,8 +1189,9 @@ search_ (BFS).
 La búsqueda en anchura mantiene una invariante: **la cola tiene a lo más dos
 capas seguidas, primero vértices de una capa $$d$$ y detrás vértices de la capa
 $$d + 1$$.** Al sacar un vértice de la capa $$d$$, sus vecinos nuevos van al
-final, a la capa $$d + 1$$, y la invariante sigue valiendo. Por eso los vértices
-salen en orden de distancia. Cuando un vértice `w` se ve por primera vez, desde
+final, a la capa $$d + 1$$, y la invariante sigue valiendo.
+
+Por eso los vértices salen en orden de distancia. Cuando un vértice `w` se ve por primera vez, desde
 `v`, ya salieron todos los vértices más cercanos que `v` y ninguno lo vio: no
 hay un camino más corto hasta `w`, y `dist[w] = dist[v] + 1` es definitiva.
 
@@ -1237,7 +1265,7 @@ tienen peso, o cuando todas pesan lo mismo.
 <Slide title="La cadena más corta de amigos">
 
 Al terminar, `distTo(t)` es la distancia de `s` a `t`, y `pathTo(t)` sigue
-`prev` desde `t` hasta `s` y da vuelta el recorrido con una pila. Cada `prev[w]`
+`prev` desde `t` hasta `s` e invierte el recorrido con una pila. Cada `prev[w]`
 apunta a un vértice de la capa anterior, así que el camino avanza una capa por
 paso y tiene exactamente `distTo(t)` aristas: es una cadena más corta. El
 programa lee las amistades y las dos personas, y escribe la distancia y la
@@ -1308,18 +1336,18 @@ búsqueda en profundidad sobre la grilla: $$\Theta(R \cdot C)$$.
 
 </Slide>
 
-<Slide title="La bolsa">
+<Slide title="Una bolsa de pendientes">
 
 La búsqueda en profundidad con una pila y la búsqueda en anchura son el mismo
-ciclo: sacar un vértice de la **bolsa** de pendientes y meter en ella sus
-vecinos sin marcar. Cambian tres cosas:
+ciclo: sacar un vértice de una **bolsa** de pendientes y meter en ella sus
+vecinos sin marcar. Cambian dos cosas:
 
-- **la bolsa**: un `Stack`, que saca el último que entró, o una `Queue`, que
-  saca el primero;
-- **el método que saca**: `pop` o `remove`;
-- **el momento de marcar**: la de la pila marca al sacar, y por eso revisa y
-  descarta lo que ya estaba marcado; la de la cola marca al meter, desde el
-  origen, y así cada vértice entra una sola vez.
+- **la bolsa, con sus métodos**: un `Stack` (`push`, `pop`), que saca el último
+  que entró, o una `Queue` (`add`, `remove`), que saca el primero;
+- **el momento de marcar**: la pila marca al sacar, porque sale primero la
+  última copia de un vértice, la del vecino más reciente, y eso la lleva en
+  profundidad; la cola marca al meter, porque la primera copia que entra es la
+  primera que sale, y marcar antes no cambia el orden y evita copias repetidas.
 
 <PresentationWide fraction={0.95}>
 <SideBySide left="con una pila" right="con una cola">
@@ -1333,8 +1361,14 @@ vecinos sin marcar. Cambian tres cosas:
 
 </Slide>
 
-Los dos recorridos dicen qué se alcanza, y la búsqueda en anchura, a qué
-distancia. No dicen en qué orden hacer las cosas cuando unas dependen de otras.
+<Slide title="Un orden que los recorridos no dan">
+
+Los dos recorridos dicen qué se alcanza desde un vértice, y la búsqueda en
+anchura, a qué distancia. No dicen en qué orden hacer las cosas cuando unas
+dependen de otras: en qué orden tomar los ramos de una malla, o calcular las
+celdas de una hoja de cálculo.
+
+</Slide>
 
 <SectionBreak />
 
@@ -1344,13 +1378,13 @@ distancia. No dicen en qué orden hacer las cosas cuando unas dependen de otras.
 
 <Slide title="El orden de los ramos de una malla">
 
-Una malla curricular es un grafo dirigido sin ciclos: un vértice por ramo y un
-arco de cada prerrequisito al ramo que lo pide. Un ramo se puede tomar cuando ya
+Una malla curricular es un grafo dirigido sin ciclos, un DAG: un vértice por
+ramo y un arco de cada prerrequisito al ramo que lo pide. Un ramo se puede tomar cuando ya
 se aprobaron todos sus prerrequisitos. ¿En qué orden se toman los ramos, para
 que cada uno llegue después de los suyos?
 
-**Entrada.** Los ramos, numerados, y sus prerrequisitos como una lista de arcos;
-hasta $$10^4$$ ramos.
+**Entrada.** El número de ramos, hasta $$10^3$$, y sus prerrequisitos como una
+lista de arcos entre ramos numerados.
 
 **Salida.** Los ramos en un orden en que se pueden tomar.
 
@@ -1366,15 +1400,43 @@ hasta $$10^4$$ ramos.
 
 </Slide>
 
+<Slide title="El orden topológico">
+
+Un **orden topológico** de un grafo dirigido pone sus vértices en una línea de
+modo que todos los arcos apunten hacia la derecha: cada vértice queda después
+de todos los que tienen un arco hacia él. En una malla, es un orden en que se
+pueden tomar los ramos.
+
+Un grafo con un ciclo no tiene ninguno: si todos los arcos apuntaran hacia la
+derecha, seguir el ciclo avanzaría siempre hacia la derecha y no podría volver
+a su primer vértice.
+
+<Pair>
+<LineOrder
+  order={[0, 1, 2, 3, 5, 4]}
+  arcs={[[1, 3], [3, 4], [0, 4], [2, 5], [0, 5]]}
+  caption="la malla: todos los arcos hacia la derecha"
+  label="La malla en una línea, en el orden 0, 1, 2, 3, 5, 4. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
+/>
+<LineOrder
+  order={[0, 1, 2]}
+  arcs={[[0, 1], [1, 2], [2, 0]]}
+  caption="un ciclo: el arco de 2 a 0, hacia la izquierda"
+  label="Un ciclo de tres vértices en una línea, 0, 1, 2: los arcos de 0 a 1 y de 1 a 2 apuntan hacia la derecha, y el de 2 a 0, en rojo, hacia la izquierda."
+/>
+</Pair>
+
+</Slide>
+
 <Slide title="Los recorridos en una malla">
 
-Un recorrido da un orden de visita, pero ese orden no respeta los
-prerrequisitos, ni empezando desde todos los ramos que no piden nada. En un
-grafo dirigido, los vecinos de un vértice son aquellos a los que apuntan sus
-arcos.
+En un grafo dirigido, los vecinos de un vértice son aquellos a los que apuntan
+sus arcos. Un recorrido da un orden de visita, pero ese orden no es topológico,
+ni empezando desde todos los ramos que no piden nada:
 
 - **En profundidad**, desde cada uno de esos ramos, uno tras otro y sin
-  desmarcar: llega a un ramo por un prerrequisito antes de pasar por el otro.
+  desmarcar, el orden en que visita, el preorden, llega a un ramo por un
+  prerrequisito antes de pasar por el otro.
 - **En anchura**, con todos ellos en la cola desde el comienzo: deja cada ramo en
   la capa de su prerrequisito más cercano, y un ramo tiene que esperar al más
   lejano.
@@ -1398,30 +1460,12 @@ arcos.
 
 </Slide>
 
-<Slide title="El orden topológico">
-
-Un **orden topológico** de un grafo dirigido pone sus vértices en una línea de
-modo que todos los arcos apunten hacia la derecha: cada vértice queda después
-de todos los que tienen un arco hacia él. En una malla, es un orden en que se
-pueden tomar los ramos.
-
-Un grafo con un ciclo no tiene ninguno: el ciclo vuelve a su primer vértice, así
-que alguno de sus arcos apunta hacia la izquierda.
-
-<LineOrder
-  order={[0, 1, 2, 3, 5, 4]}
-  arcs={[[1, 3], [3, 4], [0, 4], [2, 5], [0, 5]]}
-  caption="un orden topológico de la malla: todos los arcos hacia la derecha"
-  label="La malla en una línea, en el orden 0, 1, 2, 3, 5, 4. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
-/>
-
-</Slide>
-
 <Slide title="Las fuentes de un grafo dirigido">
 
-El **grado de entrada** de un vértice es la cantidad de arcos que llegan a él, y
-una **fuente** es un vértice de grado de entrada 0. En una malla, las fuentes
-son los ramos que no piden ninguno, los que se pueden tomar primero.
+Una fuente es un vértice al que no llega ningún arco,
+$$\operatorname{grado}^-(v) = 0$$: su grado de entrada, la cantidad de arcos que
+llegan a él, es 0. En una malla, las fuentes son los ramos que no piden
+ninguno, los que se pueden tomar primero.
 
 Todo grafo dirigido sin ciclos tiene al menos una fuente. Desde cualquier
 vértice se retrocede por un arco que llega a él, desde ahí por otro, y así. Sin
@@ -1577,8 +1621,8 @@ cada celda leída a la celda que la lee, la hoja es un grafo dirigido, y para
 calcular cada celda después de las que lee, la hoja las calcula en un orden
 topológico. El mismo `Topological` lo da.
 
-**Entrada.** Las celdas, numeradas, y un arco por cada celda que lee una
-fórmula.
+**Entrada.** El número de celdas y, entre celdas numeradas, un arco de cada
+celda que una fórmula lee a la celda de esa fórmula.
 
 **Salida.** Un orden en que se pueden calcular las celdas.
 
@@ -1586,17 +1630,17 @@ fórmula.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 'A1', x: 0, y: 1 }, { v: 'B1', x: 2, y: 0 }, { v: 'C1', x: 2, y: 2 }, { v: 'D1', x: 4, y: 1 }]}
-  edges={[['A1', 'B1'], ['A1', 'C1'], ['B1', 'D1'], ['C1', 'D1']]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }]}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3]]}
   directed
-  caption="A1 = 5, B1 = A1 * 2, C1 = A1 + 1, D1 = B1 + C1"
-  label="Cuatro celdas: A1 vale 5; B1 = A1 * 2; C1 = A1 + 1; D1 = B1 + C1. Arcos de A1 a B1 y a C1, y de B1 y de C1 a D1."
+  caption="0: A1 = 5 · 1: B1 = A1 * 2 · 2: C1 = A1 + 1 · 3: D1 = B1 + C1"
+  label="Cuatro celdas numeradas: 0 A1 vale 5; 1 B1 = A1 * 2; 2 C1 = A1 + 1; 3 D1 = B1 + C1. Arcos de 0 a 1 y a 2, y de 1 y de 2 a 3."
 />
 <LineOrder
-  order={["A1", "B1", "C1", "D1"]}
-  arcs={[["A1", "B1"], ["A1", "C1"], ["B1", "D1"], ["C1", "D1"]]}
-  caption="el orden de Topological: A1, B1, C1, D1"
-  label="Las celdas en el orden que da Topological: A1, B1, C1, D1. Todos los arcos hacia la derecha."
+  order={[0, 1, 2, 3]}
+  arcs={[[0, 1], [0, 2], [1, 3], [2, 3]]}
+  caption="el orden de Topological: 0, 1, 2, 3"
+  label="Las celdas en el orden que da Topological: 0, 1, 2, 3, es decir A1, B1, C1, D1. Todos los arcos hacia la derecha."
 />
 </Pair>
 
@@ -1626,7 +1670,7 @@ por esos arcos alguna se repite, en un ciclo.
   codeRange="11-28"
   lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
   label="Cuatro celdas numeradas: 0 A1 = 5; 1 B1 = A1 + C1; 2 C1 = A1 + D1; 3 D1 = B1 * 2. Arcos de 0 a 1, de 0 a 2, de 1 a 3, de 3 a 2 y de 2 a 1: B1, D1 y C1 forman un ciclo."
-  caption="0 A1 = 5 · 1 B1 = A1 + C1 · 2 C1 = A1 + D1 · 3 D1 = B1 * 2"
+  caption="0: A1 = 5 · 1: B1 = A1 + C1 · 2: C1 = A1 + D1 · 3: D1 = B1 * 2"
 />
 
 </Slide>
@@ -1678,7 +1722,7 @@ herramienta.
 
 El libro de Sedgewick y Wayne y el de Cormen y otros arman el orden topológico
 con la búsqueda en profundidad. Se anota cada vértice cuando su llamada termina,
-el **postorden**, y se da vuelta la lista: el **postorden inverso**.
+el **postorden**, y se invierte la lista: el **postorden inverso**.
 
 En un grafo sin ciclos, cuando termina la llamada de `v` ya terminaron las de
 todos los vértices que se alcanzan desde `v`, así que por cada arco de `v` a
@@ -1721,9 +1765,14 @@ Kosaraju y Sharir), o una sola (el de Tarjan).
 
 ## Lo que sigue
 
-En los tres recorridos todas las aristas valen lo mismo, y la búsqueda en
-anchura cuenta aristas. En un mapa, sin embargo, cada tramo tiene un largo, y el
-camino con menos tramos no es necesariamente el más corto en metros: un camino
-de dos tramos de 300 metros mide 600, más que uno de cuatro tramos de 50, que
-mide 200. Cuando cada arista lleva un peso, ¿cuál es el camino más corto? Es lo
-que sigue, en la clase de caminos más cortos.
+En las dos búsquedas todas las aristas valen lo mismo, y la búsqueda en anchura
+cuenta aristas. En un mapa, sin embargo, cada tramo tiene un largo, y el camino
+con menos tramos no es necesariamente el más corto en metros: dos tramos de 300
+metros contra cuatro de 50,
+
+$$
+2 \cdot 300 = 600 > 200 = 4 \cdot 50.
+$$
+
+Cuando cada arista lleva un peso, ¿cuál es el camino más corto? Es lo que sigue,
+en la clase de caminos más cortos.

@@ -163,6 +163,28 @@ const CASES: [string, GraphWalkProps, string][] = [
     'end',
   ],
   [
+    'El camino de la versión con pila',
+    {
+      ...NET,
+      beside: true,
+      algorithm: 'dfs-iterative',
+      ratio: '45/55',
+      codeSrc: `${CODE}IterativeDepthFirstPaths.java`,
+      codeRange: '17-33',
+      lines: {
+        pushStart: [18, 19],
+        pop: [20, 21],
+        skip: [22, 23],
+        mark: 25,
+        look: [26, 27],
+        prev: 28,
+        push: 29,
+        end: 20,
+      },
+    },
+    'end',
+  ],
+  [
     'Marcar al apilar',
     {
       beside: true,
@@ -287,7 +309,7 @@ const CASES: [string, GraphWalkProps, string][] = [
       codeRange: '11-28',
       lines: KAHN_LINES,
       label: 'Una hoja con una referencia circular.',
-      caption: '0 A1 = 5 · 1 B1 = A1 + C1 · 2 C1 = A1 + D1 · 3 D1 = B1 * 2',
+      caption: '0: A1 = 5 · 1: B1 = A1 + C1 · 2: C1 = A1 + D1 · 3: D1 = B1 * 2',
     },
     'end',
   ],

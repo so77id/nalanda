@@ -105,6 +105,11 @@ export interface WalkFrame {
   done: number[];
   /** The vertices in the order the walk reached them. */
   order: number[];
+  /**
+   * Kahn: the arcs taken out of the graph with their source, each once it
+   * stopped counting (`lower`), `[from, to]`; empty in the other walks.
+   */
+  gone: [number, number][];
   /** The cell of an array this frame wrote, if it wrote one. */
   wrote: { array: 'marked' | 'dist' | 'prev' | 'inDegree' | 'order'; index: number } | null;
   /**
@@ -132,6 +137,7 @@ class Recorder {
   readonly stack: number[] = [];
   readonly done: number[] = [];
   readonly order: number[] = [];
+  readonly gone: [number, number][] = [];
   readonly frames: WalkFrame[] = [];
 
   constructor(V: number, withDist = false) {
@@ -156,6 +162,7 @@ class Recorder {
       stack: [...this.stack],
       done: [...this.done],
       order: [...this.order],
+      gone: this.gone.map(([a, b]): [number, number] => [a, b]),
     });
   }
 }
@@ -733,6 +740,7 @@ export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
     });
     for (const w of adj[v]) {
       inDegree[w]--;
+      r.gone.push([v, w]);
       r.record({
         event: 'lower',
         v,

@@ -420,7 +420,12 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
         >
           <NodeGraph
             nodes={nodes}
-            edges={edges}
+            // Kahn takes an arc out of the graph once it stops counting.
+            edges={
+              frame.gone.length === 0
+                ? edges
+                : edges.filter(([a, b]) => !frame.gone.some(([x, y]) => x === a && y === b))
+            }
             cols={cols}
             rows={rows}
             directed={directed}

@@ -466,6 +466,18 @@ describe('traceKahn (the topological order)', () => {
     expect(lowered.text).toBe('El arco 1 → 4 deja de contar: inDegree[4] baja a 1.');
   });
 
+  it('takes each arc out of the graph as it stops counting (#357 review round 3)', () => {
+    const frames = traceKahn(MALLA);
+    const lowered = frames.find((f) => f.event === 'lower' && f.v === 1 && f.w === 4)!;
+    // 0 → 3 went with 0; 1 → 4 goes now; 1 → 5 is still there.
+    expect(lowered.gone).toEqual([
+      [0, 3],
+      [1, 4],
+    ]);
+    expect(frames.at(-1)!.gone).toHaveLength(5);
+    expect(frames[0].gone).toEqual([]);
+  });
+
   it('leaves the vertices of a cycle off the line, and says so', () => {
     const cyclic = adjacencyOf(
       5,
