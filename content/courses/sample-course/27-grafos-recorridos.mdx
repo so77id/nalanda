@@ -865,36 +865,6 @@ celda de arriba a la izquierda y la salida, la de abajo a la derecha.
 
 </Slide>
 
-<Slide title="Un laberinto de 1000 × 1000">
-
-Un laberinto de $$1000 \times 1000$$ celdas es un grafo de un millón de
-vértices. `MazeDepthFirstPaths`, la búsqueda recursiva sobre la grilla, tiene
-una llamada en curso por cada celda del camino que lleva.
-
-En un laberinto sin muros, ese camino pasa por todas las celdas sin volver: un
-millón de llamadas en curso a la vez. Medido en un JDK 21 sobre Linux arm64,
-con la pila que trae por defecto, lanza `StackOverflowError` con unas
-17 000. La versión con pila guarda los pendientes en la memoria donde viven
-los objetos, mucho más grande, y recorre el laberinto completo.
-
-<PresentationWide fraction={0.95}>
-<Split ratio="60/40">
-
-<SourceFile src="./27-grafos-recorridos.code/MazeDepthFirstPaths.java" range="30-41" />
-
-<Maze
-  grid={["....", "....", "....", "...."]}
-  numbers
-  thread={[0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3]}
-  caption="sin muros: 16 celdas, 16 llamadas en curso a la vez"
-  label="Una grilla de cuatro por cuatro sin muros. El camino de la búsqueda recursiva desde 0 baja por la primera columna, sube por la segunda, baja por la tercera y sube por la cuarta, y pasa por las 16 celdas: 16 llamadas en curso a la vez."
-/>
-
-</Split>
-</PresentationWide>
-
-</Slide>
-
 <Slide title="La tiza y el hilo">
 
 La búsqueda en profundidad recorre un laberinto como el método de Trémaux, que
@@ -916,6 +886,36 @@ el hilo de Ariadna, que en el mito une a Teseo con la entrada.
   caption="a mitad de la búsqueda: lo marcado en verde; el hilo, de la entrada a la celda en curso"
   label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. A mitad de la búsqueda con pila: las celdas 0, 1, 2 y 6 están marcadas, en verde, y el hilo va de la entrada por 1 y 2 hasta 6, donde está la búsqueda."
 />
+
+</Slide>
+
+<Slide title="Un laberinto de 1000 × 1000">
+
+Un laberinto de $$1000 \times 1000$$ celdas es un grafo de un millón de
+vértices. `MazeDepthFirstPaths`, la búsqueda recursiva sobre la grilla, tiene
+una llamada en curso por cada celda del camino que lleva.
+
+En un laberinto sin muros, ese camino pasa por todas las celdas sin volver: un
+millón de llamadas en curso a la vez. Medido en un JDK 21 sobre Linux arm64,
+con la pila que trae por defecto, lanza `StackOverflowError` con unas
+17 000 llamadas en curso. La versión con pila guarda los pendientes en la memoria donde viven
+los objetos, mucho más grande, y recorre el laberinto completo.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/MazeDepthFirstPaths.java" range="30-41" />
+
+<Maze
+  grid={["....", "....", "....", "...."]}
+  numbers
+  thread={[0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3]}
+  caption="sin muros: 16 celdas, 16 llamadas en curso a la vez"
+  label="Una grilla de cuatro por cuatro sin muros. El camino de la búsqueda recursiva desde 0 baja por la primera columna, sube por la segunda, baja por la tercera y sube por la cuarta, y pasa por las 16 celdas: 16 llamadas en curso a la vez."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
@@ -1012,7 +1012,8 @@ En una red de amigos, cada persona es un vértice y cada amistad una arista. Una
 persona le pide algo a otra a través de amigos: a un amigo, que se lo pide a un
 amigo suyo, y así. ¿Cuántas amistades, como mínimo, separan a dos personas? La
 **distancia** entre dos vértices es la menor cantidad de aristas de un camino
-que los une.
+que los une. Es un problema con nombre: el **camino más corto** en un grafo sin
+pesos.
 
 **Entrada.** El número de personas, hasta $$10^5$$; las amistades, como una
 lista de aristas entre personas numeradas; y las dos personas.
@@ -1039,7 +1040,7 @@ lista de aristas entre personas numeradas; y las dos personas.
 <Slide title="El camino de la búsqueda en profundidad">
 
 `DepthFirstPaths` es la búsqueda recursiva con `prev`, que anota desde qué
-vértice se llegó a cada uno; la versión con pila lo anota igual. Las dos dan
+vértice se llegó a cada uno; la versión con pila lo anota al apilar. Las dos dan
 una cadena de amigos, y ninguna busca la más corta: cada una sigue un vecino tan
 hondo como puede, sin mirar si hay un atajo.
 
@@ -1296,9 +1297,9 @@ cadena.
 <Slide title="Los pasos mínimos para salir del laberinto">
 
 Sobre la grilla, la búsqueda en anchura da los pasos mínimos para salir.
-`MazeBreadthFirstPaths` calcula los vecinos de cada celda con `DR4`, `DC4` y
-`free`, y lleva la distancia en `dist`, que también hace de marca: una celda sin
-distancia es una celda sin marcar, así que no necesita `marked`.
+`MazeBreadthFirstPaths` es `BreadthFirstPaths` con los vecinos de cada celda
+calculados con `DR4`, `DC4` y `free`: marca, anota `dist` y `prev`, y encola
+igual.
 
 Cada celda recibe la menor cantidad de pasos desde la entrada, escrita abajo en
 el dibujo, y `pathTo` de la salida da un camino con esa cantidad. Cuesta
@@ -1308,7 +1309,7 @@ profundidad.
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
 
-<SourceFile src="./27-grafos-recorridos.code/MazeBreadthFirstPaths.java" range="33-50" />
+<SourceFile src="./27-grafos-recorridos.code/MazeBreadthFirstPaths.java" range="35-54" />
 
 <Pair stack>
 <Maze
@@ -1464,7 +1465,7 @@ aun empezando desde todos los ramos que no piden nada:
 <LineOrder
   order={[0, 1, 5, 2, 3, 4]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
-  caption="por cantidad: 3 Métodos Numéricos antes que 4 Ecuaciones"
+  caption="cantidad: 3 Métodos Numéricos antes que 4 Ecuaciones"
   label="La malla ordenada por cantidad de prerrequisitos, 0, 0, 1, 2, 2 y 0: 0, 1, 5, 2, 3, 4. El arco de 4 a 3, de Ecuaciones a Métodos Numéricos, en rojo, apunta hacia la izquierda."
 />
 </Pair>
@@ -1613,13 +1614,12 @@ sin ciclos puede tener muchos órdenes topológicos, y todos sirven.
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
 
-<div>
-
 <SourceFile src="./27-grafos-recorridos.code/CoursePlan.java" range="5-10" />
 
 <OutputBox head="salida" lines={["[0, 1, 5, 2, 4, 3]"]} rows={1} label="El programa imprime el orden 0, 1, 5, 2, 4, 3." />
 
-</div>
+</Split>
+</PresentationWide>
 
 <Pair stack>
 <LineOrder
@@ -1631,13 +1631,10 @@ sin ciclos puede tener muchos órdenes topológicos, y todos sirven.
 <LineOrder
   order={[5, 1, 0, 2, 4, 3]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
-  caption="otro orden válido: Programación, Cálculo I, Álgebra, Cálculo II, Ecuaciones, Métodos Numéricos"
-  label="La malla en el orden 5, 1, 0, 2, 4, 3: también todos los arcos hacia la derecha."
+  caption="otro: Programación, Cálculo I, Álgebra, Cálculo II, Ecuaciones, Métodos Numéricos"
+  label="Otro orden válido de la malla, 5, 1, 0, 2, 4, 3: también todos los arcos hacia la derecha."
 />
 </Pair>
-
-</Split>
-</PresentationWide>
 
 </Slide>
 
@@ -1648,7 +1645,7 @@ sin ciclos puede tener muchos órdenes topológicos, y todos sirven.
 En una hoja de cálculo, la fórmula de una celda lee otras celdas. Con un arco de
 cada celda leída a la celda que la lee, la hoja es un grafo dirigido, y para
 calcular cada celda después de las que lee, la hoja las calcula en un orden
-topológico. El mismo `Topological` lo da.
+topológico.
 
 **Entrada.** El número de celdas y, entre celdas numeradas, un arco de cada
 celda que una fórmula lee a la celda de esa fórmula.
@@ -1659,19 +1656,22 @@ celda que una fórmula lee a la celda de esa fórmula.
 <NodeGraph
   cols={5}
   rows={3}
-  nodes={[{ v: 0, x: 2, y: 2 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 4, y: 1 }, { v: 3, x: 2, y: 0 }]}
-  edges={[[1, 3], [1, 0], [3, 2], [0, 2]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 4, y: 1 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 2], [1, 2], [3, 1], [0, 3]]}
   directed
-  label="Cuatro celdas numeradas: 1 es A1, que vale 5; 3 es B1 = A1 * 2; 0 es C1 = A1 + 1; 2 es D1 = B1 + C1. Arcos de 1 a 3 y a 0, y de 3 y de 0 a 2."
+  label="Cuatro celdas: 0 es A1, que vale 5; 1 es B1 = D1 * 2; 2 es C1 = A1 + B1; 3 es D1 = A1 + 1. Arcos de 0 a 2 y a 3, de 1 a 2, y de 3 a 1."
 />
-<ArrayRows rows={[{ name: 'celda', cells: ['C1', 'A1', 'D1', 'B1'] }, { name: 'fórmula', cells: ['A1 + 1', '5', 'B1 + C1', 'A1 * 2'] }]} label="Las celdas por número: 0 es C1 = A1 + 1; 1 es A1, que vale 5; 2 es D1 = B1 + C1; 3 es B1 = A1 * 2." />
+<ArrayRows rows={[{ name: 'celda', cells: ['A1', 'B1', 'C1', 'D1'] }, { name: 'fórmula', cells: ['5', 'D1 * 2', 'A1 + B1', 'A1 + 1'] }]} label="Las celdas por número: 0 es A1, que vale 5; 1 es B1 = D1 * 2; 2 es C1 = A1 + B1; 3 es D1 = A1 + 1." />
 </Pair>
 
+Una fórmula lee una celda que está a su derecha, así que el orden de lectura no
+sirve. `Topological`, el de la malla, da uno que sí:
+
 <LineOrder
-  order={[1, 3, 0, 2]}
-  arcs={[[1, 3], [1, 0], [3, 2], [0, 2]]}
-  caption="el orden de Topological: 1, 3, 0, 2"
-  label="Las celdas en el orden que da Topological: 1, 3, 0, 2, es decir A1, B1, C1, D1. Todos los arcos hacia la derecha."
+  order={[0, 3, 1, 2]}
+  arcs={[[0, 2], [1, 2], [3, 1], [0, 3]]}
+  caption="el orden de Topological: 0, 3, 1, 2"
+  label="Las celdas en el orden que da Topological: 0, 3, 1, 2, es decir A1, D1, B1, C1. Todos los arcos hacia la derecha."
 />
 
 </Slide>
@@ -1690,8 +1690,8 @@ por esos arcos alguna se repite, en un ciclo.
   directed
   ratio="45/55"
   title="new Topological(g) en una hoja con una referencia circular"
-  nodes={[{ v: 0, x: 2, y: 2 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 4, y: 1 }, { v: 3, x: 2, y: 0 }]}
-  edges={[[1, 3], [1, 0], [3, 2], [0, 2], [2, 0]]}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 4, y: 1 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 2], [1, 2], [3, 1], [0, 3], [2, 3]]}
   cols={5}
   rows={3}
   program={`Topological sheet = new Topological(g);`}
@@ -1699,8 +1699,8 @@ por esos arcos alguna se repite, en un ciclo.
   codeSrc="./27-grafos-recorridos.code/Topological.java"
   codeRange="11-28"
   lines={{ inDegrees: [11, 12], check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
-  label="La misma hoja, con C1 = A1 + D1: 0 es C1 = A1 + D1; 1 es A1, que vale 5; 2 es D1 = B1 + C1; 3 es B1 = A1 * 2. Arcos de 1 a 3 y a 0, de 3 y de 0 a 2, y de 2 a 0: C1 y D1 se leen una a la otra, un ciclo."
-  caption="la misma hoja, con C1 = A1 + D1; los números: 0 es C1, 1 es A1, 2 es D1, 3 es B1"
+  label="La misma hoja, con D1 = A1 + C1: 0 es A1, que vale 5; 1 es B1 = D1 * 2; 2 es C1 = A1 + B1; 3 es D1 = A1 + C1. Arcos de 0 a 2 y a 3, de 1 a 2, de 3 a 1 y de 2 a 3: B1, C1 y D1 se leen en un ciclo."
+  caption="la misma hoja, con D1 = A1 + C1; los números: 0 es A1, 1 es B1, 2 es C1, 3 es D1"
 />
 
 </Slide>
@@ -1717,7 +1717,7 @@ orden o reporta la referencia circular.
 <SourceFile src="./27-grafos-recorridos.code/CircularReferences.java" range="5-14" />
 
 <Pair stack>
-<OutputBox head="salida, hoja sin ciclo" lines={["[1, 3, 0, 2]"]} rows={1} label="Con la hoja sin ciclo, el programa imprime el orden 1, 3, 0, 2: A1, B1, C1, D1." />
+<OutputBox head="salida, hoja sin ciclo" lines={["[0, 3, 1, 2]"]} rows={1} label="Con la hoja sin ciclo, el programa imprime el orden 0, 3, 1, 2: A1, D1, B1, C1." />
 <OutputBox head="salida, hoja con ciclo" lines={["referencia circular"]} rows={1} label="Con la hoja de la referencia circular, el programa imprime referencia circular." />
 </Pair>
 

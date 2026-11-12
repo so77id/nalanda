@@ -761,7 +761,7 @@ export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
     event: 'inDegrees',
     v: null,
     w: null,
-    text: 'inDegrees(g) cuenta cuántos arcos llegan a cada vértice.',
+    text: 'inDegrees(g) cuenta cuántos arcos llegan a cada vértice, y la cola de fuentes empieza vacía.',
   });
   for (let v = 0; v < V; v++) {
     if (inDegree[v] === 0) {
