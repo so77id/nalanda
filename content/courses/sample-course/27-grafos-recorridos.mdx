@@ -842,17 +842,20 @@ sin marcar.
 
 <Slide title="La salida de un laberinto">
 
-Un laberinto es un grafo implícito: no viene escrito como lista de aristas. Las
-celdas libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y
-la columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que
-comparten un lado están unidas. Al revés, la celda $$v$$ está en la fila
-$$\lfloor v / C \rfloor$$ y la columna $$v \bmod C$$; en el código, $$C$$ es `cols`, y las
-divisiones son `v / cols` y `v % cols`. Los vecinos de una celda no se guardan:
-se calculan con los desplazamientos `DR4` y `DC4` y con `free`, que dice si una
-celda está dentro de la grilla y libre.
+Un laberinto es un grafo implícito: sus vecinos se calculan con una regla
+cuando se piden, en vez de leerse de una matriz o de unas listas. Las celdas
+libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y la
+columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que comparten
+un lado están unidas.
 
-**Entrada.** La grilla, de hasta $$1000 \times 1000$$ celdas; la entrada es la
-celda de arriba a la izquierda y la salida, la de abajo a la derecha.
+Al revés, la celda $$v$$ está en la fila $$\lfloor v / C \rfloor$$ y la
+columna $$v \bmod C$$; en Java, con $$C$$ en `cols`, son el cociente
+`v / cols` y el resto `v % cols`. La regla de los vecinos usa los
+desplazamientos `DR4` y `DC4` y `free`, que dice si una celda está dentro de la
+grilla y libre.
+
+**Entrada.** La grilla, de hasta $$1000 \times 1000$$ celdas; se entra por la
+celda de arriba a la izquierda y se sale por la de abajo a la derecha.
 
 **Salida.** Si se llega a la salida, y por qué celdas.
 
@@ -893,7 +896,7 @@ el hilo de Ariadna, que en el mito une a Teseo con la entrada.
 
 <Slide title="Un laberinto de 1000 × 1000">
 
-Un laberinto de $$1000 \times 1000$$ celdas es un grafo de un millón de
+Un laberinto de $$1000 \times 1000$$ celdas es un grafo de hasta un millón de
 vértices. `MazeDepthFirstPaths`, la búsqueda recursiva sobre la grilla, tiene
 una llamada en curso por cada celda del camino que lleva.
 
@@ -1387,8 +1390,7 @@ orden se hacen, para que cada una llegue después de las que necesita?
 
 Una malla curricular es un grafo dirigido sin ciclos, un DAG: un vértice por
 ramo y un arco de cada prerrequisito al ramo que lo pide. Un ramo se puede tomar cuando ya
-se aprobaron todos sus prerrequisitos. ¿En qué orden se toman los ramos, para
-que cada uno llegue después de los suyos?
+se aprobaron todos sus prerrequisitos.
 
 **Entrada.** El número de ramos, hasta $$10^3$$, y sus prerrequisitos como una
 lista de arcos entre ramos numerados.
