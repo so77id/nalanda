@@ -6,3 +6,5 @@ export { ModeProvider } from './ModeProvider';
 export { useMode } from './useMode';
 export { PresentationPage } from './PresentationPage';
 export { PresentableSectionsWrapper } from './PresentableSectionsWrapper';
+// A widget on a slide asks it before taking the keyboard (StepShow, #357).
+export { isTypingTarget } from './typingTarget';

@@ -220,14 +220,16 @@ describe('StepShow', () => {
 
   it('leaves the arrows to the deck at the ends of the walk (#357 review round 5)', () => {
     render(
-      <StepShow code={CODE} language="java">
-        <Step lines={[1]}>
-          <span>a</span>
-        </Step>
-        <Step lines={[2]}>
-          <span>b</span>
-        </Step>
-      </StepShow>,
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
     );
     const group = screen.getByRole('group');
     // fireEvent returns false when the handler prevented the default.
@@ -239,14 +241,16 @@ describe('StepShow', () => {
 
   it('steps with Space and PageDown on the focused group', () => {
     const { container } = render(
-      <StepShow code={CODE} language="java">
-        <Step lines={[1]}>
-          <span>a</span>
-        </Step>
-        <Step lines={[2]}>
-          <span>b</span>
-        </Step>
-      </StepShow>,
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
     );
     const group = screen.getByRole('group');
     fireEvent.keyDown(group, { key: ' ' });
@@ -259,14 +263,16 @@ describe('StepShow', () => {
 
   it('leaves Space on one of its controls to that control, not to the deck', () => {
     render(
-      <StepShow code={CODE} language="java">
-        <Step lines={[1]}>
-          <span>a</span>
-        </Step>
-        <Step lines={[2]}>
-          <span>b</span>
-        </Step>
-      </StepShow>,
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
     );
     const heard: string[] = [];
     const listener = (event: KeyboardEvent) => heard.push(event.key);
@@ -279,6 +285,42 @@ describe('StepShow', () => {
       expect(heard).toEqual(['Home']);
     } finally {
       window.removeEventListener('keydown', listener);
+    }
+  });
+
+  it('keeps the page keys and Space for the page in the book', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+    const group = screen.getByRole('group');
+    expect(fireEvent.keyDown(group, { key: 'PageDown' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: ' ' })).toBe(true);
+  });
+
+  it('takes the keyboard on a slide even when a deck control had it (#357 round 6)', () => {
+    const fullscreen = document.createElement('button');
+    document.body.append(fullscreen);
+    fullscreen.focus();
+    try {
+      render(
+        <ModeProvider mode="presentation">
+          <StepShow code={CODE} language="java">
+            <Step lines={[1]}>
+              <span>a</span>
+            </Step>
+          </StepShow>
+        </ModeProvider>,
+      );
+      expect(document.activeElement).toBe(screen.getByRole('group'));
+    } finally {
+      fullscreen.remove();
     }
   });
 
