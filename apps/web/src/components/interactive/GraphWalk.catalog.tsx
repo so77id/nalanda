@@ -51,7 +51,7 @@ const BFS_LINES = {
 
 // The tempting breadth-first search marks on dequeue: written inline.
 const ON_POP = `private void bfs(Graph g, int s) {
-    Queue<Integer> queue = new ArrayDeque<>();
+    Queue<Integer> queue = new LinkedList<>();
     queue.add(s);
     while (!queue.isEmpty()) {
         int v = queue.remove();
@@ -259,6 +259,12 @@ export const graphWalkCatalogEntry: CatalogEntry = {
     },
     { name: 'ratio', type: 'string', description: 'With `beside`, the "code/drawing" split.' },
     { name: 'title', type: 'string', description: 'Heading over the panels.' },
+    {
+      name: 'caption',
+      type: 'string',
+      description:
+        'One line under every frame, in Spanish: what the vertex numbers stand for (`0 Ana · 1 Beto · …`) when the problem named its vertices. The walk runs on numbers, as the code does.',
+    },
     {
       name: 'label',
       type: 'string',

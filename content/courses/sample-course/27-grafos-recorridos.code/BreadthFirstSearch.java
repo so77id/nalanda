@@ -1,4 +1,4 @@
-import java.util.ArrayDeque;
+import java.util.LinkedList;
 import java.util.Queue;
 
 public class BreadthFirstSearch {
@@ -10,7 +10,7 @@ public class BreadthFirstSearch {
     }
 
     private void bfs(Graph g, int s) {
-        Queue<Integer> queue = new ArrayDeque<>();
+        Queue<Integer> queue = new LinkedList<>();
         marked[s] = true;
         queue.add(s);
         while (!queue.isEmpty()) {

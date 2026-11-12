@@ -1,6 +1,6 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Stack;
@@ -20,7 +20,7 @@ public class BreadthFirstPaths {
     }
 
     private void bfs(Graph g, int s) {
-        Queue<Integer> queue = new ArrayDeque<>();
+        Queue<Integer> queue = new LinkedList<>();
         marked[s] = true;
         dist[s] = 0;
         queue.add(s);

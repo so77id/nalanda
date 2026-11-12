@@ -38,6 +38,11 @@ export interface NodeGraphProps {
   /** A short note beside a node, keyed by value: its degree, for instance. */
   notes?: Record<string, string | number>;
   caption?: string;
+  /**
+   * How far the drawing may grow over its natural width. Default 1.4; a
+   * widget that draws the graph beside other panels on a slide raises it.
+   */
+  maxScale?: number;
   /** What the figure shows, in Spanish: its accessible name. Required. */
   label: string;
 }
@@ -111,6 +116,7 @@ function Graph({
   walk = [],
   notes = {},
   caption,
+  maxScale = 1.4,
   label,
 }: NodeGraphProps) {
   const r = NODE_R;
@@ -135,7 +141,7 @@ function Graph({
       viewBox={`0 0 ${width} ${height}`}
       style={{
         width: '100%',
-        maxWidth: `${Math.round(width * 1.4)}px`,
+        maxWidth: `${Math.round(width * maxScale)}px`,
         height: 'auto',
         display: 'block',
         margin: '1rem auto',
