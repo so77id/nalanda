@@ -6,7 +6,8 @@ public class PowerOutage {
         int V = in.nextInt();
         Graph g = new AdjListGraph(V);
         Graphs.readEdges(in, g);
-        DepthFirstSearch search = new DepthFirstSearch(g, 0);
+        IterativeDepthFirstSearch search =
+                new IterativeDepthFirstSearch(g, 0);
         for (int v = 1; v < V; v++) {
             if (!search.marked(v)) {
                 System.out.println(v);

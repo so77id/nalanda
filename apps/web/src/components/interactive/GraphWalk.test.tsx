@@ -784,3 +784,27 @@ describe('GraphWalk without paths', () => {
     expect(screen.getByText('dfs(0) termina: no queda nada por recorrer.')).toBeInTheDocument();
   });
 });
+
+describe('GraphWalk caption', () => {
+  it('writes the caption under every frame', async () => {
+    render(
+      <GraphWalk
+        nodes={TRIANGLE}
+        edges={[
+          [0, 1],
+          [0, 2],
+          [1, 2],
+        ]}
+        cols={3}
+        rows={3}
+        code={DFS}
+        lines={LINES}
+        label="Un triángulo."
+        caption="0 Ana · 1 Beto · 2 Carla"
+      />,
+    );
+    expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
+    await forward(2);
+    expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
+  });
+});

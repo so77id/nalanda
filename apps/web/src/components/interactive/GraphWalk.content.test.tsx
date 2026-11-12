@@ -38,11 +38,11 @@ const NET = {
 // The friends: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena.
 const FRIENDS = {
   nodes: [
-    { v: 0, x: 0, y: 1 },
-    { v: 1, x: 2, y: 0 },
-    { v: 2, x: 2, y: 2 },
-    { v: 3, x: 4, y: 1 },
-    { v: 4, x: 6, y: 2 },
+    { v: 0, x: 1, y: 1 },
+    { v: 1, x: 3, y: 0 },
+    { v: 2, x: 3, y: 2 },
+    { v: 3, x: 5, y: 1 },
+    { v: 4, x: 7, y: 2 },
   ],
   edges: [
     [0, 1],
@@ -52,9 +52,36 @@ const FRIENDS = {
     [2, 3],
     [3, 4],
   ] as [number, number][],
-  cols: 7,
+  cols: 8,
   rows: 3,
   label: 'Una red de amigos.',
+  caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
+};
+
+// The malla: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II,
+// 4 Ecuaciones, 5 Estructuras de Datos; one arc per prerequisite.
+const MALLA = {
+  directed: true,
+  nodes: [
+    { v: 0, x: 0, y: 0 },
+    { v: 1, x: 0, y: 1 },
+    { v: 2, x: 0, y: 2 },
+    { v: 3, x: 2, y: 0 },
+    { v: 4, x: 4, y: 0 },
+    { v: 5, x: 2, y: 2 },
+  ],
+  edges: [
+    [0, 3],
+    [3, 4],
+    [1, 4],
+    [2, 5],
+    [1, 5],
+  ] as [number, number][],
+  cols: 5,
+  rows: 3,
+  label: 'La malla.',
+  caption:
+    '0 Cálculo I · 1 Álgebra · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Estructuras de Datos',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -73,7 +100,7 @@ const ON_PUSH = `private void dfs(Graph g, int s) {
 }`;
 
 const ON_POP = `private void bfs(Graph g, int s) {
-    Queue<Integer> queue = new ArrayDeque<>();
+    Queue<Integer> queue = new LinkedList<>();
     queue.add(s);
     while (!queue.isEmpty()) {
         int v = queue.remove();
@@ -208,9 +235,9 @@ const CASES: [string, GraphWalkProps, string][] = [
       codeSrc: `${CODE}BreadthFirstPaths.java`,
       codeRange: '22-38',
       lines: {
-        markStart: 24,
+        markStart: [23, 24],
         distStart: 25,
-        enqueueStart: [23, 26],
+        enqueueStart: 26,
         dequeue: [27, 28],
         look: [29, 30],
         mark: 31,
@@ -223,32 +250,26 @@ const CASES: [string, GraphWalkProps, string][] = [
     'end',
   ],
   [
+    'Los recorridos en una malla',
+    {
+      ...MALLA,
+      beside: true,
+      paths: false,
+      codeSrc: `${CODE}DepthFirstSearch.java`,
+      codeRange: '4-16',
+      lines: { mark: 10, look: [11, 12], recurse: 13, return: 16 },
+    },
+    'return',
+  ],
+  [
     'El código del orden topológico',
     {
+      ...MALLA,
       beside: true,
       algorithm: 'kahn',
-      directed: true,
-      nodes: [
-        { v: 0, x: 0, y: 0 },
-        { v: 1, x: 0, y: 1 },
-        { v: 2, x: 0, y: 2 },
-        { v: 3, x: 2, y: 0 },
-        { v: 4, x: 4, y: 0 },
-        { v: 5, x: 2, y: 2 },
-      ],
-      edges: [
-        [0, 3],
-        [3, 4],
-        [1, 4],
-        [2, 5],
-        [1, 5],
-      ],
-      cols: 5,
-      rows: 3,
       codeSrc: `${CODE}Topological.java`,
       codeRange: '11-28',
       lines: KAHN_LINES,
-      label: 'La malla.',
     },
     'end',
   ],
@@ -277,6 +298,7 @@ const CASES: [string, GraphWalkProps, string][] = [
       codeRange: '11-28',
       lines: KAHN_LINES,
       label: 'Una hoja con una referencia circular.',
+      caption: '0 A1 = 5 · 1 B1 = A1 + C1 · 2 C1 = A1 + D1 · 3 D1 = B1 * 2',
     },
     'end',
   ],
@@ -294,6 +316,9 @@ describe('the combinations 27-grafos-recorridos mounts', () => {
       await user.click(next);
     }
     expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', lastEvent);
+    // The legend under the frame names what the numbers stand for.
+    if (props.caption)
+      expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent(props.caption);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
   });
 });

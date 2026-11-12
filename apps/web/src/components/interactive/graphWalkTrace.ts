@@ -423,12 +423,21 @@ export function traceDfsStack(
   });
   while (stack.length > 0) {
     const v = stack.pop()!;
+    // Marking on push, the walk can leave a vertex for one that is not its
+    // neighbour: the jump a walk in depth never makes.
+    const last = order.length > 0 ? order[order.length - 1] : null;
+    const jumps = markOn === 'push' && last !== null && !adj[last].includes(v);
     if (markOn === 'push') order.push(v);
     r.record({
       event: 'pop',
       v,
       w: null,
-      text: markOn === 'push' ? `Saca ${v} de la pila y sigue desde ahí.` : `Saca ${v} de la pila.`,
+      text:
+        markOn === 'pop'
+          ? `Saca ${v} de la pila.`
+          : jumps
+            ? `Saca ${v} de la pila y sigue desde ahí: salta de ${last} a ${v}, que no son vecinos.`
+            : `Saca ${v} de la pila y sigue desde ahí.`,
     });
     if (markOn === 'pop') {
       if (marked[v]) {
@@ -747,7 +756,7 @@ export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
     text:
       order.length === V
         ? `La cola quedó vacía con los ${V} vértices en la línea: es un orden topológico.`
-        : `La cola quedó vacía con ${order.length} de ${V} vértices en la línea: los que faltan forman un ciclo.`,
+        : `La cola quedó vacía con ${order.length} de ${V} vértices en la línea: entre los que faltan hay un ciclo.`,
   });
   return r.frames;
 }

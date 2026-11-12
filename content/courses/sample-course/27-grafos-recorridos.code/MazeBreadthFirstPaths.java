@@ -1,6 +1,6 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Stack;
@@ -31,7 +31,7 @@ public class MazeBreadthFirstPaths {
     }
 
     private void bfs(int s) {
-        Queue<Integer> queue = new ArrayDeque<>();
+        Queue<Integer> queue = new LinkedList<>();
         dist[s] = 0;
         queue.add(s);
         while (!queue.isEmpty()) {

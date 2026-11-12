@@ -62,6 +62,12 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
     },
     { name: 'caption', type: 'string', description: 'A line under the drawing.' },
     {
+      name: 'maxScale',
+      type: 'number',
+      description:
+        'How far the drawing may grow over its natural width. Default 1.4. `<GraphWalk>` raises it on a slide, where its graph shares the row with a stack or a queue and was read too small.',
+    },
+    {
       name: 'label',
       type: 'string',
       description: 'What the figure shows, in Spanish: its accessible name. Required.',

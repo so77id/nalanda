@@ -20,16 +20,6 @@ public class Graphs {
         }
     }
 
-    static int[] degrees(Graph g) {
-        int[] degree = new int[g.V()];
-        for (int v = 0; v < g.V(); v++) {
-            for (int w : g.adj(v)) {
-                degree[v]++;
-            }
-        }
-        return degree;
-    }
-
     static int[] inDegrees(Graph g) {
         int[] inDegree = new int[g.V()];
         for (int v = 0; v < g.V(); v++) {

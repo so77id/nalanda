@@ -481,7 +481,7 @@ describe('traceKahn (the topological order)', () => {
     const last = traceKahn(cyclic).at(-1)!;
     expect(last.order).toEqual([0]);
     expect(last.text).toBe(
-      'La cola quedó vacía con 1 de 5 vértices en la línea: los que faltan forman un ciclo.',
+      'La cola quedó vacía con 1 de 5 vértices en la línea: entre los que faltan hay un ciclo.',
     );
   });
 });
@@ -508,5 +508,22 @@ describe('a depth-first walk without prev (#357 v2: the search that only marks)'
     expect(order(traceDfsStack(SQUARE, 0, 'pop', false))).toEqual(
       order(traceDfsStack(SQUARE, 0, 'pop')),
     );
+  });
+});
+
+describe('the jump marking on push makes, narrated (#357 review round 1)', () => {
+  it('says the walk jumps between two vertices that are not neighbours', () => {
+    const fan = adjacencyOf(4, [
+      [0, 1],
+      [0, 2],
+      [0, 3],
+      [1, 3],
+    ]);
+    const jump = traceDfsStack(fan, 0, 'push').find((f) => f.event === 'pop' && f.v === 2)!;
+    expect(jump.text).toBe(
+      'Saca 2 de la pila y sigue desde ahí: salta de 3 a 2, que no son vecinos.',
+    );
+    const step = traceDfsStack(fan, 0, 'push').find((f) => f.event === 'pop' && f.v === 3)!;
+    expect(step.text).toBe('Saca 3 de la pila y sigue desde ahí.');
   });
 });

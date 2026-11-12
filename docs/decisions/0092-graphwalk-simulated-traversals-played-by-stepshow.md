@@ -49,9 +49,16 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - **One step per assignment, per neighbour looked at, per call and per
   return** (the course's step rule): a slide walks a graph of four or five
   vertices.
-- **The drawing is capped at a fixed width** — 320px in the book, 440px on a
+- **The drawing is capped at a fixed width** — 320px in the book, 520px on a
   slide — never a share of its column, so a frame's height cannot follow the
-  width the deck gives it (the re-scale loop of #321).
+  width the deck gives it (the re-scale loop of #321). The panels beside and
+  under it (the stack, the queue, the arrays, the line) are drawn half again
+  as large on a slide, where they were read at about 7px (the plan v2's first
+  adversarial review).
+- **A `caption` under every frame** names what the vertex numbers stand for
+  (`0 Ana · 1 Beto · …`): the trace works on numbers, as the code does, and
+  the slide's reader needs the names the problem gave them. One line, the
+  same in every frame, so no frame is taller than another.
 - Lazy, like the fib composites: `lazyGraphWalk.tsx`, its own guard in
   `architecture.test.ts`, and an entry in `<StepShow>`'s `ALLOWED`.
 - **Walks are added one at a time, each with the slide that first uses it**
@@ -61,8 +68,10 @@ Three ways to animate the walks were weighed with Miguel in S3.
   S15 Kahn with its in-degrees and the line layout. The rewrite of the class
   on its plan v2 (2026-11-12) added `paths={false}`: a depth-first walk that
   only marks, with no `prev` event and no `prev` row, because the class meets
-  `marked` on its first problem and the thread (`prev`) only on its second;
-  the recursive walk's thread is then drawn from its call stack itself.
+  `marked` on its first problem and `prev` only on its second;
+  the recursive walk's thread is then drawn from its call stack itself. The
+  thread is the calls in progress, never `prev`: `prev` is the notes the
+  search leaves to read the way back once it ends.
 - **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
   `Stack`, the loop BFS shares with a queue at the close of arc II (la
   bolsa). It is drawn beside its own stack instead of the call stack; the

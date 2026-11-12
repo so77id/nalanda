@@ -110,6 +110,11 @@ export interface GraphWalkProps {
   title?: string;
   /** What the graph is, in Spanish; each frame's drawing adds what it shows. */
   label: string;
+  /**
+   * A line under every frame's drawing, in Spanish: what each numbered vertex
+   * stands for («0 Ana · 1 Beto · …»), when the walk numbers named things.
+   */
+  caption?: string;
 }
 
 /**
@@ -207,6 +212,7 @@ export function GraphWalk(props: GraphWalkProps) {
 }
 
 function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: number }) {
+  const onSlide = useMode() === 'presentation';
   const {
     algorithm,
     nodes = [],
@@ -310,6 +316,15 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               label={label}
             />
           )}
+          {props.caption ? (
+            <p
+              className="m-0 text-center"
+              style={{ fontSize: onSlide ? '0.95rem' : '0.8rem', color: 'var(--color-ink-soft)' }}
+              data-testid="graph-walk-caption"
+            >
+              {props.caption}
+            </p>
+          ) : null}
         </Step>
       ))}
     </StepShow>
@@ -339,11 +354,11 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   // share of the column, so the frame's height never follows its width.
   const onSlide = useMode() === 'presentation';
   const tones: Record<string, NodeGraphTone> = {};
-  // Recursive: the calls that returned are kept. Iterative: the vertices the
-  // walk has reached.
-  for (const v of recursive ? frame.done : frame.order) tones[String(v)] = 'keep';
+  // One meaning for every walk of the class: green is marked (Kahn: on the
+  // line), amber is the vertex the walk is on, red is what goes wrong.
+  const kept = bag === 'sources' ? frame.order : frame.marked.flatMap((m, v) => (m ? [v] : []));
+  for (const v of kept) tones[String(v)] = 'keep';
   if (frame.v !== null) tones[String(frame.v)] = 'mark';
-  if (frame.wrote?.array === 'marked') tones[String(frame.wrote.index)] = 'mark';
   // Marking on push: a neighbour skipped though the walk never reached it.
   if (frame.unvisited && frame.w !== null) tones[String(frame.w)] = 'flag';
   // Marking on dequeue: a vertex enqueued while it is already in the queue.
@@ -362,7 +377,8 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   const notes: Record<string, string> = {};
   if (frame.dist !== null) {
     frame.dist.forEach((d, v) => {
-      if (d >= 0) notes[String(v)] = `d=${d}`;
+      // An unreached vertex keeps its note's room, so the drawing never grows.
+      notes[String(v)] = d >= 0 ? `d=${d}` : '\u00a0';
     });
   }
   const thread = recursive
@@ -378,13 +394,20 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
       data-v={frame.v ?? ''}
       data-w={frame.w ?? ''}
     >
-      <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.4, minHeight: '2.8em' }}>
+      <div
+        style={{
+          fontSize: onSlide ? '1.05rem' : '0.9rem',
+          textAlign: 'center',
+          lineHeight: 1.4,
+          minHeight: '2.8em',
+        }}
+      >
         {frame.text}
       </div>
       <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {/* Capped so the frame's height never depends on the panel's width:
             a drawing that grows with it makes the deck re-scale for ever. */}
-        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '440px' : '320px' }}>
+        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '520px' : '320px' }}>
           <NodeGraph
             nodes={nodes}
             edges={edges}
@@ -394,6 +417,7 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
             tones={tones}
             notes={notes}
             markEdges={[...thread, ...looking]}
+            maxScale={onSlide ? 2 : undefined}
             label={`${label} ${frame.text}`}
           />
           {bag === 'sources' ? (
@@ -449,7 +473,7 @@ const GRID_PAD = 16;
 type CellState = 'wall' | 'free' | 'open' | 'running' | 'done';
 
 const CELL_PAINT: Record<Exclude<CellState, 'wall' | 'free'>, { fill: string; stroke: string }> = {
-  open: { fill: 'var(--color-mark-soft)', stroke: 'var(--color-ink-soft)' },
+  open: { fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' },
   running: { fill: 'var(--color-mark-soft)', stroke: 'var(--color-mark)' },
   done: { fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' },
 };
@@ -503,7 +527,7 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
             width={GRID_CELL}
             height={GRID_CELL}
             style={{
-              fill: state === 'wall' ? 'var(--color-ink-soft)' : 'var(--color-surface)',
+              fill: state === 'wall' ? 'var(--color-rule-strong)' : 'var(--color-surface)',
               stroke: 'var(--color-ink-soft)',
             }}
             strokeWidth={1.4}
@@ -578,12 +602,19 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
       data-v={frame.v ?? ''}
       data-w={frame.w ?? ''}
     >
-      <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.4, minHeight: '2.8em' }}>
+      <div
+        style={{
+          fontSize: onSlide ? '1.05rem' : '0.9rem',
+          textAlign: 'center',
+          lineHeight: 1.4,
+          minHeight: '2.8em',
+        }}
+      >
         {frame.text}
       </div>
       <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {/* Capped, as the graph is: the frame's height never follows the width. */}
-        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '440px' : '320px' }}>
+        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '520px' : '320px' }}>
           <svg
             viewBox={`0 0 ${width} ${height}`}
             style={{ width: '100%', height: 'auto', display: 'block' }}
@@ -662,6 +693,16 @@ function threadBack(frame: WalkFrame): NodeGraphEdge[] {
 }
 
 const CELL_H = 26;
+
+/**
+ * How much larger a panel is drawn on a slide: a projected deck is read from
+ * the back of the room, and the slide scales everything down to fit (#357
+ * review). A fixed factor, never a share of the column (the re-scale loop of
+ * #321).
+ */
+function usePanelScale(): number {
+  return useMode() === 'presentation' ? 1.5 : 1;
+}
 const STACK_W = 92;
 
 interface StackPanelProps {
@@ -677,12 +718,13 @@ interface StackPanelProps {
 
 /** A stack drawn bottom up: the calls in progress, or the walk's own stack. */
 function StackPanel({ title, items, hot, depth, label }: StackPanelProps) {
+  const k = usePanelScale();
   const head = 18;
   const height = head + depth * (CELL_H + 4) + 4;
   return (
     <svg
       viewBox={`0 0 ${STACK_W} ${height}`}
-      style={{ width: `${STACK_W}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
+      style={{ width: `${STACK_W * k}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
       role="img"
       aria-label={label}
     >
@@ -736,6 +778,7 @@ function StackPanel({ title, items, hot, depth, label }: StackPanelProps) {
  * every bow points right.
  */
 function LinePanel({ order, edges, V }: { order: number[]; edges: [number, number][]; V: number }) {
+  const k = usePanelScale();
   const gap = 46;
   const r = 13;
   const width = Math.max(1, V) * gap + 16;
@@ -748,7 +791,7 @@ function LinePanel({ order, edges, V }: { order: number[]; edges: [number, numbe
       viewBox={`0 0 ${width} ${height}`}
       style={{
         width: '100%',
-        maxWidth: `${width}px`,
+        maxWidth: `${width * k}px`,
         height: 'auto',
         display: 'block',
         margin: '0 auto',
@@ -821,6 +864,7 @@ function LinePanel({ order, edges, V }: { order: number[]; edges: [number, numbe
 
 /** The breadth-first walk's queue, its front at the left, `depth` cells wide. */
 function QueuePanel({ frame, depth, title }: { frame: WalkFrame; depth: number; title: string }) {
+  const k = usePanelScale();
   const cw = 34;
   const head = 18;
   const width = Math.max(1, depth, 4) * (cw + 4) + 8;
@@ -830,7 +874,7 @@ function QueuePanel({ frame, depth, title }: { frame: WalkFrame; depth: number; 
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      style={{ width: `${width}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
+      style={{ width: `${width * k}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
       role="img"
       aria-label={
         items.length === 0
@@ -899,12 +943,15 @@ type ArrayName = 'marked' | 'dist' | 'prev' | 'inDegree' | 'order';
  * one; `inDegree` and the list `order`, filled from its start, for Kahn's.
  */
 function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
+  const k = usePanelScale();
   const V = frame.marked.length;
   const nameW = 76;
   const cw = 46;
+  // Every array has V cells, so the indices are written once, over the first
+  // row: on a slide each repeated header cost a row's worth of height.
   const head = 14;
   const gap = 8;
-  const rowH = head + CELL_H + gap;
+  const rowH = CELL_H + gap;
   const width = nameW + V * cw + 4;
   const minus = (n: number) => (n < 0 ? '−1' : String(n));
   const hotIn = (array: ArrayName) => (frame.wrote?.array === array ? frame.wrote.index : -1);
@@ -918,16 +965,16 @@ function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
     );
   };
   const rowsData = rows.map((name) => ({ name, cells: cellsOf(name), hot: hotIn(name) }));
-  const height = rowsData.length * rowH;
+  const height = head + rowsData.length * rowH;
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      style={{ width: `${width}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
+      style={{ width: `${width * k}px`, maxWidth: '100%', height: 'auto', display: 'block' }}
       role="img"
       aria-label={rowsData.map((r) => `${r.name}: ${r.cells.join(', ')}`).join('; ')}
     >
       {rowsData.map((row, r) => {
-        const y = r * rowH + head;
+        const y = head + r * rowH;
         return (
           <g key={row.name}>
             <text
@@ -946,15 +993,17 @@ function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
               const hot = i === row.hot;
               return (
                 <g key={i} data-cell={`${row.name}[${i}]`} data-hot={hot ? '' : undefined}>
-                  <text
-                    x={x + cw / 2}
-                    y={y - 3}
-                    textAnchor="middle"
-                    fontSize="10"
-                    style={{ fill: 'var(--color-ink-soft)' }}
-                  >
-                    {i}
-                  </text>
+                  {r === 0 ? (
+                    <text
+                      x={x + cw / 2}
+                      y={y - 3}
+                      textAnchor="middle"
+                      fontSize="10"
+                      style={{ fill: 'var(--color-ink-soft)' }}
+                    >
+                      {i}
+                    </text>
+                  ) : null}
                   <rect
                     x={x}
                     y={y}

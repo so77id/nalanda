@@ -1,5 +1,5 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
@@ -9,7 +9,7 @@ public class Topological {
 
     public Topological(Graph g) {
         int[] inDegree = Graphs.inDegrees(g);
-        Queue<Integer> sources = new ArrayDeque<>();
+        Queue<Integer> sources = new LinkedList<>();
         for (int v = 0; v < g.V(); v++) {
             if (inDegree[v] == 0) {
                 sources.add(v);
