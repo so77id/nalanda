@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { adjacencyOf, traceBfs, traceDfs, traceDfsStack, traceGridDfs } from './graphWalkTrace';
+import {
+  adjacencyOf,
+  traceBfs,
+  traceDfs,
+  traceDfsStack,
+  traceGridDfs,
+  traceKahn,
+} from './graphWalkTrace';
 
 describe('adjacencyOf', () => {
   it('appends both ends of an undirected edge, in the order the edges arrive (AdjListGraph.addEdge)', () => {
@@ -411,5 +418,70 @@ describe('traceBfs, marking on dequeue (the tempting version)', () => {
       (f) => f.event === 'look' && f.v === 2 && f.w === 3,
     )!;
     expect(look.text).toBe('Mira el vecino 3 de 2: no está marcado, aunque ya está en la cola.');
+  });
+});
+
+// The six-course malla of #357's arc III: 0 Cálculo I, 1 Álgebra,
+// 2 Programación, 3 Cálculo II, 4 Ecuaciones, 5 Estructuras de Datos.
+const MALLA = adjacencyOf(
+  6,
+  [
+    [0, 3],
+    [3, 4],
+    [1, 4],
+    [2, 5],
+    [1, 5],
+  ],
+  true,
+);
+
+describe('traceKahn (the topological order)', () => {
+  it('orders the malla as Topological.java does on a JDK 21: 0, 1, 2, 3, 5, 4', () => {
+    const last = traceKahn(MALLA).at(-1)!;
+    expect(last.order).toEqual([0, 1, 2, 3, 5, 4]);
+    expect(last.inDegree).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(last.text).toBe(
+      'La cola quedó vacía con los 6 vértices en la línea: es un orden topológico.',
+    );
+  });
+
+  it('counts the in-degrees first, then asks every vertex whether it is a source', () => {
+    const frames = traceKahn(MALLA);
+    expect(frames[0]).toMatchObject({ event: 'inDegrees', inDegree: [0, 0, 0, 1, 2, 2] });
+    expect(frames.slice(1, 7).map((f) => [f.event, f.w])).toEqual([
+      ['enqueueStart', 0],
+      ['enqueueStart', 1],
+      ['enqueueStart', 2],
+      ['check', 3],
+      ['check', 4],
+      ['check', 5],
+    ]);
+  });
+
+  it('lowers the head of each arc once, and enqueues a vertex when its in-degree reaches 0', () => {
+    const frames = traceKahn(MALLA);
+    expect(frames.filter((f) => f.event === 'lower')).toHaveLength(5);
+    expect(frames.filter((f) => f.event === 'enqueue').map((f) => f.w)).toEqual([3, 5, 4]);
+    const lowered = frames.find((f) => f.event === 'lower' && f.v === 1 && f.w === 4)!;
+    expect(lowered.text).toBe('El arco 1 → 4 deja de contar: inDegree[4] baja a 1.');
+  });
+
+  it('leaves the vertices of a cycle off the line, and says so', () => {
+    const cyclic = adjacencyOf(
+      5,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 1],
+        [3, 4],
+      ],
+      true,
+    );
+    const last = traceKahn(cyclic).at(-1)!;
+    expect(last.order).toEqual([0]);
+    expect(last.text).toBe(
+      'La cola quedó vacía con 1 de 5 vértices en la línea: los que faltan forman un ciclo.',
+    );
   });
 });

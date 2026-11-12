@@ -384,7 +384,7 @@ describe('GraphWalk', () => {
       />,
     );
     expect(
-      screen.getByText(/son dfs, dfs-iterative, dfs-mark-on-push, bfs y bfs-mark-on-pop/),
+      screen.getByText(/son dfs, dfs-iterative, dfs-mark-on-push, bfs, bfs-mark-on-pop y kahn/),
     ).toBeInTheDocument();
   });
 });
@@ -644,5 +644,117 @@ describe('GraphWalk, breadth first', () => {
     // The tempting version keeps neither dist nor prev.
     expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
     expect(document.querySelector('[data-cell="dist[0]"]')).toBeNull();
+  });
+});
+
+// Kahn's walk (#357 S15), on a malla with a cycle: 0 → 1, 1 → 2, 2 → 1.
+const KAHN = `int[] inDegree = Graphs.inDegrees(g);
+Queue<Integer> sources = new ArrayDeque<>();
+for (int v = 0; v < g.V(); v++) {
+    if (inDegree[v] == 0) {
+        sources.add(v);
+    }
+}
+while (!sources.isEmpty()) {
+    int v = sources.remove();
+    order.add(v);
+    for (int w : g.adj(v)) {
+        inDegree[w]--;
+        if (inDegree[w] == 0) {
+            sources.add(w);
+        }
+    }
+}`;
+
+const KAHN_LINES = {
+  inDegrees: 1,
+  check: [3, 4],
+  enqueueStart: [4, 5],
+  dequeue: [8, 9],
+  append: 10,
+  lower: [11, 12],
+  enqueue: [13, 14],
+  end: 8,
+};
+
+const CHAIN = [
+  { v: 0, x: 0, y: 0 },
+  { v: 1, x: 2, y: 0 },
+  { v: 2, x: 4, y: 0 },
+];
+
+describe('GraphWalk, Kahn', () => {
+  it('draws the in-degrees and the order under the listing, and the line under the graph', async () => {
+    render(
+      <GraphWalk
+        algorithm="kahn"
+        directed
+        nodes={CHAIN}
+        edges={[
+          [0, 1],
+          [1, 2],
+        ]}
+        cols={5}
+        rows={1}
+        code={KAHN}
+        lines={KAHN_LINES}
+        label="Tres ramos en fila."
+      />,
+    );
+    expect(frame()).toHaveAttribute('data-event', 'inDegrees');
+    expect(document.querySelector('[data-cell="inDegree[1]"]')).not.toBeNull();
+    expect(document.querySelector('[data-cell="marked[0]"]')).toBeNull();
+    expect(screen.getByRole('img', { name: 'La línea está vacía.' })).toBeInTheDocument();
+    await stepTo(() => frame().dataset['event'] === 'end');
+    expect(
+      screen.getByRole('img', { name: 'La línea, de izquierda a derecha: 0, 1, 2.' }),
+    ).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-bow][data-right]')).toHaveLength(2);
+  });
+
+  it('paints red the vertices a cycle leaves off the line', async () => {
+    render(
+      <GraphWalk
+        algorithm="kahn"
+        directed
+        nodes={CHAIN}
+        edges={[
+          [0, 1],
+          [1, 2],
+          [2, 1],
+        ]}
+        cols={5}
+        rows={1}
+        code={KAHN}
+        lines={KAHN_LINES}
+        label="Tres ramos, dos en ciclo."
+      />,
+    );
+    await stepTo(() => frame().dataset['event'] === 'end');
+    expect(screen.getByText(/1 de 3 vértices en la línea/)).toBeInTheDocument();
+    expect(document.querySelector('[data-node][data-value="1"]')).toHaveAttribute(
+      'data-tone',
+      'flag',
+    );
+    expect(document.querySelector('[data-node][data-value="2"]')).toHaveAttribute(
+      'data-tone',
+      'flag',
+    );
+  });
+
+  it('tells the author Kahn orders a directed graph', () => {
+    render(
+      <GraphWalk
+        algorithm="kahn"
+        nodes={CHAIN}
+        edges={[[0, 1]]}
+        cols={5}
+        rows={1}
+        code={KAHN}
+        lines={KAHN_LINES}
+        label="x"
+      />,
+    );
+    expect(screen.getByText(/kahn ordena un grafo dirigido/)).toBeInTheDocument();
   });
 });

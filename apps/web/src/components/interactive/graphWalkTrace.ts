@@ -57,7 +57,11 @@ export type BfsEvent =
   | 'enqueue'
   | 'end';
 
-export type WalkEvent = DfsEvent | StackDfsEvent | BfsEvent;
+/** What Kahn's walk does in a frame; each names the lines it lights. */
+export type KahnEvent =
+  'inDegrees' | 'check' | 'enqueueStart' | 'dequeue' | 'append' | 'lower' | 'enqueue' | 'end';
+
+export type WalkEvent = DfsEvent | StackDfsEvent | BfsEvent | KahnEvent;
 
 /** Where an iterative walk marks a vertex: as it pops it, or as it pushes it. */
 export type MarkOn = 'pop' | 'push';
@@ -90,6 +94,8 @@ export interface WalkFrame {
   stack: number[];
   /** Breadth-first: each vertex's distance from the start, −1 unreached. */
   dist: number[] | null;
+  /** Kahn: each vertex's arcs still coming in; null before they are counted. */
+  inDegree: number[] | null;
   /**
    * Breadth-first, marking on dequeue: the frame enqueued `w` while it was
    * already in the queue — the duplicate marking on enqueue avoids.
@@ -99,8 +105,8 @@ export interface WalkFrame {
   done: number[];
   /** The vertices in the order the walk reached them. */
   order: number[];
-  /** The cell of `marked`, `dist` or `prev` this frame wrote, if it wrote one. */
-  wrote: { array: 'marked' | 'dist' | 'prev'; index: number } | null;
+  /** The cell of an array this frame wrote, if it wrote one. */
+  wrote: { array: 'marked' | 'dist' | 'prev' | 'inDegree' | 'order'; index: number } | null;
   /**
    * On `look` over a grid: the cell looked at, `[row, col]`, in the grid or
    * off it (`w` is null off it). Null over a graph.
@@ -121,6 +127,8 @@ class Recorder {
   readonly prev: number[];
   /** Kept only by a breadth-first walk; null in the others. */
   readonly dist: number[] | null;
+  /** Kept only by Kahn's walk, once counted. */
+  inDegree: number[] | null = null;
   readonly stack: number[] = [];
   readonly done: number[] = [];
   readonly order: number[] = [];
@@ -144,6 +152,7 @@ class Recorder {
       marked: [...this.marked],
       prev: [...this.prev],
       dist: this.dist === null ? null : [...this.dist],
+      inDegree: this.inDegree === null ? null : [...this.inDegree],
       stack: [...this.stack],
       done: [...this.done],
       order: [...this.order],
@@ -618,6 +627,115 @@ export function traceBfs(
     v: null,
     w: null,
     text: 'La cola quedó vacía: no queda nada por recorrer.',
+  });
+  return r.frames;
+}
+
+/**
+ * Kahn's topological order over a directed graph, exactly as the listing
+ * reads:
+ *
+ * ```java
+ * int[] inDegree = Graphs.inDegrees(g);
+ * Queue<Integer> sources = new ArrayDeque<>();
+ * for (int v = 0; v < g.V(); v++) {
+ *     if (inDegree[v] == 0) {
+ *         sources.add(v);
+ *     }
+ * }
+ * while (!sources.isEmpty()) {
+ *     int v = sources.remove();
+ *     order.add(v);
+ *     for (int w : g.adj(v)) {
+ *         inDegree[w]--;
+ *         if (inDegree[w] == 0) {
+ *             sources.add(w);
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * One frame for the in-degrees, one per vertex the first loop asks about
+ * (`check`, or `enqueueStart` for a source), one per assignment in the second
+ * (`dequeue`, `append`, `lower`, `enqueue` — the `if` folded into `lower` or
+ * `enqueue`), and one when the queue runs out (`end`), which says whether
+ * every vertex made it onto the line or a cycle is left over. `order` holds
+ * the line; `stack` the queue of sources, its front first.
+ */
+export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
+  const V = adj.length;
+  const r = new Recorder(V);
+  const { order } = r;
+  const sources = r.stack;
+  const inDegree = Array.from({ length: V }, () => 0);
+  for (const list of adj) for (const w of list) inDegree[w]++;
+  r.inDegree = inDegree;
+  r.record({
+    event: 'inDegrees',
+    v: null,
+    w: null,
+    text: 'inDegrees(g) cuenta cuántos arcos llegan a cada vértice.',
+  });
+  for (let v = 0; v < V; v++) {
+    if (inDegree[v] === 0) {
+      sources.push(v);
+      r.record({
+        event: 'enqueueStart',
+        v: null,
+        w: v,
+        text: `inDegree[${v}] = 0: ${v} es fuente y entra a la cola.`,
+      });
+    } else {
+      r.record({
+        event: 'check',
+        v: null,
+        w: v,
+        text: `inDegree[${v}] = ${inDegree[v]}: ${v} no es fuente.`,
+      });
+    }
+  }
+  while (sources.length > 0) {
+    const v = sources.shift()!;
+    r.record({ event: 'dequeue', v, w: null, text: `Saca la fuente ${v} de la cola.` });
+    order.push(v);
+    r.record({
+      event: 'append',
+      v,
+      w: null,
+      wrote: { array: 'order', index: order.length - 1 },
+      text: `order.add(${v}): ${v} es el siguiente en la línea.`,
+    });
+    for (const w of adj[v]) {
+      inDegree[w]--;
+      r.record({
+        event: 'lower',
+        v,
+        w,
+        wrote: { array: 'inDegree', index: w },
+        text:
+          inDegree[w] === 0
+            ? `El arco ${v} → ${w} deja de contar: inDegree[${w}] baja a 0.`
+            : `El arco ${v} → ${w} deja de contar: inDegree[${w}] baja a ${inDegree[w]}.`,
+      });
+      if (inDegree[w] === 0) {
+        sources.push(w);
+        r.record({
+          event: 'enqueue',
+          v,
+          w,
+          text: `${w} quedó sin arcos de entrada: es fuente y entra a la cola.`,
+        });
+      }
+    }
+  }
+  r.record({
+    event: 'end',
+    v: null,
+    w: null,
+    text:
+      order.length === V
+        ? `La cola quedó vacía con los ${V} vértices en la línea: es un orden topológico.`
+        : `La cola quedó vacía con ${order.length} de ${V} vértices en la línea: los que faltan forman un ciclo.`,
   });
   return r.frames;
 }

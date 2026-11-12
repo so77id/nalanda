@@ -1238,7 +1238,8 @@ Live: `/catalog/c/SequenceStepper`.
      its slide, so it is written inline; `bfs`, the breadth-first search
      with a queue, which marks on enqueue and keeps `dist`; and
      `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice
-     and is written inline too.
+     and is written inline too; and `kahn`, the topological order of a
+     graph drawn `directed`.
    - **Every event needs its lines**; one left out is an authoring error. For
      `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`,
      `return`. For `dfs-iterative`: `pushStart` (the stack and its first
@@ -1248,7 +1249,9 @@ Live: `/catalog/c/SequenceStepper`.
      `markStart`, `distStart` (`dist[s] = 0`), `enqueueStart`, `dequeue`,
      `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For
      `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`,
-     `enqueue`, `end`.
+     `enqueue`, `end`. For `kahn`: `inDegrees`, `check` (a vertex that is not
+     a source), `enqueueStart` (one that is), `dequeue`, `append`, `lower`
+     (`inDegree[w]--`), `enqueue`, `end`.
    - **What a frame draws**: the vertex the walk is on in mark — the running
      call, or the vertex last popped —, the ones already finished or reached
      in keep, the way back to the start (the thread) and the edge being
@@ -1258,7 +1261,10 @@ Live: `/catalog/c/SequenceStepper`.
      never reached it is painted red. A breadth-first walk draws its queue,
      front first, adds `dist` under the listing and writes each reached
      vertex's distance beside it (`d=…`); marking on dequeue, a vertex
-     enqueued while it is already in the queue is painted red. One step per assignment, per neighbour
+     enqueued while it is already in the queue is painted red. Kahn's walk
+     draws its queue of sources, `inDegree` and `order` under the listing,
+     and the line it builds under the graph, every arc a bow pointing right;
+     a cycle leaves its vertices off the line, in red. One step per assignment, per neighbour
      looked at, per call and per return: a walk over six vertices runs about
      36 steps, so a slide walks a graph of four or five.
    - **The recursive and the iterative search are not paired** line by line

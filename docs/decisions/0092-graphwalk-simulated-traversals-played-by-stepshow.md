@@ -58,7 +58,7 @@ Three ways to animate the walks were weighed with Miguel in S3.
   (ADR-0083's rule): S3 shipped the recursive DFS; S5a the iterative DFS and
   the tempting version that marks on push; S5b the recursive DFS over a
   maze's grid; S10 BFS with its queue and `dist`, and its tempting version;
-  Kahn with its in-degrees and the line layout comes with arc III.
+  S15 Kahn with its in-degrees and the line layout.
 - **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
   `Stack`, the loop BFS shares with a queue at the close of arc II (la
   bolsa). It is drawn beside its own stack instead of the call stack; the
@@ -101,6 +101,16 @@ Three ways to animate the walks were weighed with Miguel in S3.
   it ends, and paints red a vertex enqueued while it is already in the
   queue. It keeps neither `dist` nor `prev`, so neither is drawn. Planned in
   S9, built in S10.
+- **Kahn's topological order** (`kahn`, over a directed graph, as
+  `Topological.java` reads): one frame for `inDegrees(g)`, one per vertex the
+  first loop asks about, one per assignment after (`dequeue`, `append`,
+  `lower`, `enqueue`, the `if` folded into the last two), and the end.
+  `inDegree` and the list `order` go under the listing, the queue of sources
+  beside the graph, and **the line** under it: the vertices in the order
+  they were appended, each arc between two of them a bow above, every one
+  pointing right — the drawing that defines a topological order. A cycle
+  leaves its vertices off the line, painted red at the end. Planned in S14,
+  built in S15.
 
 ## Alternatives considered
 
@@ -120,12 +130,13 @@ Three ways to animate the walks were weighed with Miguel in S3.
   walks here, the priority queue being one more bag.
 - The catalog entry quotes the course's files
   (`27-grafos-recorridos.code/DepthFirstPaths.java`,
-  `IterativeDepthFirstPaths.java`, `MazeDepthFirstPaths.java` and
-  `BreadthFirstPaths.java`), as `<SourceFile>`'s quotes class 2's: when the
-  class's code changes, the entry's ranges and `lines` move with it. The
-  trace was checked against those files run on a JDK 21 (S5a, S5b, S10): the
-  same order, `prev` and `dist` on the square, on the counterexample, on the
-  maze and on the five-vertex graph.
+  `IterativeDepthFirstPaths.java`, `MazeDepthFirstPaths.java`,
+  `BreadthFirstPaths.java` and `Topological.java`), as `<SourceFile>`'s
+  quotes class 2's: when the class's code changes, the entry's ranges and
+  `lines` move with it. The trace was checked against those files run on a
+  JDK 21 (S5a, S5b, S10, S15): the same order, `prev` and `dist` on the
+  square, on the counterexample, on the maze and on the five-vertex graph,
+  and the same order on the six-course malla.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit
