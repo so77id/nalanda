@@ -1199,12 +1199,14 @@ valores.** Al sacar un vértice con `dist` $$d$$, sus vecinos nuevos reciben
 $$d + 1$$ y van al final, así que la invariante sigue valiendo y los vértices
 salen de la cola en orden de `dist`.
 
-Se prueba por inducción en la distancia: los vértices más cercanos al origen
-que `w` ya tienen su distancia en `dist`. Un vértice `w` que se ve por primera
-vez desde `v` recibe `dist[w] = dist[v] + 1`. Si hubiera un camino más corto
-hasta `w`, el vértice anterior a `w` en ese camino tendría un `dist` menor que
-el de `v`: habría salido de la cola antes que `v` y, al salir, habría visto a
-`w`. Nadie lo vio antes, así que no hay camino más corto, y `dist[w]` es la
+Se prueba por inducción en la distancia. El origen recibe `dist` 0, que es su
+distancia. Sea `w` un vértice que se ve por primera vez desde `v` y recibe
+`dist[w] = dist[v] + 1`, y se supone que los vértices más cercanos al origen
+que `w` ya tienen su distancia en `dist`. Si hubiera un camino más corto hasta
+`w`, en uno mínimo el vértice anterior a `w` estaría más cerca que `w` y a
+menos de `dist[v]` aristas del origen: su `dist` sería menor que el de `v`, así
+que habría salido de la cola antes que `v` y, al salir, habría visto a `w`.
+Nadie lo vio antes, así que no hay camino más corto, y `dist[w]` es la
 distancia.
 
 <Pair>
@@ -1439,10 +1441,10 @@ a su primer vértice.
   label="La malla en una línea, en el orden 1, 2, 0, 4, 5, 3. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
 />
 <LineOrder
-  order={[0, 1, 2]}
-  arcs={[[0, 1], [1, 2], [2, 0]]}
-  caption="un ciclo: el arco de 2 a 0, hacia la izquierda"
-  label="Un ciclo de tres vértices en una línea, 0, 1, 2: los arcos de 0 a 1 y de 1 a 2 apuntan hacia la derecha, y el de 2 a 0, en rojo, hacia la izquierda."
+  order={["A", "B", "C"]}
+  arcs={[["A", "B"], ["B", "C"], ["C", "A"]]}
+  caption="otro grafo, con un ciclo: el arco de C a A, hacia la izquierda"
+  label="Otro grafo, un ciclo de tres vértices en una línea, A, B, C: los arcos de A a B y de B a C apuntan hacia la derecha, y el de C a A, en rojo, hacia la izquierda."
 />
 </Pair>
 
