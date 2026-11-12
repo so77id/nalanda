@@ -218,6 +218,92 @@ describe('StepShow', () => {
     expect(highlightedLines(container)).toEqual([1]);
   });
 
+  it('leaves the arrows to the deck at the ends of the walk (#357 review round 5)', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+    const group = screen.getByRole('group');
+    // fireEvent returns false when the handler prevented the default.
+    expect(fireEvent.keyDown(group, { key: 'ArrowLeft' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: 'ArrowRight' })).toBe(false);
+    expect(fireEvent.keyDown(group, { key: 'ArrowRight' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: 'PageUp' })).toBe(false);
+  });
+
+  it('steps with Space and PageDown on the focused group', () => {
+    const { container } = render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+    const group = screen.getByRole('group');
+    fireEvent.keyDown(group, { key: ' ' });
+    expect(highlightedLines(container)).toEqual([2]);
+    fireEvent.keyDown(group, { key: 'PageUp' });
+    expect(highlightedLines(container)).toEqual([1]);
+    fireEvent.keyDown(group, { key: 'PageDown' });
+    expect(highlightedLines(container)).toEqual([2]);
+  });
+
+  it('leaves Space on one of its controls to that control, not to the deck', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+    const heard: string[] = [];
+    const listener = (event: KeyboardEvent) => heard.push(event.key);
+    window.addEventListener('keydown', listener);
+    try {
+      fireEvent.keyDown(screen.getByRole('button', { name: /adelante/i }), { key: ' ' });
+      expect(heard).toEqual([]);
+      // Positive control: a key the walk does not own still reaches window.
+      fireEvent.keyDown(screen.getByRole('group'), { key: 'Home' });
+      expect(heard).toEqual(['Home']);
+    } finally {
+      window.removeEventListener('keydown', listener);
+    }
+  });
+
+  it('takes the keyboard when it arrives on a slide, and not in the book', () => {
+    const { unmount } = render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+    expect(document.activeElement).toBe(document.body);
+    unmount();
+    render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    expect(document.activeElement).toBe(screen.getByRole('group'));
+  });
+
   it('passes the raw source to the listing, blank lines and all', () => {
     // A predecessor widget earned the "blank lines count" lesson (a fence's
     // trailing newline used to produce a phantom numbered line). Here we

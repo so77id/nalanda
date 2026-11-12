@@ -208,6 +208,15 @@ export function StepShow({
     enabled: isPresentation,
     fraction: isBeside ? 0.75 : 0.5,
   });
+  // On a slide, the walk takes the keyboard when the slide arrives, unless
+  // something else already has it: a clicker cannot press Tab, and without
+  // this its first press skipped the whole walk (#357 review round 5).
+  useEffect(() => {
+    if (!isPresentation) return;
+    const el = outerRef.current;
+    const active = document.activeElement;
+    if (el && (active === null || active === document.body)) el.focus({ preventScroll: true });
+  }, [isPresentation]);
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
     const el = outerRef.current;
@@ -339,12 +348,24 @@ export function StepShow({
       aria-label="Ejecución paso a paso: usa las flechas izquierda y derecha para recorrer los pasos"
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
       onKeyDown={(event) => {
-        if (event.key === 'ArrowRight') {
+        // A clicker sends the arrows or PageDown/PageUp, a keyboard also
+        // Space: each steps the walk. At its ends the key is left to the
+        // deck, so a clicker moves on to the next slide or back to the one
+        // before instead of being stuck on this one (#357 review round 5).
+        const onGroup = event.target === event.currentTarget;
+        const forward =
+          event.key === 'ArrowRight' || event.key === 'PageDown' || (event.key === ' ' && onGroup);
+        const backward = event.key === 'ArrowLeft' || event.key === 'PageUp';
+        if (forward && !last) {
           event.preventDefault();
           advance();
-        } else if (event.key === 'ArrowLeft') {
+        } else if (backward && !first) {
           event.preventDefault();
           retreat();
+        } else if (event.key === ' ' && !onGroup) {
+          // Space on a control activates that control and nothing else: the
+          // deck must not change slide underneath it.
+          event.stopPropagation();
         }
       }}
     >
