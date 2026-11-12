@@ -226,7 +226,10 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
       codeRange={props.codeRange}
       // A named listing is what lets `<StepShow>` show `under`; a file names
       // itself, an inline listing is named after the method it holds.
-      codeName={props.codeName ?? (props.codeSrc === undefined ? 'dfs' : undefined)}
+      codeName={
+        props.codeName ??
+        (props.codeSrc === undefined ? (algorithm.startsWith('bfs') ? 'bfs' : 'dfs') : undefined)
+      }
       program={props.program}
       programSrc={props.programSrc}
       programRange={props.programRange}
