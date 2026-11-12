@@ -218,6 +218,22 @@ describe('PresentationPage viewer', () => {
     restore();
   });
 
+  it('does not keep the keyboard on the fullscreen control after a click (#357)', async () => {
+    // A clicker's next press must reach the slide, not the button: the walk
+    // on the slide takes it, or nothing does (here the cover, with no walk).
+    const restore = withFullscreenSupport();
+    try {
+      await renderAt(`/d/${firstId}/present`);
+      await findCounter();
+      const button = screen.getByRole('button', { name: 'Pantalla completa' });
+      button.focus();
+      fireEvent.click(button);
+      expect(document.activeElement).not.toBe(button);
+    } finally {
+      restore();
+    }
+  });
+
   it('hides the fullscreen control where the platform has no fullscreen', async () => {
     // An iPhone: no browser there exposes requestFullscreen for a web page
     // (ADR-0023), so the control could only ever be a button that does nothing.

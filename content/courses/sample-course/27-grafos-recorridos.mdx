@@ -283,7 +283,7 @@ queda es la del dibujo sin él. ¿Qué postes y casas quedaron sin luz? Es saber
 qué vértices se llega desde la central, un problema con nombre: la
 **alcanzabilidad**, ¿se puede llegar de aquí a allá?
 
-**Entrada.** El número de vértices, contando la central, hasta $$10^5$$, y los
+**Entrada.** El número de vértices, contando la central, hasta $$10^4$$, y los
 cables que quedan, como una lista de aristas, con la central en el vértice 0.
 
 **Salida.** Los vértices sin luz.
@@ -434,7 +434,7 @@ arista de llegada, desde ahí avanza otra vez, y vuelve, sin fin.
 
 <Slide title="No volver al vértice anterior">
 
-El arreglo tentador es recordar desde qué vértice se llegó y no volver a él. En
+El remedio tentador es recordar desde qué vértice se llegó y no volver a él. En
 una red sin ciclos basta. Esta red, en cambio, tiene un ciclo de postes: la regla da la
 vuelta y llega otra vez a un poste, ahora por otro cable. El problema no es el
 cable de vuelta: son los ciclos.
@@ -702,12 +702,13 @@ maneja, en lugar de la pila de llamadas de Java: **sacar un vértice; si ya est�
 marcado, descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
 La pila de llamadas guarda cada llamada a medio camino; esta guarda los
-vértices pendientes. Saca primero el último que entró, que es un vecino del
-último vértice marcado: por eso avanza en profundidad, y visita los vecinos en
-orden inverso. Un vértice puede quedar dos veces en la pila: por eso se revisa
-al sacarlo.
+vértices pendientes, y saca primero el último que entró. Si el último vértice
+marcado apiló vecinos, sigue por uno de ellos, en profundidad; si no apiló
+ninguno, vuelve al pendiente más reciente, como la recursión cuando una llamada
+termina. Visita los vecinos en orden inverso, y un vértice puede quedar dos
+veces en la pila: por eso se revisa al sacarlo.
 
-<Pair>
+<Pair stack>
 <NodeGraph
   cols={9}
   rows={3}
@@ -757,8 +758,8 @@ la profundidad.
 Un vecino queda marcado antes de que la búsqueda pase por él. Otro vértice que
 lo mira lo salta, y la búsqueda sale de ese vértice con un vecino sin recorrer,
 cosa que la regla de avanzar tan hondo como se pueda nunca hace. Para saber qué
-se alcanza sirve igual; lo que dependa del orden en que una búsqueda en
-profundidad recorre y termina los vértices, no.
+se alcanza sirve igual, y con menos pila; pero ya no es una búsqueda en
+profundidad, aunque el código se parezca y se llame igual.
 
 <GraphWalk
   beside
@@ -814,8 +815,8 @@ crear `marked`, de $$V$$ casillas.
 
 Una búsqueda desde la central marca todo lo que se alcanza desde ella, y lo que
 quedó sin marcar quedó sin luz. El programa lee la red como una lista de
-aristas, busca desde la central e imprime los vértices sin marcar. Usa la
-versión con pila.
+aristas, busca desde la central con `DepthFirstSearch` e imprime los vértices
+sin marcar.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -871,9 +872,9 @@ vértices. Una búsqueda recursiva tiene una llamada en curso por cada celda del
 camino que lleva, y en un laberinto sin muros ese camino pasa por todas las
 celdas sin volver: un millón de llamadas en curso a la vez. Medido en un JDK 21
 sobre Linux arm64, con la pila que trae por defecto, la búsqueda recursiva sobre
-la grilla lanza `StackOverflowError` con unas 17 000. Lo mismo le pasa con
-$$10^5$$ postes en fila en la red eléctrica. La versión con pila guarda los
-pendientes en el heap, donde viven los objetos, y no tiene ese límite.
+la grilla lanza `StackOverflowError` con unas 17 000. La versión con pila
+guarda los pendientes en la memoria donde viven los objetos, mucho más grande,
+y recorre el laberinto completo.
 
 <Maze
   grid={["....", "....", "....", "...."]}
@@ -1243,7 +1244,7 @@ tienen peso, o cuando todas pesan lo mismo.
 
 </Slide>
 
-<Slide title="La cadena más corta de amigos">
+<Slide title="Una cadena más corta de amigos">
 
 Al terminar, `distTo(t)` es la distancia de `s` a `t`, y `pathTo(t)` sigue
 `prev` desde `t` hasta `s` e invierte el recorrido con una pila. Cada `prev[w]`
@@ -1323,22 +1324,19 @@ $$\Theta(R \cdot C)$$, como la búsqueda en profundidad.
 
 La búsqueda en profundidad con una pila y la búsqueda en anchura son el mismo
 ciclo: sacar un vértice de una **bolsa** de pendientes y meter en ella sus
-vecinos sin marcar. Cambian dos cosas:
+vecinos sin marcar. Cambian dos cosas: la bolsa, con sus métodos, y el momento
+de marcar.
 
-- **la bolsa**: un `Stack` saca el último que entró; una `Queue`, el primero;
-- **el momento de marcar**: la pila marca al sacar, porque la copia que sale
-  primero es la del vecino más reciente, y eso la lleva en profundidad; la cola
-  marca al meter, porque la primera copia que entra es la primera que sale.
+| | con una pila | con una cola |
+| --- | --- | --- |
+| la bolsa | `Stack<Integer> stack` | `Queue<Integer> queue` |
+| meter | `stack.push(w)` | `queue.add(w)` |
+| sacar | `stack.pop()`, el último que entró | `queue.remove()`, el primero |
+| marcar | al sacar: `if (marked[v]) continue;` y después `marked[v] = true` | al meter: `marked[w] = true` antes de `queue.add(w)` |
 
-<PresentationWide fraction={0.95}>
-<SideBySide left="con una pila" right="con una cola">
-
-<SourceFile src="./27-grafos-recorridos.code/IterativeDepthFirstSearch.java" range="11-26" />
-
-<SourceFile src="./27-grafos-recorridos.code/BreadthFirstSearch.java" range="12-25" />
-
-</SideBySide>
-</PresentationWide>
+La pila marca al sacar porque la copia que sale primero es la del vecino más
+reciente, y eso la lleva en profundidad; la cola marca al meter porque la
+primera copia que entra es la primera que sale.
 
 </Slide>
 
@@ -1346,9 +1344,24 @@ vecinos sin marcar. Cambian dos cosas:
 
 Los dos recorridos dicen qué se alcanza desde un vértice, y la búsqueda en
 anchura, a qué distancia. El orden en que visitan no dice en qué orden hacer
-las cosas cuando unas dependen de otras: en qué orden tomar los ramos de una malla, o calcular las
-celdas de una hoja de cálculo. ¿En qué orden se hacen, para que cada una llegue
+las cosas cuando unas dependen de otras: en una malla, una búsqueda por capas
+desde los ramos que no piden nada puede visitar un ramo antes que uno de sus
+prerrequisitos. ¿En qué orden se hacen las cosas, para que cada una llegue
 después de las que necesita?
+
+<Pair>
+<NodeGraph
+  cols={6}
+  rows={3}
+  nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Cálculo II', x: 2.5, y: 0 }, { v: 'Ecuaciones', x: 5, y: 1 }, { v: 'Álgebra', x: 0, y: 2 }]}
+  edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
+  directed
+  markEdges={[['Cálculo II', 'Ecuaciones']]}
+  tones={{ Ecuaciones: 'flag' }}
+  label="Cuatro ramos: Cálculo I es prerrequisito de Cálculo II, y Cálculo II y Álgebra lo son de Ecuaciones. En rojo, Ecuaciones."
+/>
+<OutputBox head="por capas desde Álgebra y Cálculo I" lines={["Álgebra", "Cálculo I", "Ecuaciones", "Cálculo II"]} rows={4} label="El orden de una búsqueda en anchura con Álgebra y Cálculo I en la cola desde el comienzo: Álgebra, Cálculo I, Ecuaciones, Cálculo II. Ecuaciones queda antes que Cálculo II, su prerrequisito." />
+</Pair>
 
 </Slide>
 
@@ -1653,8 +1666,8 @@ por esos arcos alguna se repite, en un ciclo.
   directed
   ratio="45/55"
   title="new Topological(g) en una hoja con una referencia circular"
-  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 2, y: 2 }, { v: 3, x: 4, y: 1 }]}
-  edges={[[0, 1], [0, 2], [1, 3], [3, 2], [2, 1]]}
+  nodes={[{ v: 0, x: 2, y: 2 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 4, y: 1 }, { v: 3, x: 2, y: 0 }]}
+  edges={[[1, 3], [1, 0], [3, 2], [0, 2], [2, 0]]}
   cols={5}
   rows={3}
   program={`Topological sheet = new Topological(g);`}
@@ -1662,8 +1675,8 @@ por esos arcos alguna se repite, en un ciclo.
   codeSrc="./27-grafos-recorridos.code/Topological.java"
   codeRange="11-28"
   lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
-  label="Cuatro celdas numeradas: 0 A1 = 5; 1 B1 = A1 + C1; 2 C1 = A1 + D1; 3 D1 = B1 * 2. Arcos de 0 a 1, de 0 a 2, de 1 a 3, de 3 a 2 y de 2 a 1: B1, D1 y C1 forman un ciclo."
-  caption="0: A1 = 5 · 1: B1 = A1 + C1 · 2: C1 = A1 + D1 · 3: D1 = B1 * 2"
+  label="La misma hoja, con C1 = A1 + D1: 0 es C1 = A1 + D1; 1 es A1, que vale 5; 2 es D1 = B1 + C1; 3 es B1 = A1 * 2. Arcos de 1 a 3 y a 0, de 3 y de 0 a 2, y de 2 a 0: C1 y D1 se leen una a la otra, un ciclo."
+  caption="la misma hoja con C1 = A1 + D1 · 0: C1 · 1: A1 · 2: D1 · 3: B1"
 />
 
 </Slide>
@@ -1722,7 +1735,7 @@ todos los vértices que se alcanzan desde `v`, así que por cada arco de `v` a
 `w`, `w` queda antes que `v` en el postorden, y después en el inverso.
 
 Sale de la búsqueda en profundidad recursiva, que termina cada llamada después
-de recorrer todo lo que alcanza; con la marca al apilar no sale. Por sí solo no
+de recorrer todo lo que alcanza. Por sí solo no
 dice si hay un ciclo: para eso hay que ver si algún arco llega a
 un vértice cuya llamada sigue en curso.
 
