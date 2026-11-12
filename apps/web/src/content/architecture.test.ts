@@ -383,9 +383,13 @@ describe('architecture: content invariants', () => {
   // Deliberately a second opinion rather than a re-run of `remarkContentImages`:
   // this reads the source and touches the filesystem, so a bug in the plugin's
   // path arithmetic cannot make both agree that a missing file is fine.
-  describe('every image a document references is a file that exists', () => {
+  describe('every file a document references exists', () => {
     const MARKDOWN_IMAGE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
-    const JSX_SRC = /\bsrc=(?:"([^"]+)"|'([^']+)')/g;
+    // `src`, and any `<thing>Src` — the files a `<StepShow>` quotes (ADR-0091),
+    // the same attributes `remarkContentImages` resolves (`isFileAttribute`).
+    // A typo there paints a red box behind a lazy widget, which no render test
+    // reaches (apps/web/CLAUDE.md class 4), so this is the only gate it has.
+    const JSX_SRC = /\b(?:src|[a-z]+Src)=(?:"([^"]+)"|'([^']+)')/g;
     // Anything with a scheme, protocol-relative, or already rooted is not ours.
     const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
 
@@ -402,6 +406,18 @@ describe('architecture: content invariants', () => {
       referencesIn(key).map((url) => ({ key, url }) as const),
     );
 
+    it('reads the <thing>Src attributes too, not only src', () => {
+      // A `<SourceFile src>` also points into a `.code/` folder, so counting
+      // those urls would pass with the regex back at `src=`: count the
+      // matches made by an attribute that is not `src` itself.
+      const viaThingSrc = documents.flatMap((key) =>
+        [...readFileSync(join(APP_ROOT, key), 'utf8').matchAll(JSX_SRC)].filter(
+          (m) => !m[0].startsWith('src='),
+        ),
+      );
+      expect(viaThingSrc.length).toBeGreaterThan(0);
+    });
+
     it('finds image references to check', () => {
       expect(
         withImages.length,
@@ -415,7 +431,7 @@ describe('architecture: content invariants', () => {
         const file = join(dirname(join(APP_ROOT, key)), url);
         expect(
           existsSync(file),
-          `${key} references "${url}", which is not a file. Draw it, or fix the path — it renders as a broken box and would ship that way.`,
+          `${key} references "${url}", which is not a file. Draw or write it, or fix the path — it renders as a broken box (or a red one) and would ship that way.`,
         ).toBe(true);
       },
     );
@@ -463,5 +479,126 @@ describe('architecture: content invariants', () => {
       unnamed,
       'a markdown image with empty alt ships an unnamed picture — write its alt in Spanish, or use <Figure> if it belongs on a slide',
     ).toEqual([]);
+  });
+
+  // #363's review. <StepShow> refuses a step lit outside its quoted range, a
+  // listing given both written and quoted, and a `ratio` it does not know —
+  // behind its lazy wrapper, where no render test reaches (apps/web/CLAUDE.md
+  // class 4). Read here from the source, so a document that trips one fails
+  // the suite instead of painting a red box on a slide.
+  describe('every <StepShow> passes the refusals its lazy widget would paint', () => {
+    const RATIOS = ['55/45', '50/50', '60/40', '40/60'];
+    const LISTINGS = [
+      { inline: 'code', lines: 'lines' },
+      { inline: 'program', lines: 'programLines' },
+      { inline: 'helper', lines: 'helperLines' },
+    ] as const;
+
+    // A walk's head is its opening tag up to its first <Step: the only place
+    // its own attributes are, written `name="…"` for a path, a range or a
+    // ratio. Every <Step> of the course opens with its line arrays.
+    const walks = documents.flatMap((key) => {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      return [...source.matchAll(/<StepShow\b([\s\S]*?)<\/StepShow>/g)].map((m, i) => {
+        const body = m[1]!;
+        const cut = body.search(/<Step\b/);
+        const head = cut === -1 ? body : body.slice(0, cut);
+        const attr = (name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(head)?.[1];
+        const has = (name: string) => new RegExp(`\\s${name}=`).test(head);
+        const steps = [
+          ...body.matchAll(/<Step((?:\s+(?:lines|programLines|helperLines)=\{\[[^\]]*\]\})+)/g),
+        ].map(
+          (s) =>
+            Object.fromEntries(
+              [...s[1]!.matchAll(/(\w+)=\{\[([^\]]*)\]\}/g)].map((a) => [
+                a[1]!,
+                a[2]!
+                  .split(',')
+                  .map((n) => n.trim())
+                  .filter((n) => n !== '')
+                  .map(Number),
+              ]),
+            ) as Record<string, number[]>,
+        );
+        return { key, walk: i + 1, attr, has, steps };
+      });
+    });
+
+    it('finds the walks, and the quoted ones among them', () => {
+      expect(walks.length).toBeGreaterThan(20);
+      expect(walks.some((w) => w.attr('codeSrc') !== undefined)).toBe(true);
+    });
+
+    it('asks only for a ratio it knows', () => {
+      const unknown = walks
+        .filter((w) => w.attr('ratio') !== undefined && !RATIOS.includes(w.attr('ratio')!))
+        .map((w) => `${w.key} walk ${w.walk}: ratio="${w.attr('ratio')}"`);
+      expect(unknown).toEqual([]);
+    });
+
+    it('writes or quotes each listing, never both', () => {
+      const both = walks.flatMap((w) =>
+        LISTINGS.filter((l) => w.has(l.inline) && w.has(`${l.inline}Src`)).map(
+          (l) => `${w.key} walk ${w.walk}: ${l.inline} and ${l.inline}Src`,
+        ),
+      );
+      expect(both).toEqual([]);
+    });
+
+    it('lights only lines inside what each walk quotes', () => {
+      const stray = walks.flatMap((w) =>
+        LISTINGS.flatMap((l) => {
+          const src = w.attr(`${l.inline}Src`);
+          if (src === undefined) return [];
+          const file = join(dirname(join(APP_ROOT, w.key)), src);
+          if (!existsSync(file)) return []; // the case above names it
+          const total = readFileSync(file, 'utf8').replace(/\n$/, '').split('\n').length;
+          const range = /^(\d+)(?:-(\d+))?$/.exec(w.attr(`${l.inline}Range`) ?? '');
+          const first = range === null ? 1 : Math.min(Number(range[1]), total);
+          const last = range === null ? total : Math.min(Number(range[2] ?? range[1]), total);
+          return w.steps.flatMap((step, i) =>
+            (step[l.lines] ?? [])
+              .filter((n) => n < first || n > last)
+              .map(
+                (n) =>
+                  `${w.key} walk ${w.walk}, paso ${i + 1}: ${l.lines} ${n} outside ${first}-${last}`,
+              ),
+          );
+        }),
+      );
+      expect(stray).toEqual([]);
+    });
+  });
+
+  // #363's review: the city exercise's starter had drifted from the file its
+  // walk quotes, so the lines the walk lit were not the lines the student ran.
+  // An exercise's solution lives once, in `<doc>.code/<exercise>/Solution.java`
+  // (ADR-0091 §Addendum, write-an-exercise.md C5); its document's starter
+  // carries that `class Solution` verbatim.
+  describe('every exercise solution kept in a file is its starter, verbatim', () => {
+    const solutions = Object.keys(import.meta.glob('@content/courses/**/Solution.java'));
+
+    it('finds solutions to check', () => {
+      expect(solutions.length).toBeGreaterThan(0);
+    });
+
+    it.each(solutions.map((key) => [key.replace(/^.*content\//, ''), key] as const))(
+      '%s',
+      (_label, key) => {
+        const path = join(APP_ROOT, key);
+        const folder = dirname(path);
+        const codeDir = folder.slice(0, folder.indexOf('.code/') + '.code'.length);
+        const doc = readFileSync(codeDir.replace(/\.code$/, '.mdx'), 'utf8');
+        const starters = [...doc.matchAll(/```java starter\n([\s\S]*?)```/g)].map((m) => m[1]!);
+        const source = readFileSync(path, 'utf8');
+        const at = source.indexOf('class Solution');
+        expect(at, `${key} has no class Solution`).toBeGreaterThanOrEqual(0);
+        const solution = source.slice(at).trimEnd();
+        expect(
+          starters.some((starter) => starter.includes(solution)),
+          `${key}'s class Solution is not in any starter of its document character for character — paste it back, or move the walk's ranges if the file is what changed`,
+        ).toBe(true);
+      },
+    );
   });
 });

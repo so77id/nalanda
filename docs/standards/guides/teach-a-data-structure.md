@@ -705,7 +705,11 @@ narrower than the stacked panel: measured on that slide, at scale 0.755, it is
 793 px wide and holds about 63 rendered columns (the longest line is 49), and
 since the breakout divides by the scale it would be about 600 px — some 47
 columns — at 1.0. A slide that needs `beside` carries a long listing and is
-never at 1.0, but sweep its horizontal axis like any other.
+never at 1.0, but sweep its horizontal axis like any other. Those figures are
+the default split's (`ratio="55/45"`); the other three — `"50/50"`, `"60/40"`,
+`"40/60"`, #363 — have no measured budget yet. The first class that plans a
+listing against one (#357) measures it and records it here (deferred in
+#363's review).
 
 **Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
 the `transform` on the slide stage sees a slide shrink to fit and reports it;
@@ -760,9 +764,11 @@ like when they were written out, and of the traps that come with hand-writing
 them.
 
 **Check every `<Step lines={[…]}>` against its own fence, in the browser.**
-`lines` is unvalidated data: `CodeStepper` silently drops an out-of-range
-number, so a wrong-but-in-range one is invisible to every gate, to the build
-and to the suite. #277 shipped two off-by-ones this way — both introduced by
+In a written listing `lines` is unvalidated data: `CodeStepper` silently drops
+an out-of-range number, so a wrong-but-in-range one is invisible to every
+gate, to the build and to the suite. (A listing quoted from a file numbers
+the FILE's lines, and a line outside its range is an authoring error —
+`add-a-course-document.md` §5i; a wrong-but-in-range one is still yours.) #277 shipped two off-by-ones this way — both introduced by
 re-wrapping a guard onto two lines and renumbering the steps by hand — and
 what found them was the cheapest possible check: **when two steppers share a
 listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
@@ -917,9 +923,11 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       every `id` prefixed per figure. Nothing enforces any of it — and it
       was looked at over both grounds anyway.
 - [ ] Every `<Step lines={[…]}>` read back against its own fence — counting
-      from 1, blank lines included — and against the step's caption AND its
+      from 1, blank lines included; for a listing quoted with `codeSrc`, the
+      FILE's numbers — and against the step's caption AND its
       drawing: the line lit must be the line the caption says just ran.
-      `CodeStepper` drops an out-of-range number silently, so a
+      In a written listing `CodeStepper` drops an out-of-range number
+      silently (a quoted one refuses it), so a
       wrong-but-in-range one survives the build, the suite, the preview and
       the `sr-only` live region alike. When two steppers share a listing,
       their `lines` arrays must agree.
@@ -957,9 +965,11 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       (which would add an untitled slide instead). **A slide carrying a
       `<StepShow>` or a `<SequenceStepper>` is measured at EVERY frame**,
       stepping through with the widget's own control: the deck re-measures
-      on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
-      one frame at a time, so a frame that grows — a tree that gains a level —
-      can shrink the slide where the first frame did not. **Every frame of
+      on every resize (`SlideDeck.tsx`'s `ResizeObserver`), and a
+      `<SequenceStepper>` mounts one frame at a time, so a frame that grows —
+      a tree that gains a level — can shrink the slide where the first frame
+      did not. (`<StepShow>` lays every frame in one cell since #363, so its
+      box holds; its drawing can still shift inside it.) **Every frame of
       one walk sits at the SAME scale, at or above the floor**: a scale
       that moves between frames is a frame that changes size, and the fix is
       to reserve the largest frame (`frontend-code-style.md` §Styling; worked

@@ -51,7 +51,9 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise,
-│                         # StepShow/Step/CodeStepper + MemoryVisual (+ memoryLayout.ts
+│                         # StepShow/Step/CodeStepper + SourceFile, with CodeListing/
+│                         # CodeFileViewer and codeExcerpt.ts (the pure arithmetic of
+│                         # a quoted range, ADR-0091) + MemoryVisual (+ memoryLayout.ts
 │                         # + memoryModel.ts as their pure algorithm and types)
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/
 │                         # useLoadedRuntime/useGrammar/draft/placeholder)
@@ -86,7 +88,9 @@ src/
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types
-│                         # (catalogEntry, componentMeta, reactText, codeFences, runtimeIds)
+│                         # (catalogEntry, componentMeta, reactText, codeFences, runtimeIds,
+│                         # contentCode — the course's .java files, read only by the
+│                         # listing widgets behind their lazy wrappers)
 ├── styles/               # Tailwind entry + design tokens
 ├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants

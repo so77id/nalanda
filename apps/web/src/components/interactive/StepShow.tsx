@@ -13,7 +13,6 @@ import { excerptOf, fileNameOf, toExcerptLines } from './codeExcerpt';
 import type { Excerpt } from './codeExcerpt';
 import { Step } from './Step';
 import { ControlButton } from './stepperShell';
-import { besideColumns } from './stepShowLayout';
 import type { StepProps } from './Step';
 import { useViewportBreakout } from '../useViewportBreakout';
 
@@ -72,7 +71,9 @@ export interface StepShowProps {
    * `code`. For a walk whose lesson is a call and what it does inside — the
    * calls `addEdge(0, 1)`, `addEdge(0, 2)`… over `addEdge` itself (#363) —
    * the way `<SequenceStepper program>` sets a program beside its method
-   * (#322). Without it the widget shows `code` alone, unheaded, as before.
+   * (#322). Without it the widget shows `code` alone — unheaded unless it
+   * has a name (`codeName`, or the file `codeSrc` quotes) or a step has
+   * `under`.
    */
   program?: string;
   /**
@@ -86,11 +87,12 @@ export interface StepShowProps {
   helperName?: string;
   /**
    * With `beside`, how the slide's width splits between the code and the
-   * drawing, as "code/drawing" percentages. Default "55/45". A walk whose
-   * drawing carries two pictures over each other — a graph over its matrix —
-   * and whose listings are short asks for "40/60" (#363).
+   * drawing, as "code/drawing" percentages: one of `BESIDE_COLUMNS`' keys,
+   * default "55/45". A walk whose listings are short beside a drawing of two
+   * pictures — a graph over its matrix — asks for "50/50" or "40/60"; one
+   * whose program is wide asks for "60/40" (#363). Anything else is refused.
    */
-  ratio?: string;
+  ratio?: BesideRatio;
   /**
    * The file `code` stands for — `AdjMatrixGraph.java` — shown as a badge over
    * it (#363). With `program`, it heads the method's listing (default
@@ -102,6 +104,21 @@ export interface StepShowProps {
   /** `<Step>` elements. Order is step order; anything else is ignored. */
   children?: ReactNode;
 }
+
+/**
+ * The beside grid's columns for each ratio an author may ask for — a closed
+ * set, so every class is static and the build sees it (frontend-code-style.md
+ * §Styling); MDX props are not type-checked, so an unknown one is refused at
+ * render rather than falling back in silence.
+ */
+const BESIDE_COLUMNS = {
+  '55/45': 'grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]',
+  '50/50': 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+  '60/40': 'grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+  '40/60': 'grid-cols-[minmax(0,2fr)_minmax(0,3fr)]',
+} as const;
+
+export type BesideRatio = keyof typeof BESIDE_COLUMNS;
 
 const SPEED_MS: Record<'slow' | 'normal' | 'fast', number> = {
   slow: 1200,
@@ -148,7 +165,7 @@ export function StepShow({
   program,
   helper,
   helperName,
-  ratio,
+  ratio = '55/45',
   codeName,
   programName,
   codeSrc,
@@ -222,6 +239,37 @@ export function StepShow({
     return () => io.disconnect();
   }, []);
 
+  // Every step's frame is laid in one cell so the widget keeps its final size
+  // from the first step (#363) — but a book page mounts every walk at once,
+  // and all frames of all walks doubled the page's DOM and its first-load
+  // freeze. So a walk far from the viewport keeps only the current frame and
+  // the last one, which is the biggest in 31 of the 33 frame stacks #363
+  // ships (23 walks, 10 of them with an `under` column); once it comes within
+  // a screen of the viewport it lays every frame, and any growth that brings
+  // happens off-screen. Measured in #363's review (2026-11-12), production
+  // build, /d/grafos-tda-modelado in the book at 1440x900: every frame laid,
+  // 57k elements and a 1.7 s longest task (7.5 s at 4x CPU); only the current
+  // frame, 28k and 0.9 s; this, 32k and 0.95 s (4.0 s at 4x). Across the 66
+  // walks of the site, three grow when they lay every frame: two older ones
+  // by 98 and 28 px, which a jump straight onto them shows for one frame, and
+  // one of #363's by 1 px. On a slide
+  // the walk is on screen from the start, and only that slide is mounted.
+  const [nearView, setNearView] = useState(() => typeof IntersectionObserver !== 'function');
+  useEffect(() => {
+    if (nearView) return undefined;
+    const el = outerRef.current;
+    if (!el) return undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setNearView(true);
+      },
+      { rootMargin: '100% 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [nearView]);
+  const reserveAll = isPresentation || nearView;
+
   const count = steps.length;
   const clamped = Math.min(index, Math.max(count - 1, 0));
 
@@ -248,6 +296,7 @@ export function StepShow({
     setIndex(0);
     setIsPlaying(false);
   }, []);
+  const closeViewer = useCallback(() => setViewerAt(null), []);
   const togglePlay = useCallback(() => {
     if (clamped >= count - 1) {
       setIndex(0);
@@ -256,6 +305,30 @@ export function StepShow({
       setIsPlaying((p) => !p);
     }
   }, [clamped, count]);
+
+  const both = (
+    [
+      ['code', code, codeSrc],
+      ['program', program, programSrc],
+      ['helper', helper, helperSrc],
+    ] as const
+  ).find(([, inline, src]) => inline !== undefined && src !== undefined);
+  if (both !== undefined) {
+    return (
+      <AuthoringError component="StepShow">
+        recibió <code>{both[0]}</code> y <code>{both[0]}Src</code> a la vez: el listado va escrito
+        en el documento o citado de un archivo, no las dos cosas.
+      </AuthoringError>
+    );
+  }
+  if (!Object.hasOwn(BESIDE_COLUMNS, ratio)) {
+    return (
+      <AuthoringError component="StepShow">
+        no conoce la proporción <code>ratio=&quot;{ratio}&quot;</code>: usa una de{' '}
+        {Object.keys(BESIDE_COLUMNS).join(', ')}.
+      </AuthoringError>
+    );
+  }
 
   const codeSpec = specOf(code, codeSrc, codeRange, codeName);
   const programSpec = specOf(program, programSrc, programRange, programName);
@@ -296,32 +369,53 @@ export function StepShow({
   const codeL = codeSpec as Spec;
   const programL = programSpec as Spec | undefined;
   const helperL = helperSpec as Spec | undefined;
+
+  // The walk's listings, top to bottom, each with what lights it in a step.
+  const listings: Listing[] = [
+    programL && { role: 'program', spec: programL, fallback: 'programa', linesOf: programLinesOf },
+    helperL && { role: 'helper', spec: helperL, fallback: 'auxiliar', linesOf: helperLinesOf },
+    { role: 'code', spec: codeL, fallback: 'método', linesOf: codeLinesOf },
+  ].filter((l): l is Listing => l !== undefined);
+
+  // A step lights lines in its FILE's numbering; one outside the quoted range
+  // would light nothing, or a neighbour after a range moves (ADR-0091's one
+  // maintenance job). Refused, naming the step.
+  for (const { spec, linesOf } of listings) {
+    const excerpt = spec.excerpt;
+    if (excerpt === undefined) continue;
+    for (const [i, step] of steps.entries()) {
+      const stray = linesOf(step).find((n) => n < excerpt.first || n > excerpt.last);
+      if (stray !== undefined) {
+        return (
+          <AuthoringError component="StepShow">
+            el paso {i + 1} enciende la línea {stray} de <code>{spec.name}</code>, que queda fuera
+            de las líneas citadas ({excerpt.first}–{excerpt.last}): los pasos nombran las líneas del
+            archivo.
+          </AuthoringError>
+        );
+      }
+    }
+  }
+
   const current = steps[clamped]!;
-  const currentLines = current.props.lines ?? [];
-  const currentProgramLines = current.props.programLines ?? [];
-  const currentHelperLines = current.props.helperLines ?? [];
+  const currentLines = codeLinesOf(current);
+  const currentProgramLines = programLinesOf(current);
+  const currentHelperLines = helperLinesOf(current);
   const hasUnder = steps.some((step) => step.props.under !== undefined);
   // The files behind the listings, whole, for the viewer: each with the lines
   // its listing quotes and the lines this step lights, in the file's numbering.
-  const files: ViewerFile[] = (
-    [
-      [programL, currentProgramLines],
-      [helperL, currentHelperLines],
-      [codeL, currentLines],
-    ] as const
-  ).flatMap(([spec, lit]) =>
-    spec === undefined || spec.source === undefined || spec.excerpt === undefined
-      ? []
-      : [
-          {
-            name: spec.name ?? '',
-            source: spec.source,
-            first: spec.excerpt.first,
-            last: spec.excerpt.last,
-            lines: [...lit],
-          },
-        ],
-  );
+  // A listing opens its tab by position, so one file quoted twice gets two.
+  const fileBacked = listings.flatMap((listing) => {
+    const { source, excerpt } = listing.spec;
+    return source === undefined || excerpt === undefined ? [] : [{ listing, source, excerpt }];
+  });
+  const files: ViewerFile[] = fileBacked.map(({ listing, source, excerpt }) => ({
+    name: listing.spec.name ?? '',
+    source,
+    first: excerpt.first,
+    last: excerpt.last,
+    lines: [...listing.linesOf(current)],
+  }));
   const first = clamped === 0;
   const last = clamped === count - 1;
 
@@ -370,42 +464,28 @@ export function StepShow({
       */}
       <div
         data-layout={isBeside ? 'beside' : 'stacked'}
-        style={
-          isBeside && besideColumns(ratio) !== undefined
-            ? { gridTemplateColumns: besideColumns(ratio) }
-            : undefined
-        }
         className={
-          isBeside
-            ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-px bg-rule'
-            : 'flex flex-col gap-px bg-rule'
+          isBeside ? `grid ${BESIDE_COLUMNS[ratio]} gap-px bg-rule` : 'flex flex-col gap-px bg-rule'
         }
       >
-        {programL === undefined && codeL.name === undefined ? (
+        {listings.length === 1 && codeL.name === undefined && !hasUnder ? (
           <CodeStepper code={codeL.text} highlightLines={currentLines} language={language} />
         ) : (
           <div className="flex flex-col gap-px bg-rule">
-            {[
-              programL === undefined
-                ? null
-                : ([programL, currentProgramLines, 'programa'] as const),
-              helperL === undefined ? null : ([helperL, currentHelperLines, 'auxiliar'] as const),
-              [codeL, currentLines, 'método'] as const,
-            ].map((entry, i, all) => {
-              if (entry === null) return null;
-              const [spec, lit, fallback] = entry;
-              const name = spec.name ?? fallback;
-              const fileIndex = files.findIndex((f) => f.name === name);
+            {listings.map((listing, i) => {
+              const { role, spec, fallback, linesOf } = listing;
+              const lit = linesOf(current);
+              const fileIndex = fileBacked.findIndex((f) => f.listing === listing);
               return (
                 <CodeListing
-                  key={name}
-                  name={name}
+                  key={role}
+                  name={spec.name ?? fallback}
                   code={spec.text}
                   excerpt={spec.excerpt}
                   lines={spec.excerpt === undefined ? lit : toExcerptLines(lit, spec.excerpt)}
                   language={language}
-                  grow={!hasUnder && i === all.length - 1}
-                  onOpen={spec.source === undefined ? undefined : () => setViewerAt(fileIndex)}
+                  grow={!hasUnder && i === listings.length - 1}
+                  onOpen={fileIndex === -1 ? undefined : () => setViewerAt(fileIndex)}
                 />
               );
             })}
@@ -414,7 +494,11 @@ export function StepShow({
                 data-testid="stepshow-under"
                 className="flex flex-1 flex-col justify-center bg-surface p-3"
               >
-                <FrameStack frames={steps.map((step) => step.props.under)} current={clamped} />
+                <FrameStack
+                  frames={steps.map((step) => step.props.under)}
+                  current={clamped}
+                  all={reserveAll}
+                />
               </div>
             ) : null}
           </div>
@@ -426,7 +510,11 @@ export function StepShow({
               : 'max-h-96 overflow-auto bg-surface p-3'
           }
         >
-          <FrameStack frames={steps.map((step) => step.props.children)} current={clamped} />
+          <FrameStack
+            frames={steps.map((step) => step.props.children)}
+            current={clamped}
+            all={reserveAll}
+          />
         </div>
       </div>
 
@@ -512,7 +600,7 @@ export function StepShow({
           title={title}
           files={files}
           start={viewerAt}
-          onClose={() => setViewerAt(null)}
+          onClose={closeViewer}
           onPrev={retreat}
           onNext={advance}
           status={`paso ${clamped + 1} de ${count}`}
@@ -529,6 +617,19 @@ interface Spec {
   excerpt?: Excerpt;
   source?: string;
 }
+
+/** A listing in its place in the walk: which one it is, and what a step lights in it. */
+interface Listing {
+  role: 'program' | 'helper' | 'code';
+  spec: Spec;
+  /** Its heading when its file has no name. */
+  fallback: string;
+  linesOf: (step: ReactElement<StepProps>) => number[];
+}
+
+const codeLinesOf = (step: ReactElement<StepProps>) => step.props.lines ?? [];
+const programLinesOf = (step: ReactElement<StepProps>) => step.props.programLines ?? [];
+const helperLinesOf = (step: ReactElement<StepProps>) => step.props.helperLines ?? [];
 
 /**
  * The listing an author named — written in the document, or quoted from a
@@ -573,18 +674,33 @@ export type { StepProps } from './Step';
  * the widget — and the slide that scales to fit it — keeps one size while the
  * walk runs, and what a step adds appears in the room already kept for it
  * (#363: «que tengan el tamaño final desde el comienzo»). The hidden frames
- * keep their layout (`visibility: hidden`) and leave the accessibility tree.
+ * keep their layout (`invisible`) and leave the accessibility tree — the
+ * idiom of `NarrationStrip`'s reserve. Without `all` only the current frame
+ * and the last one are laid: the walk is far from the viewport (`StepShow`).
  */
-function FrameStack({ frames, current }: { frames: ReactNode[]; current: number }) {
+function FrameStack({
+  frames,
+  current,
+  all,
+}: {
+  frames: ReactNode[];
+  current: number;
+  all: boolean;
+}) {
+  const sizer = frames.length - 1;
   return (
     <div className="grid" data-testid="stepshow-frames">
       {frames.map((frame, i) => {
         const shown = i === current;
+        if (!shown && !all && i !== sizer) return null;
         return (
           <div
             key={i}
-            className="col-start-1 row-start-1 flex flex-col justify-center"
-            style={shown ? undefined : { visibility: 'hidden' }}
+            className={
+              shown
+                ? 'flex flex-col justify-center [grid-area:1/1]'
+                : 'invisible flex flex-col justify-center [grid-area:1/1]'
+            }
             aria-hidden={shown ? undefined : true}
             data-stepshow-frame={shown ? 'current' : 'reserved'}
           >

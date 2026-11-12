@@ -8,6 +8,12 @@ import { ASSET_PREFIX } from './assetPrefix';
  * Eager, and imported only by the listing widgets (`<StepShow>`,
  * `<SourceFile>`), which ship behind their lazy wrappers: the text rides in
  * their chunk, never in the entry one. A course's sources are a few kilobytes.
+ * `src/architecture.test.ts` keeps this module out of the shell's eager graph.
+ *
+ * Only `.java` is globbed: a document that quotes another language needs this
+ * glob widened first, or its listing shows an authoring error. In `npm run
+ * dev`, a file added after the server started can stay out of the glob;
+ * touching this file or restarting the server picks it up (ADR-0091).
  */
 const sources = import.meta.glob('@content/**/*.java', {
   query: '?raw',

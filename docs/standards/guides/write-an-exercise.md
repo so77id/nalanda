@@ -432,13 +432,20 @@ Three parts: **the statement**, **modelling** and **solving**.
   the run on the example marking what adds up or changes. The auxiliary
   structures are named here. No code.
 - **C3. What does it look like in code?** The solution's walk on the
-  example, with a one- or two-line introduction; variables under the code,
+  example, with a one- or two-line introduction; variables under the code
+  (`<Step under>`),
   the graph, lists and arrays in the drawing; helpers written before use.
 - **C4. Where does it fail, and what does it cost?** The cases with no
   answer, **drawn**; **Tiempo** part by part, one bullet per part with its
   cost and its reason; **En total** in a paragraph of its own, compared in
   seconds with C1; **Memoria**.
-- **C5. The whole program**, to run: the `<Exercise>` and its tests.
+- **C5. The whole program**, to run: the `<Exercise>` and its tests. The
+  solution lives once, in `<doc>.code/<exercise>/Solution.java`, which C3's
+  walk quotes (`add-a-course-document.md` §5i); the starter carries its
+  imports, the support types it compiles against (`Graph`, `Edge`, …) and
+  then that `class Solution` **verbatim** — the harness compiles one source
+  and does not read the file. `content/architecture.test.ts` fails when the
+  two differ (#363's review found the city's rewrapped).
 
 ### Rules across the exercise
 
@@ -461,7 +468,7 @@ Three parts: **the statement**, **modelling** and **solving**.
   `‹Problema›` and `‹Problema› · ‹what it answers›`.
 - **Mathematics in LaTeX**, and a long computation on a line of its own.
 
-### Checklist
+### Checklist for a graph exercise
 
 - [ ] A1 works as a test statement and says nothing of the solution.
 - [ ] A2 gives the example's output and does not explain it.

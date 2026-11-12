@@ -6,10 +6,10 @@ questions: pool
 ---
 
 {/* Seeded from #356 when the first Grafos class was split (2026-11-06) and */}
-{/* restructured in S4 to the arc refined with Miguel (#363): the TDA, the */}
-{/* matrix, the lists, modelling, five worked exercises, the closing. Slides */}
-{/* are reviewed one act at a time (S5-S14); the comments that open each */}
-{/* pending slot say what goes there. */}
+{/* written to the arc refined with Miguel (#363): the TDA, the matrix, the */}
+{/* lists, modelling, five worked exercises on the graph-exercise protocol */}
+{/* (write-an-exercise.md), the closing. Its code lives in */}
+{/* 26-grafos-tda-modelado.code/ and every listing quotes it (ADR-0091). */}
 
 
 # Grafos · TDA y modelado
@@ -548,7 +548,7 @@ export function AdjMatrix({ rows, mark = [], caption, label }) {
   );
 }
 
-{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight written `w · weight`, which draws the chip as the `Edge` Java keeps — three fields, `from` (the row's vertex), `to` and `weight`, each named small above its value. `keys` writes a name in each box instead of the number, for a map from names to their neighbours. `side` adds a column at the right with one value per vertex — an array the program fills by vertex, headed `sideHead` — and `sideMark` lists the vertices whose value it outlines. `minWidth` holds the lists' width from the first frame of a walk that fills them, so the drawing does not grow. `mark` lists the [vertex, position] chips the slide talks about. */}
+{/* AdjLists — adjacency lists as Java holds them: one row per vertex, its number in a box, then the chips of its list in the order they were added. A chip's text is what the list stores: a neighbour, or a neighbour and a weight written `w · weight`, which draws the chip as the `Edge` Java keeps — three fields, `from` (the row's vertex), `to` and `weight`, each named small above its value. `keys` writes a name in each box instead of the number, for a map from names to their neighbours. `side` adds a column at the right with one value per vertex — an array the program fills by vertex, headed `sideHead` — and `sideMark` lists the vertices whose value it outlines. `minWidth` holds the lists' width from the first frame of a walk that fills them, so the drawing does not grow. `mark` lists the [vertex, position] chips the slide talks about. File-local: only this class draws adjacency lists; the next document that wants them (likely #357) promotes them, with AdjMatrix (add-a-course-document.md §6e-quater). */}
 
 export function AdjLists({ lists, keys, side, sideHead, sideMark = [], minWidth = 0, mark = [], caption, label }) {
   const weighted = lists.some((l) => l.some((t) => String(t).includes(' · ')));
@@ -640,7 +640,7 @@ export function AdjLists({ lists, keys, side, sideHead, sideMark = [], minWidth 
   );
 }
 
-{/* ArrayRows — the arrays, lists and maps a program keeps beside its graph, one per row: its Java name on the left, then a cell per entry with the index above it (`head` overrides the indices: the keys of a map). A row whose `cells` is null keeps its place blank, `size` cells wide: an array the program has not created yet, so every frame of a walk has the same size; `cell` is the least width of a cell and `cols` the least number of cells, for the same reason. `mark` outlines the [row, cell] entries the frame talks about. */}
+{/* ArrayRows — the arrays, lists and maps a program keeps beside its graph, one per row: its Java name on the left, then a cell per entry with the index above it (`head` overrides the indices: the keys of a map). A row whose `cells` is null keeps its place blank, `size` cells wide: an array the program has not created yet, so every frame of a walk has the same size; `cell` is the least width of a cell and `cols` the least number of cells, for the same reason. `mark` outlines the [row, cell] entries the frame talks about. File-local: only this class's exercises draw one. */}
 
 export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label }) {
   const pad = 10;
@@ -689,7 +689,7 @@ export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label
   );
 }
 
-{/* Pair — the graph and the structure that stores it, side by side, wrapping to one over the other when the column is narrow: every frame of a walk over an implementation shows both, so the reader sees which edge a line of code is writing and where it lands. `stack` puts one over the other always: for a wide graph beside a listing. */}
+{/* Pair — the graph and the structure that stores it, side by side, wrapping to one over the other when the column is narrow: every frame of a walk over an implementation shows both, so the reader sees which edge a line of code is writing and where it lands. `stack` puts one over the other always: for a wide graph beside a listing. Not <Split>: Split switches at the viewport's `md` breakpoint and takes the full width (`measure-full`), while a pair inside a StepShow frame has to wrap by the width of its own column, which on a slide is a half or a quarter of the viewport. File-local. */}
 
 export function Pair({ stack = false, children }) {
   return (
@@ -8762,17 +8762,20 @@ class Solution {
                 }
             }
         }
-        WeightedGraph g = new WeightedListGraph(names.size());
+        WeightedGraph g =
+                new WeightedListGraph(names.size());
         for (String line : roads) {
             String[] parts = line.split(" ");
-            g.addEdge(ids.get(parts[0]), ids.get(parts[1]),
+            g.addEdge(ids.get(parts[0]),
+                    ids.get(parts[1]),
                     Integer.parseInt(parts[2]));
         }
         String[] result = new String[g.V()];
         for (int v = 0; v < g.V(); v++) {
             Edge best = null;
             for (Edge e : g.adj(v)) {
-                if (best == null || e.weight < best.weight) {
+                if (best == null
+                        || e.weight < best.weight) {
                     best = e;
                 }
             }

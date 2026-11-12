@@ -261,7 +261,6 @@ describe('architecture: the quoted source file stays out of the entry chunk', ()
           importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
             'components/interactive/sourcefile' &&
           !file.includes('.test.') &&
-          !file.includes('.catalog.') &&
           !ALLOWED.includes(file),
       ),
     ).toEqual([]);
@@ -795,6 +794,14 @@ describe('architecture: what the shell reaches eagerly', () => {
         .filter((f) => relative(SRC, f).startsWith('runtime/'))
         .map((f) => relative(SRC, f)),
     ).toEqual([]);
+  });
+
+  it('never reaches the course’s source files', () => {
+    // lib/contentCode.ts globs every `.java` file under content/ (ADR-0091):
+    // the listing widgets read it, behind their lazy wrappers. It imports no
+    // package, so the allowlist below would not see it arrive here — every
+    // course file in the payload of every page, with the suite green.
+    expect([...modules].map((f) => relative(SRC, f))).not.toContain('lib/contentCode.ts');
   });
 
   it('never reaches the catalog entries', () => {

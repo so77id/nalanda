@@ -80,9 +80,11 @@ describe('remarkContentImages', () => {
     expect(jsxSrc(transform(withJsx('./grafos.code/Graph.java', 'codeSrc')))).toBe(
       'asset:courses/eda/grafos.code/Graph.java',
     );
-    expect(jsxSrc(transform(withJsx('./grafos.code/Graph.java', 'description')))).toBe(
-      './grafos.code/Graph.java',
-    );
+    for (const near of ['datasrc', 'Src', 'imgsrc']) {
+      expect(jsxSrc(transform(withJsx('./grafos.code/Graph.java', near)))).toBe(
+        './grafos.code/Graph.java',
+      );
+    }
   });
 
   it.each([

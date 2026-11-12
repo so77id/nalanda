@@ -321,8 +321,8 @@ not load-bearing: the group label spells the mould out in words, which is the
 second signal §Colour is never the only signal asks for, so the card survives
 a reader who cannot tell the two apart.
 
-The card is inline JSX copied per TDA today, with no component — seven copies
-as of #350. Its extraction into a content component with a catalog entry
+The card is inline JSX copied per TDA today, with no component — eight copies
+as of #363. Its extraction into a content component with a catalog entry
 (ADR-0010) is owed and tracked in #305; the threshold, its stated deviations
 and the authoring rule live in `guides/teach-a-data-structure.md` §2, which
 points here for the tokens rather than restating them.

@@ -1,5 +1,5 @@
 import { FileCode2, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CodeStepper } from './CodeStepper';
@@ -52,6 +52,16 @@ export function CodeFileViewer({
     typeof document === 'undefined' ? null : document.activeElement,
   );
 
+  // The latest callbacks, read by the key listener: the walk hands new ones
+  // as it steps, and re-subscribing on each would re-run the focus dance —
+  // focus back to the opener, then to the dialog — on every arrow (#363's
+  // review), losing a focused tab and re-announcing the dialog.
+  const handlers = useRef({ onClose, onNext, onPrev });
+  useLayoutEffect(() => {
+    handlers.current = { onClose, onNext, onPrev };
+  });
+
+  // Mount only: take focus, take the keyboard, and give focus back on close.
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return undefined;
@@ -60,15 +70,16 @@ export function CodeFileViewer({
       // Native, on the dialog: stopped here it never reaches the deck, which
       // listens on window and would otherwise turn the slide or leave it.
       event.stopPropagation();
+      const { onClose: close, onNext: next, onPrev: prev } = handlers.current;
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
-      } else if (event.key === 'ArrowRight' && onNext) {
+        close();
+      } else if (event.key === 'ArrowRight' && next) {
         event.preventDefault();
-        onNext();
-      } else if (event.key === 'ArrowLeft' && onPrev) {
+        next();
+      } else if (event.key === 'ArrowLeft' && prev) {
         event.preventDefault();
-        onPrev();
+        prev();
       }
     };
     el.addEventListener('keydown', onKey);
@@ -77,7 +88,7 @@ export function CodeFileViewer({
       el.removeEventListener('keydown', onKey);
       if (back instanceof HTMLElement) back.focus();
     };
-  }, [onClose, onNext, onPrev]);
+  }, []);
 
   const file = files[tab]!;
   const band = [];
@@ -85,7 +96,7 @@ export function CodeFileViewer({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-6"
+      className="fixed inset-0 z-50 flex h-[100dvh] items-center justify-center bg-ink/40 p-6"
       onClick={onClose}
     >
       <div
@@ -118,7 +129,8 @@ export function CodeFileViewer({
         >
           {files.map((f, i) => (
             <button
-              key={f.name}
+              // By position: one file quoted twice in a walk is two tabs.
+              key={i}
               type="button"
               role="tab"
               aria-selected={i === tab}

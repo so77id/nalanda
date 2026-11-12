@@ -1,6 +1,6 @@
 // Pure arithmetic of a listing cut out of a file: which lines it shows, how
 // they are numbered, and how many stay hidden above and below. Kept apart from
-// the components so the suite checks it exactly (the way `stepShowLayout.ts`
+// the components so the suite checks it exactly (the way `memoryLayout.ts`
 // is), and so `<StepShow>` and `<SourceFile>` cut a file the same way.
 
 /** A listing as a widget shows it: its text and where it sits in its file. */

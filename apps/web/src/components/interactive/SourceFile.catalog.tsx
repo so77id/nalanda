@@ -17,7 +17,7 @@ export const sourceFileCatalogEntry: CatalogEntry = {
       name: 'src',
       type: 'string',
       description:
-        'The file quoted, a path relative to the document (./26-grafos-tda-modelado.code/Graph.java). Resolved like a figure src; a file not under content/ shows an authoring error.',
+        'The file quoted, a path relative to the document (./26-grafos-tda-modelado.code/Graph.java). Resolved like a figure src. Only .java files are quotable (lib/contentCode.ts globs content/**/*.java; another language needs that glob widened); a missing file fails the content suite, and one outside the glob shows an authoring error.',
     },
     {
       name: 'range',

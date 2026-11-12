@@ -3,18 +3,22 @@ import type { ReactNode } from 'react';
 export interface StepProps {
   /**
    * 1-based line numbers to highlight in the code panel when this step is
-   * showing. Empty is legal — a step whose lesson is what appears beside the
-   * code, not which line is currently running.
+   * showing — the listing's own lines, or, when it is quoted with `codeSrc`,
+   * the FILE's lines, which must fall inside `codeRange` (ADR-0091). Empty is
+   * legal — a step whose lesson is what appears beside the code, not which
+   * line is currently running.
    */
   lines: number[];
   /**
    * 1-based lines to highlight in the `<StepShow>`'s `program` listing, when
-   * it has one: the call this step is inside. Ignored without `program`.
+   * it has one: the call this step is inside. Ignored without `program` or
+   * `programSrc`; FILE lines with `programSrc`.
    */
   programLines?: number[];
   /**
    * 1-based lines to highlight in the `<StepShow>`'s `helper` listing, the
-   * method between the program and the code. Ignored without `helper`.
+   * method between the program and the code. Ignored without `helper` or
+   * `helperSrc`; FILE lines with `helperSrc`.
    */
   helperLines?: number[];
   /**
@@ -25,7 +29,11 @@ export interface StepProps {
    * for it in every step, so the column does not jump.
    */
   under?: ReactNode;
-  /** Any JSX. Rendered in the visual panel when this step is showing. */
+  /**
+   * Any JSX: this step's drawing, in the visual panel. Every step's drawing
+   * is laid in one cell and only the current one is visible, so the panel is
+   * the size of the largest from the first step (`StepShow`'s `FrameStack`).
+   */
   children?: ReactNode;
 }
 

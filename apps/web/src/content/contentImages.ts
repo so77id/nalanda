@@ -66,7 +66,8 @@ function isFileAttribute(name: string | undefined): boolean {
 
 /**
  * Remark plugin: rewrites relative image references — markdown `![](./x.svg)`
- * and the `src` of any JSX element — into `asset:` urls keyed on the path from
+ * and the `src`, or any `<thing>Src` (`isFileAttribute`), of any JSX element —
+ * into `asset:` urls keyed on the path from
  * `content/`. Purely syntactic, like `remarkWikiLinks`: resolution against the
  * built asset map happens at render time (`lib/contentAssets`), so the plugin
  * needs no bundler and a test can drive it with a made-up tree.

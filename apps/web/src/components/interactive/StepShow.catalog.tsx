@@ -38,13 +38,14 @@ export const stepShowCatalogEntry: CatalogEntry = {
     'Whenever the lesson requires the reader to see a fragment of code and its effect together, one step at a time. Stacked rather than side by side: two columns inside a document measure scaled the drawing to unreadable (#116). In presentation it breaks out of the Slide prose column to HALF the viewport on its own, so never wrap it in <PresentationWide> (ADR-0067), one step at a time. The one exception to the stack is `beside`, for a listing too long to stack over its drawing on a slide: there the drawing sits to the right of the code and the widget takes three quarters of the viewport, while the book keeps the stack (#322: the whole class of the BST iterator, twenty-eight lines walked in one widget, put the slide at 0.577 stacked and at 0.755 beside). Introduced in #209 as the reversal of ADR-0028: the memory picture used to be drawn from an execution trace (a Java compile + JVM per diagram); <StepShow> takes author-written state and pairs it with a highlighted listing, at a fraction of the bundle. ' +
     'For memory specifically, use <MemoryVisual state={…}> inside each <Step> — it consumes a { frames, objects } state where references are values on the variables/fields themselves ({ kind: "ref", id }), never a top-level list (ADR-0049 §Decision-2). For other visuals (call stacks, trees, hash tables, sequence diagrams), drop any JSX inside a <Step> instead. ' +
     "The listing is syntax-coloured — `<CodeStepper>` loads the language's grammar through `loadGrammar`, which is why StepShow registers behind a lazy wrapper — and the step highlight is a per-line box over it. A Java method written on its own colours too (#322: the grammar re-reads it as the members of a class). " +
-    'Bounded by author judgement, not by a cap: the widget renders every <Step> child it finds, in order. Anything other than a <Step> child is ignored, so a stray paragraph does not derail the counter.',
+    'Bounded by author judgement, not by a cap: the widget renders every <Step> child it finds, in order. Anything other than a <Step> child is ignored, so a stray paragraph does not derail the counter. ' +
+    "It keeps one size while it runs (#363): every step's drawing, and every `under`, is laid in one cell with only the current one visible, so the widget is the size of its largest frame from step 1 and the slide scaled to fit it never moves. In the book a walk far from the viewport lays only its current and last frames and lays the rest within a screen of it, so make the last frame the largest; what is yours is drawing every frame at its final layout, what does not exist yet drawn empty.",
   props: [
     {
       name: 'code',
       type: 'string',
       description:
-        'The listing shown on the code side, exactly as the reader should see it. Constant across steps.',
+        'The listing shown on the code side, exactly as the reader should see it. Constant across steps. Or, instead, `codeSrc`; giving both is an authoring error.',
     },
     {
       name: 'language',
@@ -67,13 +68,13 @@ export const stepShowCatalogEntry: CatalogEntry = {
       name: 'program',
       type: 'string',
       description:
-        'The program that calls the listing, shown over it as a listing of its own headed «programa», with `code` under it headed `codeName`; each <Step> lights `programLines` in it and `lines` in `code`. For a walk whose lesson is a call and what it does inside — the calls addEdge(0, 1)… over addEdge itself (#363), as <SequenceStepper program> does for its methods. Optional; without it, `code` alone and unheaded.',
+        'The program that calls the listing, shown over it as a listing of its own headed «programa», with `code` under it headed `codeName`; each <Step> lights `programLines` in it and `lines` in `code`. For a walk whose lesson is a call and what it does inside — the calls addEdge(0, 1)… over addEdge itself (#363), as <SequenceStepper program> does for its methods. Optional; without it, `code` alone — unheaded unless it has a name (`codeName`, or the file `codeSrc` quotes) or a step has `under`.',
     },
     {
       name: 'codeSrc / programSrc / helperSrc',
       type: 'string',
       description:
-        'Instead of the listing text, the file it quotes: a path relative to the document (./26-grafos-tda-modelado.code/AdjMatrixGraph.java, ADR-0091), resolved like a figure src. The listing then takes the header <SourceFile> gives — the file name, the range, an open button, fold rows for what it leaves out — numbers its lines as the file does, and its <Step> lines name FILE lines. Ver archivo opens every file of the walk, one tab each, with the quoted lines banded and the step lit; the arrows walk the step from there.',
+        'Instead of the listing text, the file it quotes: a path relative to the document (./26-grafos-tda-modelado.code/AdjMatrixGraph.java, ADR-0091), resolved like a figure src. The listing then takes the header <SourceFile> gives — the file name, the range, an open button, fold rows for what it leaves out — numbers its lines as the file does, and its <Step> lines name FILE lines — a line outside the range is an authoring error naming the step. Only .java files are quotable (lib/contentCode.ts globs content/**/*.java), and the path must be a quoted string. Ver archivo opens every file of the walk, one tab each (a file quoted twice gets two), with the quoted lines banded and the step lit; the arrows walk the step from there.',
     },
     {
       name: 'codeRange / programRange / helperRange',
@@ -93,9 +94,9 @@ export const stepShowCatalogEntry: CatalogEntry = {
     },
     {
       name: 'ratio',
-      type: 'string',
+      type: "'55/45' | '50/50' | '60/40' | '40/60'",
       description:
-        'With `beside`, how the slide splits between code and drawing, as "code/drawing" percentages; default "55/45". "40/60" for short listings beside a drawing of two pictures stacked (#363). Ignored in the book and without `beside`.',
+        'With `beside`, how the slide splits between code and drawing, as "code/drawing" percentages; default "55/45". "50/50" or "40/60" for short listings beside a drawing of two pictures stacked, "60/40" for a wide program (#363). Any other value renders an authoring error. Ignored in the book and without `beside`.',
     },
     {
       name: 'codeName',
