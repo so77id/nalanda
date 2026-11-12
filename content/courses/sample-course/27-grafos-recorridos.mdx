@@ -697,14 +697,35 @@ alcanzado. Después, `marked(v)` dice si la búsqueda llegó a `v`.
 
 <Slide title="La búsqueda en profundidad con una pila">
 
-La recursión deja lo pendiente en la pila de llamadas de Java, que tiene un
-límite: en un JDK 21 sobre Linux arm64, `DepthFirstSearch` sobre una fila de
-vértices lanza `StackOverflowError` con unas 13 000 llamadas en curso. Con una
-pila propia, un `Stack`, la regla es: **sacar un vértice; si ya está marcado,
-descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
+La misma búsqueda se escribe con una pila propia, un `Stack` que el programa
+maneja, en lugar de la pila de llamadas de Java: **sacar un vértice; si ya está
+marcado, descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
-Guarda vértices, no llamadas, y saca primero el último apilado: visita los
-vecinos en orden inverso. Un vértice puede quedar dos veces: se revisa al sacarlo.
+La pila de llamadas guarda cada llamada a medio camino; esta guarda los
+vértices pendientes. Saca primero el último que entró, que es un vecino del
+último vértice marcado: por eso avanza en profundidad, y visita los vecinos en
+orden inverso. Un vértice puede quedar dos veces en la pila: por eso se revisa
+al sacarlo.
+
+<Pair>
+<NodeGraph
+  cols={9}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
+  edges={[[0, 1], [1, 2], [1, 3], [2, 3], [2, 4], [3, 5], [6, 7]]}
+  tones={{ 0: 'keep', 1: 'keep', 3: 'mark' }}
+  caption="marcados 0, 1 y 3; 3 es el último"
+  label="Una red eléctrica después de una tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 1-2, 1-3, 2-3, 2-4, 3-5 y 6-7. La búsqueda con pila desde la central marcó 0, 1 y 3, en verde y amarillo; 3 es el último marcado, en amarillo."
+/>
+<ArrayRows rows={[{ name: 'pila', head: ['fondo', '', 'tope'], cells: [2, 2, 5] }]} caption="2 está dos veces; 5, vecino de 3, sale primero" label="La pila, del fondo al tope: 2, 2 y 5. El vértice 2 entró dos veces, desde 1 y desde 3; 5, vecino de 3, está en el tope y sale primero." />
+</Pair>
+
+</Slide>
+
+<Slide title="El código de la búsqueda con pila">
+
+La clase `IterativeDepthFirstSearch` escribe la regla en Java: `dfs` crea el
+`Stack`, apila el origen y repite mientras queden vértices pendientes.
 
 <GraphWalk
   beside
@@ -794,8 +815,7 @@ crear `marked`, de $$V$$ casillas.
 Una búsqueda desde la central marca todo lo que se alcanza desde ella, y lo que
 quedó sin marcar quedó sin luz. El programa lee la red como una lista de
 aristas, busca desde la central e imprime los vértices sin marcar. Usa la
-versión con pila: con hasta $$10^5$$ postes en fila, la recursiva tendría
-$$10^5$$ llamadas en curso, más de las que admite la pila de llamadas.
+versión con pila.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -849,9 +869,11 @@ celda de arriba a la izquierda y la salida, la de abajo a la derecha.
 Un laberinto de $$1000 \times 1000$$ celdas es un grafo de un millón de
 vértices. Una búsqueda recursiva tiene una llamada en curso por cada celda del
 camino que lleva, y en un laberinto sin muros ese camino pasa por todas las
-celdas sin volver: un millón de llamadas en curso a la vez, muy por encima de
-las que admite la pila de llamadas. El laberinto se recorre con la versión con
-pila.
+celdas sin volver: un millón de llamadas en curso a la vez. Medido en un JDK 21
+sobre Linux arm64, con la pila que trae por defecto, la búsqueda recursiva sobre
+la grilla lanza `StackOverflowError` con unas 17 000. Lo mismo le pasa con
+$$10^5$$ postes en fila en la red eléctrica. La versión con pila guarda los
+pendientes en el heap, donde viven los objetos, y no tiene ese límite.
 
 <Maze
   grid={["....", "....", "....", "...."]}
@@ -1320,11 +1342,11 @@ vecinos sin marcar. Cambian dos cosas:
 
 </Slide>
 
-<Slide title="Un orden que los recorridos no dan">
+<Slide title="Un orden para cosas que dependen de otras">
 
 Los dos recorridos dicen qué se alcanza desde un vértice, y la búsqueda en
-anchura, a qué distancia. No dicen en qué orden hacer las cosas cuando unas
-dependen de otras: en qué orden tomar los ramos de una malla, o calcular las
+anchura, a qué distancia. El orden en que visitan no dice en qué orden hacer
+las cosas cuando unas dependen de otras: en qué orden tomar los ramos de una malla, o calcular las
 celdas de una hoja de cálculo. ¿En qué orden se hacen, para que cada una llegue
 después de las que necesita?
 
@@ -1391,13 +1413,15 @@ a su primer vértice.
 <Slide title="Los recorridos en una malla">
 
 En un grafo dirigido, los vecinos de un vértice son aquellos a los que apuntan
-sus arcos. Ni los recorridos ni el grado de entrada dan un orden topológico,
+sus arcos. Ni el orden en que visitan los recorridos ni el grado de entrada dan
+un orden topológico,
 aun empezando desde todos los ramos que no piden nada:
 
 - **en profundidad**, desde cada uno de esos ramos, uno tras otro y sin
   desmarcar, el preorden llega a un ramo antes que a uno de sus prerrequisitos;
 - **en anchura**, con todos ellos en la cola desde el comienzo, cada ramo queda
-  en la capa de su prerrequisito más cercano, y tiene que esperar al más lejano;
+  en la capa siguiente a la de su prerrequisito más cercano, y tiene que esperar
+  al más lejano;
 - **por cantidad de prerrequisitos**, un ramo que pide uno solo puede pedir uno
   que pide dos.
 
@@ -1697,7 +1721,9 @@ En un grafo sin ciclos, cuando termina la llamada de `v` ya terminaron las de
 todos los vértices que se alcanzan desde `v`, así que por cada arco de `v` a
 `w`, `w` queda antes que `v` en el postorden, y después en el inverso.
 
-Por sí solo no dice si hay un ciclo: para eso hay que ver si algún arco llega a
+Sale de la búsqueda en profundidad recursiva, que termina cada llamada después
+de recorrer todo lo que alcanza; con la marca al apilar no sale. Por sí solo no
+dice si hay un ciclo: para eso hay que ver si algún arco llega a
 un vértice cuya llamada sigue en curso.
 
 <LineOrder

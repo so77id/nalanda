@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { Children, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
-import { useMode } from '../../presentation';
+import { isTypingTarget, useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { resolveCode } from '../../lib/contentCode';
 import { CodeFileViewer } from './CodeFileViewer';
@@ -225,14 +225,19 @@ export function StepShow({
     enabled: isPresentation,
     fraction: isBeside ? 0.75 : 0.5,
   });
-  // On a slide, the walk takes the keyboard when the slide arrives, unless
-  // something else already has it: a clicker cannot press Tab, and without
-  // this its first press skipped the whole walk (#357 review round 5).
+  // On a slide, the walk takes the keyboard when the slide arrives: a clicker
+  // cannot press Tab, and without this its first press skipped the whole walk
+  // (#357 review round 5). It leaves it where the reader is typing, or with
+  // another walk; the deck's own controls (fullscreen, the way out) keep
+  // focus after a click and must not keep it from the walk (round 6).
   useEffect(() => {
     if (!isPresentation) return;
     const el = outerRef.current;
     const active = document.activeElement;
-    if (el && (active === null || active === document.body)) el.focus({ preventScroll: true });
+    if (!el) return;
+    if (isTypingTarget(active)) return;
+    if (active instanceof Element && active.closest('[role="group"]') !== null) return;
+    el.focus({ preventScroll: true });
   }, [isPresentation]);
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
@@ -444,17 +449,20 @@ export function StepShow({
         // Space: each steps the walk. At its ends the key is left to the
         // deck, so a clicker moves on to the next slide or back to the one
         // before instead of being stuck on this one (#357 review round 5).
+        // The page keys and Space are a clicker's only on a slide: in the
+        // book they still scroll the page.
         const onGroup = event.target === event.currentTarget;
         const forward =
-          event.key === 'ArrowRight' || event.key === 'PageDown' || (event.key === ' ' && onGroup);
-        const backward = event.key === 'ArrowLeft' || event.key === 'PageUp';
+          event.key === 'ArrowRight' ||
+          (isPresentation && (event.key === 'PageDown' || (event.key === ' ' && onGroup)));
+        const backward = event.key === 'ArrowLeft' || (isPresentation && event.key === 'PageUp');
         if (forward && !last) {
           event.preventDefault();
           advance();
         } else if (backward && !first) {
           event.preventDefault();
           retreat();
-        } else if (event.key === ' ' && !onGroup) {
+        } else if (isPresentation && event.key === ' ' && !onGroup) {
           // Space on a control activates that control and nothing else: the
           // deck must not change slide underneath it.
           event.stopPropagation();
