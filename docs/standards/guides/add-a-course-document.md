@@ -1236,7 +1236,9 @@ Live: `/catalog/c/SequenceStepper`.
      (the default); `dfs-iterative`, the same search with a `Stack` of its
      own, which marks on pop; `dfs-mark-on-push`, the tempting version that
      marks on push and does not walk depth first — its listing lives only on
-     its slide, so it is written inline; `bfs`, the breadth-first search
+     its slide, so it is written inline (`paths={false}` walks either
+     depth-first search keeping only `marked`, with no `prev` line to map);
+     `bfs`, the breadth-first search
      with a queue, which marks on enqueue and keeps `dist`; and
      `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice
      and is written inline too; and `kahn`, the topological order of a

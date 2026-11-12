@@ -61,6 +61,12 @@ export interface GraphWalkProps {
   cols?: number;
   /** How many rows the drawing's grid has. */
   rows?: number;
+  /**
+   * Whether a depth-first walk keeps `prev`, the way back. Default true;
+   * false walks a search that keeps only `marked` — no `prev` event, no `prev`
+   * row — for the slide that has not met the thread yet (#357 v2).
+   */
+  paths?: boolean;
   /** Arcs instead of edges. */
   directed?: boolean;
   /**
@@ -172,7 +178,9 @@ export function GraphWalk(props: GraphWalkProps) {
       </AuthoringError>
     );
   }
-  const missing = EVENTS[algorithm].filter((e) => lines[e] === undefined);
+  const missing = EVENTS[algorithm].filter(
+    (e) => lines[e] === undefined && !(e === 'prev' && props.paths === false),
+  );
   if (missing.length > 0) {
     return (
       <AuthoringError component="GraphWalk">
@@ -206,6 +214,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     cols = 0,
     rows = 0,
     directed = false,
+    paths = true,
     grid,
     start,
     lines,
@@ -221,12 +230,12 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     if (gridKey !== undefined) return traceGridDfs(gridKey.split('\n'), start);
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
     const adj = adjacencyOf(V, parsed, directed);
-    if (algorithm === 'dfs') return traceDfs(adj, start);
+    if (algorithm === 'dfs') return traceDfs(adj, start, paths);
     if (algorithm === 'kahn') return traceKahn(adj);
     if (algorithm === 'bfs') return traceBfs(adj, start, 'push');
     if (algorithm === 'bfs-mark-on-pop') return traceBfs(adj, start, 'pop');
-    return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push');
-  }, [algorithm, V, edgesKey, gridKey, directed, start]);
+    return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push', paths);
+  }, [algorithm, V, edgesKey, gridKey, directed, start, paths]);
   const depth = Math.max(...frames.map((f) => f.stack.length));
 
   return (
@@ -270,7 +279,9 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
                       ? ['marked', 'dist', 'prev']
                       : algorithm === 'bfs-mark-on-pop'
                         ? ['marked']
-                        : ['marked', 'prev']
+                        : paths
+                          ? ['marked', 'prev']
+                          : ['marked']
                 }
               />
             ) : undefined
@@ -356,7 +367,7 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   }
   const thread = recursive
     ? // The edge each call in progress was entered by.
-      frame.stack.slice(1).map((v): NodeGraphEdge => [frame.prev[v], v])
+      frame.stack.slice(1).map((v, i): NodeGraphEdge => [frame.stack[i], v])
     : threadBack(frame);
   const looking: NodeGraphEdge[] = frame.v === null || frame.w === null ? [] : [[frame.v, frame.w]];
   return (

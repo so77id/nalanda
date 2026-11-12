@@ -758,3 +758,29 @@ describe('GraphWalk, Kahn', () => {
     expect(screen.getByText(/kahn ordena un grafo dirigido/)).toBeInTheDocument();
   });
 });
+
+describe('GraphWalk without paths', () => {
+  it('needs no prev line and draws only marked under the listing', async () => {
+    render(
+      <GraphWalk
+        paths={false}
+        nodes={TRIANGLE}
+        edges={[
+          [0, 1],
+          [0, 2],
+          [1, 2],
+        ]}
+        cols={3}
+        rows={3}
+        code={DFS}
+        lines={{ mark: 2, look: [3, 4], recurse: 6, return: 9 }}
+        label="Un triángulo."
+      />,
+    );
+    expect(document.querySelector('[data-authoring-error]')).toBeNull();
+    expect(document.querySelector('[data-cell="marked[0]"]')).not.toBeNull();
+    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
+    await stepTo(() => frame().dataset['event'] === 'return' && frame().dataset['v'] === '0');
+    expect(screen.getByText('dfs(0) termina: no queda nada por recorrer.')).toBeInTheDocument();
+  });
+});

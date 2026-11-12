@@ -485,3 +485,28 @@ describe('traceKahn (the topological order)', () => {
     );
   });
 });
+
+describe('a depth-first walk without prev (#357 v2: the search that only marks)', () => {
+  const SQUARE = adjacencyOf(4, [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+  ]);
+
+  it('records no prev frame and leaves prev at −1, recursive and with a stack', () => {
+    for (const frames of [traceDfs(SQUARE, 0, false), traceDfsStack(SQUARE, 0, 'pop', false)]) {
+      expect(frames.some((f) => f.event === 'prev')).toBe(false);
+      expect(frames.at(-1)!.prev).toEqual([-1, -1, -1, -1]);
+      expect(frames.at(-1)!.marked).toEqual([true, true, true, true]);
+    }
+  });
+
+  it('walks in the same order as with prev', () => {
+    const order = (frames: ReturnType<typeof traceDfs>) => frames.at(-1)!.order;
+    expect(order(traceDfs(SQUARE, 0, false))).toEqual(order(traceDfs(SQUARE, 0)));
+    expect(order(traceDfsStack(SQUARE, 0, 'pop', false))).toEqual(
+      order(traceDfsStack(SQUARE, 0, 'pop')),
+    );
+  });
+});

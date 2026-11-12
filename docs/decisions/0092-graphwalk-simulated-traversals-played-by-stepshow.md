@@ -58,7 +58,11 @@ Three ways to animate the walks were weighed with Miguel in S3.
   (ADR-0083's rule): S3 shipped the recursive DFS; S5a the iterative DFS and
   the tempting version that marks on push; S5b the recursive DFS over a
   maze's grid; S10 BFS with its queue and `dist`, and its tempting version;
-  S15 Kahn with its in-degrees and the line layout.
+  S15 Kahn with its in-degrees and the line layout. The rewrite of the class
+  on its plan v2 (2026-11-12) added `paths={false}`: a depth-first walk that
+  only marks, with no `prev` event and no `prev` row, because the class meets
+  `marked` on its first problem and the thread (`prev`) only on its second;
+  the recursive walk's thread is then drawn from its call stack itself.
 - **The iterative DFS marks on pop** (`dfs-iterative`): one loop over a
   `Stack`, the loop BFS shares with a queue at the close of arc II (la
   bolsa). It is drawn beside its own stack instead of the call stack; the

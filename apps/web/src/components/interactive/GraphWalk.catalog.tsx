@@ -212,6 +212,12 @@ export const graphWalkCatalogEntry: CatalogEntry = {
     { name: 'rows', type: 'number', description: 'Rows of the drawing’s grid.' },
     { name: 'directed', type: 'boolean', description: 'Arcs instead of edges. Default false.' },
     {
+      name: 'paths',
+      type: 'boolean',
+      description:
+        'Whether a depth-first walk keeps `prev`, the way back. Default true; false walks a search that only marks — no `prev` event, no `prev` row — for a slide that has not met the thread yet.',
+    },
+    {
       name: 'start',
       type: 'number',
       description:

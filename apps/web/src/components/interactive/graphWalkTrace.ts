@@ -194,9 +194,14 @@ interface Probe {
  *
  * One frame per assignment (`mark`, `prev`), one per neighbour looked at
  * (`look`, the `for` and its `if`), one per call made (`recurse`) and one per
- * call that ends (`return`).
+ * call that ends (`return`). With `paths` false the search keeps only
+ * `marked`: no `prev` is written and no `prev` frame is recorded.
  */
-export function traceDfs(adj: readonly (readonly number[])[], start: number): WalkFrame[] {
+export function traceDfs(
+  adj: readonly (readonly number[])[],
+  start: number,
+  paths = true,
+): WalkFrame[] {
   const V = adj.length;
   if (!isVertex(V, start)) {
     throw new RangeError(`start ${start} is not a vertex of 0..${V - 1}`);
@@ -212,6 +217,7 @@ export function traceDfs(adj: readonly (readonly number[])[], start: number): Wa
         text: (seen) => lookText(v, w, seen),
       })),
     (v) => `dfs(${v}) marca ${v}.`,
+    paths,
   );
 }
 
@@ -301,6 +307,7 @@ function walkRecursive(
   start: number,
   probesOf: (v: number) => Probe[],
   markText: (v: number) => string,
+  paths = true,
 ): WalkFrame[] {
   const r = new Recorder(V);
   const { marked, prev, stack, done, order } = r;
@@ -321,14 +328,16 @@ function walkRecursive(
       const seen = blocked || w === null ? null : marked[w];
       r.record({ event: 'look', v, w, seen, blocked, cell, text: probe.text(seen === true) });
       if (seen !== false || w === null) continue;
-      prev[w] = v;
-      r.record({
-        event: 'prev',
-        v,
-        w,
-        wrote: { array: 'prev', index: w },
-        text: `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`,
-      });
+      if (paths) {
+        prev[w] = v;
+        r.record({
+          event: 'prev',
+          v,
+          w,
+          wrote: { array: 'prev', index: w },
+          text: `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`,
+        });
+      }
       r.record({ event: 'recurse', v, w, text: `Llama a dfs(${w}).` });
       dfs(w);
     }
@@ -386,6 +395,7 @@ export function traceDfsStack(
   adj: readonly (readonly number[])[],
   start: number,
   markOn: MarkOn,
+  paths = true,
 ): WalkFrame[] {
   const V = adj.length;
   if (!isVertex(V, start)) {
@@ -459,18 +469,20 @@ export function traceDfsStack(
           text: `Marca ${w} al apilarlo.`,
         });
       }
-      const before = prev[w];
-      prev[w] = v;
-      r.record({
-        event: 'prev',
-        v,
-        w,
-        wrote: { array: 'prev', index: w },
-        text:
-          before < 0
-            ? `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`
-            : `prev[${w}] = ${v}: ahora a ${w} se llega desde ${v}, no desde ${before}.`,
-      });
+      if (paths) {
+        const before = prev[w];
+        prev[w] = v;
+        r.record({
+          event: 'prev',
+          v,
+          w,
+          wrote: { array: 'prev', index: w },
+          text:
+            before < 0
+              ? `prev[${w}] = ${v}: a ${w} se llega desde ${v}.`
+              : `prev[${w}] = ${v}: ahora a ${w} se llega desde ${v}, no desde ${before}.`,
+        });
+      }
       stack.push(w);
       r.record({ event: 'push', v, w, text: `Apila ${w}.` });
     }
