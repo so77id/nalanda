@@ -280,20 +280,20 @@ const CASES: [string, GraphWalkProps, string][] = [
       algorithm: 'kahn',
       directed: true,
       ratio: '45/55',
-      // The sheet of the slide before, with C1 = A1 + D1: C1 and D1 read
-      // each other. 0 C1, 1 A1, 2 D1, 3 B1.
+      // The sheet of the slide before, with D1 = A1 + C1: B1, C1 and D1
+      // read each other in a cycle. 0 A1, 1 B1, 2 C1, 3 D1.
       nodes: [
-        { v: 0, x: 2, y: 2 },
-        { v: 1, x: 0, y: 1 },
+        { v: 0, x: 0, y: 1 },
+        { v: 1, x: 2, y: 0 },
         { v: 2, x: 4, y: 1 },
-        { v: 3, x: 2, y: 0 },
+        { v: 3, x: 2, y: 2 },
       ],
       edges: [
-        [1, 3],
-        [1, 0],
-        [3, 2],
         [0, 2],
-        [2, 0],
+        [1, 2],
+        [3, 1],
+        [0, 3],
+        [2, 3],
       ],
       cols: 5,
       rows: 3,
@@ -301,7 +301,7 @@ const CASES: [string, GraphWalkProps, string][] = [
       codeRange: '11-28',
       lines: KAHN_LINES,
       label: 'Una hoja con una referencia circular.',
-      caption: 'la misma hoja, con C1 = A1 + D1; los números: 0 es C1, 1 es A1, 2 es D1, 3 es B1',
+      caption: 'la misma hoja, con D1 = A1 + C1; los números: 0 es A1, 1 es B1, 2 es C1, 3 es D1',
     },
     'end',
   ],
