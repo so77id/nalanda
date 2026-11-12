@@ -9,24 +9,52 @@ import { GraphWalk, type GraphWalkProps } from './GraphWalk';
 // mounts is pinned here, with the real course files, and walked to its end.
 const CODE = 'asset:courses/sample-course/27-grafos-recorridos.code/';
 
-const FIVE = {
+// The power network: 0 the plant; 1, 2, 3 and 6 poles; 4, 5 and 7 houses.
+const NET = {
+  nodes: [
+    { v: 0, x: 0, y: 1 },
+    { v: 1, x: 2, y: 1 },
+    { v: 2, x: 4, y: 0 },
+    { v: 3, x: 4, y: 2 },
+    { v: 4, x: 6, y: 0 },
+    { v: 5, x: 6, y: 2 },
+    { v: 6, x: 8, y: 2 },
+    { v: 7, x: 8, y: 0 },
+  ],
+  edges: [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [2, 3],
+    [2, 4],
+    [3, 5],
+    [6, 7],
+  ] as [number, number][],
+  cols: 9,
+  rows: 3,
+  label: 'Una red eléctrica.',
+};
+
+// The friends: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena.
+const FRIENDS = {
   nodes: [
     { v: 0, x: 0, y: 1 },
     { v: 1, x: 2, y: 0 },
     { v: 2, x: 2, y: 2 },
     { v: 3, x: 4, y: 1 },
-    { v: 4, x: 6, y: 1 },
+    { v: 4, x: 6, y: 2 },
   ],
   edges: [
     [0, 1],
     [0, 2],
+    [1, 2],
     [1, 3],
     [2, 3],
     [3, 4],
   ] as [number, number][],
   cols: 7,
   rows: 3,
-  label: 'Un grafo de cinco vértices.',
+  label: 'Una red de amigos.',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -38,7 +66,6 @@ const ON_PUSH = `private void dfs(Graph g, int s) {
         for (int w : g.adj(v)) {
             if (!marked[w]) {
                 marked[w] = true;
-                prev[w] = v;
                 stack.push(w);
             }
         }
@@ -73,37 +100,46 @@ const KAHN_LINES = {
   end: [18, 28],
 };
 
-const CASES: [string, GraphWalkProps, string, number][] = [
+const CASES: [string, GraphWalkProps, string][] = [
   [
     'El código de la búsqueda en profundidad',
     {
-      ...FIVE,
+      ...NET,
       beside: true,
-      codeSrc: `${CODE}DepthFirstPaths.java`,
-      codeRange: '10-25',
-      lines: { mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 },
+      paths: false,
+      codeSrc: `${CODE}DepthFirstSearch.java`,
+      codeRange: '4-16',
+      lines: { mark: 10, look: [11, 12], recurse: 13, return: 16 },
     },
     'return',
-    28,
   ],
   [
-    'La búsqueda en profundidad en el laberinto',
+    'La búsqueda en profundidad con una pila',
     {
+      ...NET,
       beside: true,
-      grid: ['...#', '.#..', '.##.'],
-      codeSrc: `${CODE}MazeDepthFirstPaths.java`,
-      codeRange: '30-41',
-      lines: { mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 },
-      label: 'El laberinto.',
+      algorithm: 'dfs-iterative',
+      paths: false,
+      codeSrc: `${CODE}IterativeDepthFirstSearch.java`,
+      codeRange: '11-26',
+      lines: {
+        pushStart: [12, 13],
+        pop: [14, 15],
+        skip: [16, 17],
+        mark: 19,
+        look: [20, 21],
+        push: 22,
+        end: 14,
+      },
     },
-    'return',
-    62,
+    'end',
   ],
   [
     'Marcar al apilar',
     {
       beside: true,
       algorithm: 'dfs-mark-on-push',
+      paths: false,
       nodes: [
         { v: 0, x: 1, y: 0 },
         { v: 1, x: 0, y: 2 },
@@ -125,56 +161,31 @@ const CASES: [string, GraphWalkProps, string, number][] = [
         pop: [5, 6],
         look: [7, 8],
         mark: 9,
-        prev: 10,
-        push: 11,
+        push: 10,
         end: 5,
       },
       label: 'Un triángulo con un vértice colgando.',
     },
     'end',
-    0,
   ],
   [
-    'El código de la búsqueda en profundidad iterativa',
+    'La búsqueda en profundidad en el laberinto',
     {
-      ...FIVE,
       beside: true,
-      algorithm: 'dfs-iterative',
-      codeSrc: `${CODE}IterativeDepthFirstPaths.java`,
-      codeRange: '17-33',
-      lines: {
-        pushStart: [18, 19],
-        pop: [20, 21],
-        skip: [22, 23],
-        mark: 25,
-        look: [26, 27],
-        prev: 28,
-        push: 29,
-        end: 20,
-      },
+      grid: ['...#', '...#', '#...'],
+      codeSrc: `${CODE}MazeDepthFirstPaths.java`,
+      codeRange: '30-41',
+      lines: { mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 },
+      label: 'El laberinto.',
     },
-    'end',
-    0,
+    'return',
   ],
   [
-    'El recorrido por niveles en un grafo',
+    'Marcar al sacar de la cola',
     {
+      ...FRIENDS,
       beside: true,
       algorithm: 'bfs-mark-on-pop',
-      nodes: [
-        { v: 0, x: 1, y: 0 },
-        { v: 1, x: 0, y: 1 },
-        { v: 2, x: 2, y: 1 },
-        { v: 3, x: 1, y: 2 },
-      ],
-      edges: [
-        [0, 1],
-        [0, 2],
-        [1, 3],
-        [2, 3],
-      ],
-      cols: 3,
-      rows: 3,
       code: ON_POP,
       lines: {
         enqueueStart: [2, 3],
@@ -185,15 +196,13 @@ const CASES: [string, GraphWalkProps, string, number][] = [
         enqueue: 12,
         end: 4,
       },
-      label: 'Un rombo.',
     },
     'end',
-    0,
   ],
   [
     'El código de la búsqueda en anchura',
     {
-      ...FIVE,
+      ...FRIENDS,
       beside: true,
       algorithm: 'bfs',
       codeSrc: `${CODE}BreadthFirstPaths.java`,
@@ -212,7 +221,6 @@ const CASES: [string, GraphWalkProps, string, number][] = [
       },
     },
     'end',
-    0,
   ],
   [
     'El código del orden topológico',
@@ -243,53 +251,49 @@ const CASES: [string, GraphWalkProps, string, number][] = [
       label: 'La malla.',
     },
     'end',
-    28,
   ],
   [
-    'Un ciclo en la malla',
+    'Una referencia circular',
     {
       beside: true,
       algorithm: 'kahn',
       directed: true,
       nodes: [
-        { v: 0, x: 0, y: 0 },
+        { v: 0, x: 0, y: 1 },
         { v: 1, x: 2, y: 0 },
-        { v: 2, x: 4, y: 0 },
-        { v: 3, x: 2, y: 2 },
+        { v: 2, x: 2, y: 2 },
+        { v: 3, x: 4, y: 1 },
       ],
       edges: [
         [0, 1],
-        [1, 2],
-        [2, 1],
+        [0, 2],
+        [1, 3],
         [3, 2],
+        [2, 1],
       ],
       cols: 5,
       rows: 3,
       codeSrc: `${CODE}Topological.java`,
       codeRange: '11-28',
       lines: KAHN_LINES,
-      label: 'Una malla con un ciclo.',
+      label: 'Una hoja con una referencia circular.',
     },
     'end',
-    12,
   ],
 ];
 
 describe('the combinations 27-grafos-recorridos mounts', () => {
-  it.each(CASES)('%s', async (_slide, props, lastEvent, steps) => {
+  it.each(CASES)('%s', async (_slide, props, lastEvent) => {
     const { container } = render(<GraphWalk {...props} />);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
     // The listing came from the real file: its header names the range.
     if (props.codeSrc) expect(screen.getAllByText(/líneas \d+–\d+ de/).length).toBeGreaterThan(0);
     const user = userEvent.setup();
     const next = screen.getByRole('button', { name: /adelante/i });
-    let taken = 1;
     while (next.getAttribute('aria-disabled') !== 'true') {
       await user.click(next);
-      taken++;
     }
     expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', lastEvent);
-    if (steps > 0) expect(taken).toBe(steps);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
   });
 });

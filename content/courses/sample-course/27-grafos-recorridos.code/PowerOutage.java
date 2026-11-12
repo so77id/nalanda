@@ -6,9 +6,9 @@ public class PowerOutage {
         int V = in.nextInt();
         Graph g = new AdjListGraph(V);
         Graphs.readEdges(in, g);
-        DepthFirstPaths paths = new DepthFirstPaths(g, 0);
+        DepthFirstSearch search = new DepthFirstSearch(g, 0);
         for (int v = 1; v < V; v++) {
-            if (!paths.hasPathTo(v)) {
+            if (!search.marked(v)) {
                 System.out.println(v);
             }
         }
