@@ -589,10 +589,13 @@ describe('architecture: content invariants', () => {
         const folder = dirname(path);
         const codeDir = folder.slice(0, folder.indexOf('.code/') + '.code'.length);
         const doc = readFileSync(codeDir.replace(/\.code$/, '.mdx'), 'utf8');
+        const starters = [...doc.matchAll(/```java starter\n([\s\S]*?)```/g)].map((m) => m[1]!);
         const source = readFileSync(path, 'utf8');
-        const solution = source.slice(source.indexOf('class Solution')).trimEnd();
+        const at = source.indexOf('class Solution');
+        expect(at, `${key} has no class Solution`).toBeGreaterThanOrEqual(0);
+        const solution = source.slice(at).trimEnd();
         expect(
-          doc.includes(solution),
+          starters.some((starter) => starter.includes(solution)),
           `${key}'s class Solution is not in any starter of its document character for character — paste it back, or move the walk's ranges if the file is what changed`,
         ).toBe(true);
       },

@@ -6,6 +6,9 @@ and the failure mode the price did not cover (§Addendum — #277).
 **Amended by:** #363 (2026-11-12) — the code side may hold up to three
 listings and a per-step `under`; every step's frame is laid in one cell
 (§Addendum — #363).
+**Extended by:** ADR-0091 (#363) — a listing may be quoted from a file kept
+beside the document, by range, with FILE line numbers; the contract changes
+#363 made alongside it are the `Amended by: #363` above.
 **Date:** 2026-08-19
 **Decision-makers:** Miguel Rodriguez
 **Covers:** `<StepShow>` + `<Step>` + `<CodeStepper>` as the generic "code
@@ -345,4 +348,3 @@ decision did not anticipate. #363 needed four, and #357's walks build on them:
    0.95 s). Rejected: mounting all frames always (the cost above), and
    current-plus-last always (2 of the 33 frame stacks have a larger frame
    before the last, and would resize mid-walk).
-

@@ -4,13 +4,13 @@
 **Date:** 2026-11-07
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #363 (Grafos · TDA y modelado). Numbered 0091 to clear
-`0090-*`, held by the unmerged branch of the pen-trace widget. Extends
-ADR-0029 §5 (what `remarkContentImages` rewrites, and who resolves an
-`asset:` key) and ADR-0049 (the `<StepShow>` contract).
+`0090-*`, held by the unmerged branch of the pen-trace widget.
+**Extends:** ADR-0029 — §5's rewrite covers any `<thing>Src`, and a `.java`
+key resolves through `lib/contentCode.ts`; ADR-0049 — `<StepShow>` quotes its
+listings from files (`codeSrc` / `programSrc` / `helperSrc` with a range).
 **Amended by:** #363's review (2026-11-12) — a later class may quote an
 earlier class's files, and a worked exercise's starter carries its
 `Solution.java` verbatim, checked by the suite (§Addendum).
-
 
 ## Context
 
@@ -90,11 +90,12 @@ way to open the whole file.
 
 **A later class quotes an earlier class's files.** The graphs unit's next
 class (#357) walks the same `Graph` and `AdjListGraph`. Miguel chose one copy
-over one per class: a document may quote `../26-grafos-tda-modelado.code/…`,
-which resolves like any relative path. What the later class adds goes in its
-own `<doc>.code/`, never into the earlier file, whose ranges other slides
-quote; and a file another document quotes is not edited without moving that
-document's ranges too. Rejected: a copy per class, which brings back problem 1
+over one per class: a document may quote `./26-grafos-tda-modelado.code/…` from a sibling document,
+which resolves like any relative path. A new class of code the later class
+writes goes in its own `<doc>.code/`; a method that belongs to an earlier file
+may be appended at its end, which moves no quoted line, never inserted above
+lines another slide quotes; and a file another document quotes is not
+otherwise edited without moving that document's ranges too. Rejected: a copy per class, which brings back problem 1
 of the Context between classes.
 
 **An exercise's starter carries its solution verbatim.** The review found the
@@ -104,4 +105,3 @@ Solution.java` now has its `class Solution` contained, character for
 character, in a `java starter` fence of its document, and
 `content/architecture.test.ts` fails otherwise; the same suite checks every
 `<StepShow>`'s quoted ranges against its steps.
-

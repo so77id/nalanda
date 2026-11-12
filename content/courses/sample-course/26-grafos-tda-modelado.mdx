@@ -689,7 +689,7 @@ export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label
   );
 }
 
-{/* Pair — the graph and the structure that stores it, side by side, wrapping to one over the other when the column is narrow: every frame of a walk over an implementation shows both, so the reader sees which edge a line of code is writing and where it lands. `stack` puts one over the other always: for a wide graph beside a listing. Not <Split>: Split switches at the viewport's `md` breakpoint and takes the reading measure, while a pair inside a StepShow frame has to wrap by the width of its own column, which on a slide is a half or a quarter of the viewport. File-local. */}
+{/* Pair — the graph and the structure that stores it, side by side, wrapping to one over the other when the column is narrow: every frame of a walk over an implementation shows both, so the reader sees which edge a line of code is writing and where it lands. `stack` puts one over the other always: for a wide graph beside a listing. Not <Split>: Split switches at the viewport's `md` breakpoint and takes the full width (`measure-full`), while a pair inside a StepShow frame has to wrap by the width of its own column, which on a slide is a half or a quarter of the viewport. File-local. */}
 
 export function Pair({ stack = false, children }) {
   return (

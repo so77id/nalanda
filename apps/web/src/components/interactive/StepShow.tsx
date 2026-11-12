@@ -250,8 +250,9 @@ export function StepShow({
   // build, /d/grafos-tda-modelado in the book at 1440x900: every frame laid,
   // 57k elements and a 1.7 s longest task (7.5 s at 4x CPU); only the current
   // frame, 28k and 0.9 s; this, 32k and 0.95 s (4.0 s at 4x). Across the 66
-  // walks of the site, three grow when they lay every frame — two older ones
-  // by 98 and 28 px, which a jump straight onto them shows for one frame. On a slide
+  // walks of the site, three grow when they lay every frame: two older ones
+  // by 98 and 28 px, which a jump straight onto them shows for one frame, and
+  // one of #363's by 1 px. On a slide
   // the walk is on screen from the start, and only that slide is mounted.
   const [nearView, setNearView] = useState(() => typeof IntersectionObserver !== 'function');
   useEffect(() => {

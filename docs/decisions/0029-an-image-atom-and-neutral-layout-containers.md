@@ -32,6 +32,8 @@ then.
 **Amended by:** #363 (2026-11-07) — §5's rewrite also covers any `<thing>Src`
 attribute, and an `asset:` key of a `.java` file resolves through
 `lib/contentCode.ts`, not `lib/contentAssets` (ADR-0091).
+**Extended by:** ADR-0091 (#363) — course code kept in files beside the
+document, quoted by range; its change to §5 is the `Amended by: #363` above.
 
 ## Context
 

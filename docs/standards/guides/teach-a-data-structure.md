@@ -705,7 +705,11 @@ narrower than the stacked panel: measured on that slide, at scale 0.755, it is
 793 px wide and holds about 63 rendered columns (the longest line is 49), and
 since the breakout divides by the scale it would be about 600 px — some 47
 columns — at 1.0. A slide that needs `beside` carries a long listing and is
-never at 1.0, but sweep its horizontal axis like any other.
+never at 1.0, but sweep its horizontal axis like any other. Those figures are
+the default split's (`ratio="55/45"`); the other three — `"50/50"`, `"60/40"`,
+`"40/60"`, #363 — have no measured budget yet. The first class that plans a
+listing against one (#357) measures it and records it here (deferred in
+#363's review).
 
 **Sweep the horizontal axis too, not only the scale.** A deck sweep that reads
 the `transform` on the slide stage sees a slide shrink to fit and reports it;
@@ -922,7 +926,8 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       from 1, blank lines included; for a listing quoted with `codeSrc`, the
       FILE's numbers — and against the step's caption AND its
       drawing: the line lit must be the line the caption says just ran.
-      `CodeStepper` drops an out-of-range number silently, so a
+      In a written listing `CodeStepper` drops an out-of-range number
+      silently (a quoted one refuses it), so a
       wrong-but-in-range one survives the build, the suite, the preview and
       the `sr-only` live region alike. When two steppers share a listing,
       their `lines` arrays must agree.
