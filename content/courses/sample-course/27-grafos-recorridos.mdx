@@ -1677,12 +1677,154 @@ búsqueda en profundidad puede dar vueltas, y al lado hay otro con menos pasos.
 
 ## Búsqueda en anchura
 
-{/* Arc II · BFS (slides planned in S9, written in S11-S12). The same maze: */}
-{/* how many steps at least? DFS's path beside the shortest; layers are the */}
-{/* tree level order marking on enqueue; the two-layer invariant; dist[] and */}
-{/* prev[]. Applications: camino más corto sin pesos, grafo bipartito. Closes */}
-{/* with la bolsa. Leaves open: no traversal gives an order that respects */}
-{/* every arrow. */}
+{/* Arc II · BFS. Fifteen slides planned in #357 S9 (2026-11-12) by Claude, */}
+{/* in Miguel's absence, from the arc map approved on 2026-11-09; for his */}
+{/* review in S13. Each empty slide holds its one idea, written in S11 */}
+{/* (slides 1-9) and S12 (10-15). The code is a class, BreadthFirstPaths */}
+{/* (algs4 §4.1): marked, dist and prev, the private bfs, hasPathTo, distTo */}
+{/* and pathTo; prev[s] = -1 as in DepthFirstPaths. */}
+
+{/* Beat 1 · the question, on the maze arc I closed on. */}
+
+<Slide title="La distancia en un laberinto">
+
+{/* The distance from s to t: the fewest steps (edges) of any path. On the */}
+{/* maze of «Un camino que no es el más corto», pathTo of the depth-first */}
+{/* search takes nine steps and the distance is five: the search answers */}
+{/* «se llega» but not «con cuántos». [Maze: the DFS thread, and the cells */}
+{/* numbered with nothing yet] */}
+
+</Slide>
+
+{/* Beat 2 · what the student knows: the level order of a tree. */}
+
+<Slide title="Las capas de distancia">
+
+{/* Every cell at one step from the entrance, then every cell at two, and */}
+{/* so on: the layers. A cell's distance is its layer. [Maze with each */}
+{/* cell's distance written, the layers in alternating tones] */}
+
+</Slide>
+
+<Slide title="El recorrido por niveles en un grafo">
+
+{/* A tree's level order with a queue visits by depth: the root, its */}
+{/* children, its grandchildren. The same loop on a graph: dequeue a vertex, */}
+{/* enqueue its neighbours. Without marking it loops as the preorder did; */}
+{/* marking on dequeue ends, but a vertex reached from two vertices of one */}
+{/* layer enters the queue twice. [GraphWalk bfs-mark-on-pop on a diamond, */}
+{/* the second enqueue in red] */}
+
+</Slide>
+
+{/* Beat 3 · the idea. */}
+
+<Slide title="La regla de la búsqueda en anchura">
+
+{/* Dequeue the first vertex; for each unmarked neighbour: mark it, its */}
+{/* dist is the vertex's plus one, its prev the vertex, enqueue it. Marking */}
+{/* on enqueue: every vertex enters the queue once. Named for going layer */}
+{/* by layer, as wide as it can: BFS, breadth-first search. [the diamond */}
+{/* with the layers numbered and the queue's order] */}
+
+</Slide>
+
+<Slide title="La invariante de la cola">
+
+{/* «La cola tiene a lo más dos capas seguidas, la de d y detrás la de */}
+{/* d + 1»: a vertex of layer d is dequeued only after every vertex of */}
+{/* layer d − 1, so when w is first seen from v, no shorter path to w is */}
+{/* left. dist[w] = dist[v] + 1 is final. [the queue drawn as layers d and */}
+{/* d + 1 at three moments] */}
+
+</Slide>
+
+{/* Beat 4 · the code. */}
+
+<Slide title="El código de la búsqueda en anchura">
+
+{/* BreadthFirstPaths, quoted from 27-grafos-recorridos.code/: the */}
+{/* constructor and the private bfs with a Queue (ArrayDeque), marking on */}
+{/* enqueue, dist and prev. [GraphWalk bfs over the five-vertex graph of */}
+{/* arc I, the queue beside the graph, marked, dist and prev under it] */}
+
+</Slide>
+
+<Slide title="El camino más corto">
+
+{/* distTo(t) is dist[t]; pathTo(t) is DepthFirstPaths' pathTo, the same */}
+{/* prev walked back and turned with a stack, and the path it gives has */}
+{/* dist[t] edges, the fewest. On the maze: distance five, and the path. */}
+{/* [Maze with each cell's dist and the prev path to the exit] */}
+
+</Slide>
+
+<Slide title="El costo de la búsqueda en anchura">
+
+{/* The same sweep as the depth-first search: every vertex enqueued once, */}
+{/* its neighbours read once. Θ(V + E) with lists, Θ(V²) with the matrix; */}
+{/* the queue holds at most V vertices. The distance counts edges: without */}
+{/* weights, or with every weight equal. */}
+
+</Slide>
+
+{/* Beat 5 · the applications (epic #354 §Hilos 1). */}
+
+<Slide title="Camino más corto sin pesos">
+
+{/* The named problem, «¿Con cuántos pasos, como mínimo?», and the lock: */}
+{/* the fewest turns from 0000 to a combination, avoiding the forbidden */}
+{/* ones, a BFS over the state graph whose neighbours moves computes. */}
+{/* [LockTurns.java; the layers of the lock's states] */}
+
+</Slide>
+
+<Slide title="Los saltos del caballo">
+
+{/* The fewest jumps of a chess knight between two squares: a BFS over */}
+{/* the board, the neighbours the eight L-shaped jumps. [KnightJumps.java; */}
+{/* a board with each square's distance from the knight] */}
+
+</Slide>
+
+<Slide title="Un incendio con varios focos">
+
+{/* Every focus enters the queue at the start, with dist 0: the search */}
+{/* grows from all at once, and dist[v] is the minute v catches fire, the */}
+{/* distance to the nearest focus. [a grid with two foci and each cell's */}
+{/* minute] */}
+
+</Slide>
+
+<Slide title="Grafo bipartito">
+
+{/* The named problem, «¿Se pueden repartir en dos grupos sin conflictos */}
+{/* dentro de cada uno?»: teams with no rivals inside. Colour each vertex */}
+{/* by the parity of its layer; an edge between two vertices of one layer */}
+{/* is the conflict, and closes an odd cycle. [two graphs: one split in */}
+{/* two colours, a triangle with the conflict edge in red; Bipartite.java] */}
+
+</Slide>
+
+<Slide title="La bolsa">
+
+{/* The iterative depth-first search and the breadth-first search side by */}
+{/* side: the same loop. The bag changes, a stack or a queue, and so does */}
+{/* the moment of marking, on pop or on push (Erickson's «whatever-first */}
+{/* search»). [the two methods side by side, the lines that differ lit] */}
+
+</Slide>
+
+{/* Beat 6 · the question it leaves open, which opens arc III. */}
+
+<Slide title="Un orden que no respeta los prerrequisitos">
+
+{/* A small malla: A before B and C, B before C, with adj(A) = [C, B]. */}
+{/* Both orders, depth-first and by layers, visit C before B, its */}
+{/* prerequisite. In what order are the courses taken? That opens arc III. */}
+{/* [the malla, the two orders, the broken arrow in red] */}
+
+</Slide>
 
 <SectionBreak />
 
