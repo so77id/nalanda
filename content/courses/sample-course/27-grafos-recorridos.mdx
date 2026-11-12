@@ -849,7 +849,7 @@ sin marcar.
 Un laberinto tiene una entrada y una salida, y entre ellas pasillos y muros.
 ¿Se llega a la salida, y por qué celdas? El laberinto es un grafo implícito:
 sus vecinos se calculan con una regla cuando se piden, en vez de leerse de una matriz o de unas listas. Las celdas
-libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y la
+libres son los vértices, numerados $${r \cdot C + c}$$ en la fila $$r$$ y la
 columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que comparten
 un lado están unidas.
 
@@ -859,7 +859,7 @@ columna $$v \bmod C$$; en Java, con $$C$$ en `cols`, son el cociente
 desplazamientos `DR4` y `DC4` y `free`, que dice si una celda está dentro de la
 grilla y libre.
 
-**Entrada.** La grilla, de hasta $$1000 \times 1000$$ celdas; se entra por la
+**Entrada.** La grilla, de hasta $${1000 \times 1000}$$ celdas; se entra por la
 celda de arriba a la izquierda y se sale por la de abajo a la derecha.
 
 **Salida.** Si se llega a la salida, y por qué celdas.
@@ -1443,7 +1443,7 @@ a su primer vértice.
 <LineOrder
   order={["A", "B", "C"]}
   arcs={[["A", "B"], ["B", "C"], ["C", "A"]]}
-  caption="otro grafo, con un ciclo: el arco de C a A, hacia la izquierda"
+  caption="un ciclo: el arco de C a A, hacia la izquierda"
   label="Otro grafo, un ciclo de tres vértices en una línea, A, B, C: los arcos de A a B y de B a C apuntan hacia la derecha, y el de C a A, en rojo, hacia la izquierda."
 />
 </Pair>
