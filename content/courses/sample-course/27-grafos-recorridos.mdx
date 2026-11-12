@@ -1051,30 +1051,30 @@ hondo como puede, sin mirar si hay un atajo.
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  markEdges={[['Ana', 'Beto'], ['Beto', 'Carla'], ['Carla', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark', Elena: 'mark' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '2 Carla'], ['2 Carla', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
   caption="la recursiva: 4 amistades"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena que da la búsqueda recursiva desde Ana: Ana, Beto, Carla, Diego, Elena, cuatro amistades."
 />
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  markEdges={[['Ana', 'Carla'], ['Carla', 'Beto'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark', Elena: 'mark' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  markEdges={[['0 Ana', '2 Carla'], ['2 Carla', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
   caption="con pila: 4 amistades"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena que da la búsqueda con pila desde Ana: Ana, Carla, Beto, Diego, Elena, cuatro amistades."
 />
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  markEdges={[['Ana', 'Beto'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark', Elena: 'mark' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
   caption="otra cadena: 3 amistades"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada otra cadena: Ana, Beto, Diego, Elena, tres amistades."
 />
@@ -1104,10 +1104,10 @@ de distancia.
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark' }}
-  notes={{ Ana: '0', Beto: '1', Carla: '1', Diego: '2', Elena: '3' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark' }}
+  notes={{ '0 Ana': '0', '1 Beto': '1', '2 Carla': '1', '3 Diego': '2', '4 Elena': '3' }}
   caption="por capas desde Ana; al lado, la capa"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Junto a cada persona, su capa desde Ana: Ana 0; Beto y Carla 1; Diego 2; Elena 3."
 />
@@ -1169,11 +1169,11 @@ search_ (BFS).
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  markEdges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark' }}
-  notes={{ Ana: '0', Beto: '1', Carla: '1', Diego: '2', Elena: '3' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  markEdges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark' }}
+  notes={{ '0 Ana': '0', '1 Beto': '1', '2 Carla': '1', '3 Diego': '2', '4 Elena': '3' }}
   caption="al lado de cada persona, su distancia desde Ana"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Junto a cada persona, la distancia que le da la búsqueda en anchura desde Ana. Marcadas las amistades por las que llega a cada una: Ana-Beto, Ana-Carla, Beto-Diego y Diego-Elena."
 />
@@ -1277,10 +1277,10 @@ cadena.
 <NodeGraph
   cols={7}
   rows={3}
-  nodes={[{ v: 'Ana', x: 1, y: 1 }, { v: 'Beto', x: 2.5, y: 0 }, { v: 'Carla', x: 2.5, y: 2 }, { v: 'Diego', x: 4, y: 1 }, { v: 'Elena', x: 5.5, y: 2 }]}
-  edges={[['Ana', 'Beto'], ['Ana', 'Carla'], ['Carla', 'Diego'], ['Beto', 'Carla'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  markEdges={[['Ana', 'Beto'], ['Beto', 'Diego'], ['Diego', 'Elena']]}
-  tones={{ Ana: 'mark', Elena: 'mark' }}
+  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
+  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
+  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
   caption="de Ana a Elena: 3 amistades, por Beto y Diego"
   label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena más corta de Ana a Elena: Ana, Beto, Diego, Elena, tres amistades."
 />
