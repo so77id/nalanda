@@ -23,7 +23,10 @@ Each algorithm is one arc, and each arc runs these beats in this order:
 1. **The problem**, on a given graph — an explicit one, read as a list of edges
    or drawn — stated without its solution. A concrete situation (a power
    network after a cut; how many friends apart two people are; in what order
-   to take the courses of a malla), the question in words, the graph drawn.
+   to take the courses of a malla), the question in words, the graph drawn,
+   its input and output, and the named problem (epic #354 §Hilos 1) named
+   with its question («la alcanzabilidad: ¿se puede llegar de aquí a allá?»),
+   so the reader knows from the start which question the arc answers.
 2. **Why what is known does not reach.** The tool the reader already has, tried
    on that same problem and failing, with the counterexample **drawn** (or
    walked) before the claim. The failure is what each piece of the algorithm
@@ -41,11 +44,12 @@ Each algorithm is one arc, and each arc runs these beats in this order:
    slide (the depth-first search with a `Stack` after the recursive one), with
    its own trap drawn (marking on push).
 4. **The solution** of the problem with the algorithm: the program that
-   answers the question, and the answer drawn on the graph. The named problem
-   (epic #354 §Hilos 1) is named here, with its question.
+   answers the question, its output, and the answer drawn on the graph.
 5. **A second problem, on an implicit graph** — a maze, a grid, a state
-   space — solved with the same algorithm, where only how the neighbours are
-   obtained changes. It shows the algorithm is general, and it may motivate
+   space — solved with the same algorithm, where how the neighbours are
+   obtained changes. It shows the algorithm is general, and it may bring what
+   its own question needs and the first did not ask for (the maze asks by
+   which cells: `prev`, the thread and `pathTo` are born there), or motivate
    what the first problem could not (the 1000 × 1000 maze overflows the
    recursion, and the `Stack` does not). When no implicit problem fits
    naturally (Kahn's topological order), the second problem is another
@@ -57,7 +61,8 @@ Each algorithm is one arc, and each arc runs these beats in this order:
 ## Rules that cut across the arcs
 
 - **Explicit before implicit.** The first problem's only new idea is the
-  algorithm; the second's only new idea is computing the neighbours.
+  algorithm; the second's new ideas are computing the neighbours and what its
+  own question needs (a way back, for a path), nothing else.
 - **Born from what the reader knows.** The algorithm grows out of a tool
   already taught (the tree's preorder → the depth-first search; the level order
   with a queue → the breadth-first search), and the slide says so in place,
