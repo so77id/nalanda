@@ -2086,14 +2086,65 @@ visita antes que su prerrequisito, y la búsqueda en anchura también.
 {/* Kahn with a queue of sources, order() and hasOrder(). Beat 6 is */}
 {/* `## Lo que sigue`. */}
 
+{/* LineOrder — vertices on a line, left to right in `order`, with each arc of `arcs` ([tail, head]) drawn as a bow above from tail to head: the drawing that defines a topological order. A bow that points left breaks the order and is drawn in flag. Vertices are labels, numbers or names. File-local: only the arc of the topological order draws one. */}
+
+export function LineOrder({ order, arcs, caption, label }) {
+  const gap = 56;
+  const r = 15;
+  const pad = 18;
+  const width = Math.max(order.length * gap + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
+  const left = (width - order.length * gap) / 2 + gap / 2;
+  const y = 84;
+  const height = y + r + (caption ? 40 : 12);
+  const at = new Map(order.map((v, i) => [String(v), left + i * gap]));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      <line x1={pad} y1={y} x2={width - pad} y2={y} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
+      {arcs.map(([u, v]) => {
+        const x1 = at.get(String(u));
+        const x2 = at.get(String(v));
+        const right = x2 > x1;
+        const lift = 16 + Math.abs(x2 - x1) * 0.3;
+        const color = right ? 'var(--color-ink-soft)' : 'var(--color-flag)';
+        const dx = right ? -1 : 1;
+        return (
+          <g key={`${u}-${v}`}>
+            <path d={`M ${x1} ${y - r} Q ${(x1 + x2) / 2} ${y - r - lift} ${x2} ${y - r - 2}`} fill="none" style={{ stroke: color }} strokeWidth={right ? 1.8 : 2.6} />
+            <polygon points={`${x2},${y - r} ${x2 + dx * 8},${y - r - 6} ${x2 + dx * 1},${y - r - 10}`} style={{ fill: color }} />
+          </g>
+        );
+      })}
+      {order.map((v) => (
+        <g key={String(v)}>
+          <circle cx={at.get(String(v))} cy={y} r={r} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
+          <text x={at.get(String(v))} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+        </g>
+      ))}
+      {caption ? <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
+    </svg>
+  );
+}
+
 {/* Beat 1 · the question, on class 1's malla; beat 2 is arc II's close. */}
 
 <Slide title="El orden de los ramos de una malla">
 
-{/* The malla as a DAG: an arc from each prerequisite to the course that */}
-{/* asks for it. In what order are the courses taken, so that each comes */}
-{/* after its prerequisites? Neither traversal gives it. [NodeGraph of the */}
-{/* six-course malla, the names in the caption] */}
+Una malla curricular es un grafo dirigido sin ciclos: un vértice por ramo y
+un arco de cada prerrequisito al ramo que lo pide. Un ramo se puede tomar
+cuando ya se aprobaron todos sus prerrequisitos. ¿En qué orden se toman los
+ramos, para que cada uno llegue después de los suyos? Ninguno de los dos
+recorridos lo responde: los dos pueden poner un ramo antes que su
+prerrequisito.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  caption="0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, 4 Ecuaciones, 5 Estructuras de Datos"
+  label="Una malla de seis ramos: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, 4 Ecuaciones y 5 Estructuras de Datos. Arcos de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones, de Álgebra a Ecuaciones, de Programación a Estructuras de Datos y de Álgebra a Estructuras de Datos."
+/>
 
 </Slide>
 
@@ -2101,29 +2152,80 @@ visita antes que su prerrequisito, y la búsqueda en anchura también.
 
 <Slide title="El orden topológico">
 
-{/* Defined by a drawing: the vertices on a line, every arc pointing to */}
-{/* the right. A cycle makes it impossible: some arc of the cycle points */}
-{/* left. [LineOrder: the malla in one valid order, all arcs right; the */}
-{/* depth-first order of arc II's malla, one arc left in red] */}
+Un **orden topológico** de un grafo dirigido pone sus vértices en una línea
+de modo que todos los arcos apunten hacia la derecha: cada vértice queda
+después de todos los que tienen un arco hacia él. En una malla, es un orden
+en que se pueden tomar los ramos. Un grafo con un ciclo no tiene ninguno: el
+ciclo vuelve a su primer vértice, así que alguno de sus arcos apunta hacia la
+izquierda.
+
+<LineOrder
+  order={[0, 1, 2, 3, 5, 4]}
+  arcs={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  caption="la malla en línea: todos los arcos hacia la derecha"
+  label="La malla en una línea, en el orden 0, 1, 2, 3, 5, 4. Cada arco se dibuja como un arco sobre la línea, y todos apuntan hacia la derecha."
+/>
+
+<LineOrder
+  order={["A", "C", "B"]}
+  arcs={[["A", "C"], ["A", "B"], ["B", "C"]]}
+  caption="A, C, B: el arco de B a C apunta hacia la izquierda"
+  label="Tres ramos en el orden A, C, B. Los arcos de A a C y de A a B apuntan hacia la derecha; el de B a C, en rojo, hacia la izquierda: C quedó antes que su prerrequisito."
+/>
 
 </Slide>
 
 <Slide title="Las fuentes de un grafo dirigido">
 
-{/* A source: a vertex no arc reaches, in-degree 0. Every DAG has one: */}
-{/* walk the incoming arcs backwards from any vertex; without a cycle no */}
-{/* vertex repeats, so the walk stops, at a source. [the malla with a */}
-{/* backward walk ending at a source] */}
+Una **fuente** es un vértice al que no llega ningún arco: su grado de entrada
+es 0. En una malla, las fuentes son los ramos que no piden ninguno, los que se
+pueden tomar primero. Todo grafo dirigido sin ciclos tiene al menos una
+fuente. Desde cualquier vértice, retrocedamos por un arco que llega a él, y
+desde ahí por otro, y así. Sin ciclos ningún vértice se repite, y como son
+finitos, el retroceso se detiene en un vértice al que no llega ningún arco:
+una fuente.
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  markEdges={[[3, 4], [0, 3]]}
+  tones={{ 4: 'mark', 3: 'mark', 0: 'keep' }}
+  caption="desde 4, hacia atrás: 3 y después 0, una fuente"
+  label="La malla. Desde 4, Ecuaciones, se retrocede por el arco que llega desde 3, Cálculo II, y desde ahí por el que llega desde 0, Cálculo I, al que no llega ningún arco: una fuente. Marcados los dos arcos del retroceso."
+/>
 
 </Slide>
 
 <Slide title="La regla de Kahn">
 
-{/* Take a source, put it next on the line, remove it with its arcs: */}
-{/* what is left is still a DAG, so it has a source again. Removing an arc */}
-{/* lowers its head's in-degree; a vertex whose in-degree reaches 0 is a */}
-{/* new source. Kahn, 1962. [the malla after removing two sources, the */}
-{/* new sources lit] */}
+La regla de Kahn, publicada en 1962, arma la línea de izquierda a derecha:
+**tomar una fuente, ponerla a continuación en la línea y sacarla del grafo con
+sus arcos.** Lo que queda sigue sin ciclos, así que tiene otra fuente, y la
+regla sigue hasta que no quedan vértices. Sacar un arco baja en uno el grado
+de entrada del vértice al que llega, y un vértice cuyo grado de entrada llega
+a 0 es una fuente nueva.
+
+<Pair>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  tones={{ 0: 'keep', 1: 'keep', 3: 'mark' }}
+  caption="sacadas 0 y 1: 3 es fuente nueva"
+  label="La malla después de sacar las fuentes 0 y 1, en verde. A 3, Cálculo II, ya no le llega ningún arco: es una fuente nueva, en amarillo."
+/>
+<LineOrder
+  order={[0, 1]}
+  arcs={[]}
+  caption="la línea, hasta ahora"
+  label="La línea hasta ahora: 0 y 1."
+/>
+</Pair>
 
 </Slide>
 
@@ -2131,42 +2233,320 @@ visita antes que su prerrequisito, y la búsqueda en anchura también.
 
 <Slide title="El grado de entrada en un grafo dirigido">
 
-{/* The in-degree of every vertex in one pass over every adj: */}
-{/* inDegrees(g), class 2's archived walk, ported. */}
+En un grafo dirigido, `adj(v)` entrega los arcos que **salen** de `v`, y
+`degrees(g)` cuenta el grado de salida. Los arcos que **llegan** a `v` no están
+en su lista: están repartidos en las listas de los otros vértices.
+`inDegrees(g)` los cuenta todos en una pasada: por cada arco $$v \to w$$, suma
+uno al grado de entrada de $$w$$.
+
+<StepShow
+  language="java"
+  beside
+  title="inDegrees(g) con listas dirigidas"
+  program={`int[] inDegree = Graphs.inDegrees(g);`}
+  codeSrc="./26-grafos-tda-modelado.code/Graphs.java"
+  codeRange="33-41"
+>
+  <Step lines={[34]} programLines={[1]} under={<OutputBox head="miradas" lines={['0 entradas']} rows={1} label="Hasta ahora, adj miró 0 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>new int[4]: un contador de arcos que llegan, uno por vértice, todos en 0.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 0, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[35, 36]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} fresh label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 0: adj(0) copia la lista de 0: 2 entradas.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 0: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 0], [0, 1]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 0, 0, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 0, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[36, 37]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 1: el arco 0→1 llega a 1, inDegree[1] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 1]]}
+        tones={{ 0: 'mark', 1: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 0→1."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 1 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 0, 0] }]} mark={[[0, 1]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 0, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[36, 37]} programLines={[1]} under={<OutputBox head="miradas" lines={['2 entradas']} rows={1} label="Hasta ahora, adj miró 2 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: el arco 0→2 llega a 2, inDegree[2] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[0, 2]]}
+        tones={{ 0: 'mark', 2: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 0→2."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[0, 1]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 2 de la lista de 0."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 1, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 1, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[35, 36]} programLines={[1]} under={<OutputBox head="miradas" lines={['3 entradas']} rows={1} fresh label="Hasta ahora, adj miró 3 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 1: adj(1) copia la lista de 1: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 1: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[1, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 1, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 1, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[36, 37]} programLines={[1]} under={<OutputBox head="miradas" lines={['3 entradas']} rows={1} label="Hasta ahora, adj miró 3 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 2: el arco 1→2 llega a 2, inDegree[2] pasa a 2.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[1, 2]]}
+        tones={{ 1: 'mark', 2: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 1→2."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[1, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 2 de la lista de 1."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 0] }]} mark={[[0, 2]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[35, 36]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} fresh label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 2: adj(2) copia la lista de 2: 1 entrada.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 2: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[2, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcada la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 0] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 0." />
+  </Step>
+  <Step lines={[36, 37]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>w = 3: el arco 2→3 llega a 3, inDegree[3] pasa a 1.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        markEdges={[[2, 3]]}
+        tones={{ 2: 'mark', 3: 'keep' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3; marcado el arco 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[[2, 0]]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía. Marcado el 3 de la lista de 2."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[[0, 3]]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+  <Step lines={[35, 36]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>v = 3: la lista de 3 está vacía; de 3 no sale ningún arco.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        tones={{ 3: 'mark' }}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+  <Step lines={[40]} programLines={[1]} under={<OutputBox head="miradas" lines={['4 entradas']} rows={1} label="Hasta ahora, adj miró 4 entradas." />}>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Retorna inDegree. adj miró las 4 entradas, una por arco.</div>
+    <Pair stack>
+      <NodeGraph
+        cols={3}
+        rows={3}
+        directed
+        nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 1 }, { v: 3, x: 1, y: 2 }]}
+        edges={[[0, 1], [0, 2], [1, 2], [2, 3]]}
+        label="El grafo dirigido con los arcos 0→1, 0→2, 1→2 y 2→3."
+      />
+      <AdjLists
+        lists={[[1, 2], [2], [3], []]}
+        mark={[]}
+        label="Las listas dirigidas: la de 0 tiene 1 y 2, la de 1 tiene 2, la de 2 tiene 3 y la de 3 está vacía."
+      />
+    </Pair>
+    <ArrayRows rows={[{ name: 'inDegree', cells: [0, 1, 2, 1] }]} mark={[]} cols={4} label="El arreglo inDegree: inDegree[0] = 0, inDegree[1] = 1, inDegree[2] = 2, inDegree[3] = 1." />
+  </Step>
+</StepShow>
+
+**Con las listas cuesta $$\Theta(V + E)$$**, y con la matriz $$\Theta(V^2)$$,
+como `degrees(g)`. Una pasada da el grado de entrada de todos los vértices a
+la vez; repetir la pasada para cada vértice costaría $$V$$ veces más.
 
 </Slide>
 
 <Slide title="El código del orden topológico">
 
-{/* Topological, quoted from 27-grafos-recorridos.code/: inDegrees, the */}
-{/* queue of the first sources, then take, append, lower. [GraphWalk kahn */}
-{/* over the malla: inDegree and order under the listing, the queue of */}
-{/* sources beside the graph] */}
+La clase `Topological` arma la línea en su constructor. `inDegrees(g)` da el
+grado de entrada de cada vértice, y una cola guarda las fuentes que esperan:
+las del comienzo y las que van apareciendo. Cada fuente que sale de la cola
+pasa a `order` y baja el grado de entrada de los vértices a los que apunta.
+
+<GraphWalk
+  beside
+  algorithm="kahn"
+  directed
+  title="new Topological(g) en la malla"
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 4, x: 4, y: 0 }, { v: 5, x: 2, y: 2 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  cols={5}
+  rows={3}
+  program={`Graph g = new AdjListDigraph(6);
+Graphs.readEdges(in, g);
+Topological plan = new Topological(g);`}
+  programLines={[3]}
+  codeSrc="./27-grafos-recorridos.code/Topological.java"
+  codeRange="11-28"
+  lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
+  label="Una malla de seis ramos: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, 4 Ecuaciones y 5 Estructuras de Datos. Arcos de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones, de Álgebra a Ecuaciones, de Programación a Estructuras de Datos y de Álgebra a Estructuras de Datos."
+/>
 
 </Slide>
 
 <Slide title="Un ciclo en la malla">
 
-{/* With a cycle the queue empties before every vertex is on the line. */}
-{/* Every vertex left over has an arc coming from another leftover vertex: */}
-{/* walking those arcs backwards repeats a vertex, a cycle. hasOrder() is */}
-{/* false. [a malla with a cycle, the leftovers in red, their arcs lit] */}
+Con un ciclo, la cola se vacía antes de que todos los vértices lleguen a la
+línea. Cada vértice que quedó fuera tiene todavía un arco que llega desde
+otro vértice que también quedó fuera: si viniera de uno de la línea, ese arco
+ya se habría sacado. Retrocediendo por esos arcos algún vértice se repite, y
+eso es un ciclo. `hasOrder()` es falso.
+
+<GraphWalk
+  beside
+  algorithm="kahn"
+  directed
+  title="new Topological(g) en una malla con un error"
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 2, y: 2 }]}
+  edges={[[0, 1], [1, 2], [2, 1], [3, 2]]}
+  cols={5}
+  rows={3}
+  program={`Topological plan = new Topological(g);`}
+  programLines={[1]}
+  codeSrc="./27-grafos-recorridos.code/Topological.java"
+  codeRange="11-28"
+  lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
+  label="Una malla con un error: 0 Cálculo I, 1 Cálculo II, 2 Ecuaciones y 3 Álgebra. Arcos de Cálculo I a Cálculo II, de Cálculo II a Ecuaciones, de Ecuaciones a Cálculo II y de Álgebra a Ecuaciones: Cálculo II y Ecuaciones se piden entre sí."
+/>
 
 </Slide>
 
 <Slide title="Varios órdenes válidos">
 
-{/* When several sources wait, any can go next: a DAG may have many */}
-{/* topological orders, all valid. [LineOrder twice: the malla in two */}
-{/* orders, every arc right in both] */}
+Cuando varias fuentes esperan, cualquiera puede ir primero, y cada elección
+da otra línea. Un grafo dirigido sin ciclos puede tener muchos órdenes
+topológicos, y todos sirven: en una malla, cada uno es una forma de tomar los
+ramos. La cola de `Topological` da uno; otra regla para elegir la fuente da
+otro.
+
+<LineOrder
+  order={[0, 1, 2, 3, 5, 4]}
+  arcs={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  caption="el orden de la cola: 0, 1, 2, 3, 5, 4"
+  label="La malla en el orden 0, 1, 2, 3, 5, 4, todos los arcos hacia la derecha."
+/>
+
+<LineOrder
+  order={[2, 1, 5, 0, 3, 4]}
+  arcs={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  caption="otro orden válido: 2, 1, 5, 0, 3, 4"
+  label="La malla en el orden 2, 1, 5, 0, 3, 4: también todos los arcos hacia la derecha."
+/>
 
 </Slide>
 
 <Slide title="El costo del orden topológico">
 
-{/* inDegrees reads every list once; each vertex enters the queue once */}
-{/* and its arcs are lowered once: Θ(V + E) with lists, Θ(V²) with the */}
-{/* matrix. */}
+La regla recorre el grafo una vez para contar los grados de entrada, y otra
+para sacar los arcos:
+
+- **Con las listas, $$\Theta(V + E)$$.** `inDegrees(g)` lee cada lista una
+  vez; después, cada vértice entra a la cola y sale de ella una vez, y cada
+  arco baja un grado de entrada una vez.
+- **Con la matriz, $$\Theta(V^2)$$.** Cada `adj(v)` recorre una fila
+  completa.
+- **Memoria, $$\Theta(V)$$**: `inDegree`, la cola y `order`.
 
 </Slide>
 
@@ -2174,27 +2554,88 @@ visita antes que su prerrequisito, y la búsqueda en anchura también.
 
 <Slide title="Orden topológico">
 
-{/* The named problem, «¿En qué orden se hacen las cosas?», and the malla's */}
-{/* own question: in how many semesters, at least? Kahn by rounds, each */}
-{/* round every current source: the rounds are the semesters (the course's */}
-{/* own addition: no canonical source teaches it). [Semesters.java; the */}
-{/* malla by semesters] */}
+Ordenar las cosas para que cada una vaya después de las que necesita es el
+problema del **orden topológico**: ¿en qué orden se hacen las cosas? La malla
+pregunta además otra cosa: si en cada semestre se toman todos los ramos que
+ya se pueden tomar, ¿en cuántos semestres, como mínimo, se terminan? La regla
+de Kahn por rondas la responde: cada ronda toma todas las fuentes del
+momento, y las rondas son los semestres. Con un ciclo no se terminan nunca, y
+el método retorna −1.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/Semesters.java" range="13-28" />
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 1 }, { v: 2, x: 0, y: 2 }, { v: 3, x: 2, y: 0 }, { v: 5, x: 2, y: 2 }, { v: 4, x: 4, y: 0 }]}
+  edges={[[0, 3], [3, 4], [1, 4], [2, 5], [1, 5]]}
+  directed
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'mark', 5: 'mark' }}
+  caption="tres semestres: 0, 1 y 2; 3 y 5; 4"
+  label="La malla por semestres: en el primero, Cálculo I, Álgebra y Programación; en el segundo, Cálculo II y Estructuras de Datos; en el tercero, Ecuaciones."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Las referencias circulares de una hoja de cálculo">
 
-{/* A cell's formula reads other cells: an arc from each cell read to the */}
-{/* cell that reads it. The sheet computes its cells in a topological */}
-{/* order, and a circular reference is a cycle Kahn leaves over. [a small */}
-{/* sheet, its graph, the cycle in red] */}
+En una hoja de cálculo, la fórmula de una celda lee otras celdas. Con un arco
+de cada celda leída a la celda que la lee, la hoja calcula sus celdas en un
+orden topológico: cada una después de las que lee. Una **referencia
+circular**, una celda que a través de otras termina leyéndose a sí misma, es
+un ciclo, y `Topological` la detecta: quedan celdas fuera de la línea.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/CircularReferences.java" range="5-15" />
+
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 'A1', x: 0, y: 0 }, { v: 'B1', x: 2, y: 0 }, { v: 'C1', x: 2, y: 2 }, { v: 'D1', x: 0, y: 2 }]}
+  edges={[['A1', 'B1'], ['C1', 'B1'], ['B1', 'C1'], ['A1', 'D1']]}
+  directed
+  tones={{ B1: 'flag', C1: 'flag', A1: 'keep', D1: 'keep' }}
+  caption="B1 = A1 + C1 y C1 = B1 * 2: una referencia circular"
+  label="Cuatro celdas: A1 vale 5; B1 = A1 + C1; C1 = B1 * 2; D1 = A1 + 1. Arcos de A1 a B1, de C1 a B1, de B1 a C1 y de A1 a D1. B1 y C1, en rojo, se leen entre sí: un ciclo."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Una receta">
 
-{/* The steps of a recipe, each after the ones it needs: any topological */}
-{/* order is a way to cook it. [the recipe's DAG and one order on a line] */}
+Los pasos de una receta también tienen un orden: cada uno va después de los
+que necesita. Con un arco de cada paso a los que dependen de él, la receta es
+un grafo dirigido sin ciclos, y cualquier orden topológico es una forma de
+prepararla. El mismo `Topological` da uno.
+
+<Pair>
+<NodeGraph
+  cols={5}
+  rows={4}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 0, y: 2 }, { v: 2, x: 2, y: 1 }, { v: 3, x: 2, y: 3 }, { v: 4, x: 4, y: 2 }]}
+  edges={[[0, 2], [1, 2], [2, 4], [3, 4]]}
+  directed
+  caption="0 batir, 1 tamizar, 2 mezclar, 3 precalentar, 4 hornear"
+  label="Una receta de cinco pasos: 0 batir los huevos, 1 tamizar la harina, 2 mezclar, 3 precalentar el horno y 4 hornear. Arcos de 0 y de 1 a 2, y de 2 y de 3 a 4."
+/>
+<LineOrder
+  order={[0, 1, 3, 2, 4]}
+  arcs={[[0, 2], [1, 2], [2, 4], [3, 4]]}
+  caption="el orden de Topological: 0, 1, 3, 2, 4"
+  label="La receta en el orden que da Topological: batir, tamizar, precalentar, mezclar y hornear. Todos los arcos hacia la derecha."
+/>
+</Pair>
 
 </Slide>
 
