@@ -40,7 +40,7 @@ orden en que se recorre decide qué pregunta responde.
 export function Maze({ grid, numbers = false, ends, ways = false, tones = {}, thread = [], caption, label }) {
   const cell = 40;
   const pad = 14;
-  const side = ends ? 72 : pad;
+  const side = ends ? 88 : pad;
   const rows = grid.length;
   const cols = grid[0].length;
   const gridW = cols * cell;
@@ -1574,30 +1574,102 @@ Si no alcanza todo el grafo, cuesta lo que mide la parte que alcanza.
 
 <Slide title="Alcanzabilidad">
 
-{/* «¿Puedo llegar de aquí a allá?», the named problem, and a new */}
-{/* application with the same code: does the light reach this house?, on a */}
-{/* power network read as an edge list with Graphs.readEdges. [the network: */}
-{/* the plant, the poles, the houses; the dark houses in red] */}
+Saber si desde un vértice se llega a otro es un problema con nombre, la
+**alcanzabilidad**: ¿se puede llegar de aquí a allá? La búsqueda en
+profundidad lo responde para todos los vértices a la vez: después de una
+búsqueda desde el origen, `hasPathTo(t)` dice si se llega a `t`.
+
+El mismo código responde una situación nueva. En una red eléctrica, la
+central, los postes y las casas son los vértices, y cada cable es una arista.
+Cuando un cable se corta, la luz llega solo a lo que se alcanza desde la
+central. El programa lee la red como una lista de aristas, busca desde la
+central e imprime los vértices que quedan a oscuras:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/PowerOutage.java" range="5-14" />
+
+<NodeGraph
+  cols={8}
+  rows={3}
+  nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 1 }, { v: 2, x: 5, y: 1 }, { v: 3, x: 7, y: 1 }, { v: 4, x: 3, y: 2 }, { v: 5, x: 5, y: 2 }, { v: 6, x: 7, y: 0 }, { v: 7, x: 7, y: 2 }]}
+  edges={[[0, 1], [1, 2], [1, 4], [2, 5], [3, 6], [3, 7]]}
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 4: 'keep', 5: 'keep', 3: 'flag', 6: 'flag', 7: 'flag' }}
+  caption="0 es la central; el cable 2-3 se cortó: 3, 6 y 7 quedan sin luz"
+  label="Una red eléctrica: la central 0, los postes 1, 2 y 3, y las casas 4 a 7. Cables: 0-1, 1-2, 1-4, 2-5, 3-6 y 3-7; el cable entre 2 y 3 se cortó. En verde lo que se alcanza desde la central: 0, 1, 2, 4 y 5. En rojo lo que queda a oscuras: 3, 6 y 7."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Componentes conexas">
 
-{/* «¿En cuántos pedazos se parte?»: one search from each unmarked vertex, */}
-{/* each one a piece. With an array id[], each vertex knows its piece. */}
-{/* Application: the roads missing to join the towns are the components */}
-{/* minus one. [a graph with three components, one colour each; the code */}
-{/* of the outer loop] */}
+Una búsqueda desde un vértice marca todo lo que se alcanza desde él: su
+pedazo del grafo. Esos pedazos son las **componentes conexas**, y contarlas
+responde otro problema con nombre: ¿en cuántos pedazos se parte el grafo? Se
+lanza una búsqueda desde cada vértice que siga sin marcar, y cada búsqueda
+nueva es una componente nueva. El arreglo `id` guarda en cada vértice el
+número de su componente, así que `connected(v, w)` es comparar dos casillas.
+Todas las búsquedas juntas marcan cada vértice una vez: $$\Theta(V + E)$$
+con las listas.
+
+Una aplicación: para unir todas las ciudades de un mapa con caminos, los
+caminos que faltan son las componentes menos una, uno entre cada par de
+pedazos que se van uniendo.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/ConnectedComponents.java" range="6-25" />
+
+<NodeGraph
+  cols={9}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }, { v: 3, x: 4, y: 0 }, { v: 4, x: 4, y: 2 }, { v: 5, x: 6, y: 0 }, { v: 6, x: 7, y: 2 }, { v: 7, x: 8, y: 0 }]}
+  edges={[[0, 1], [1, 2], [0, 2], [3, 4], [5, 6], [6, 7]]}
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'mark', 4: 'mark' }}
+  notes={{ 0: 'id 0', 1: 'id 0', 2: 'id 0', 3: 'id 1', 4: 'id 1', 5: 'id 2', 6: 'id 2', 7: 'id 2' }}
+  caption="tres componentes: faltan dos caminos para unirlas"
+  label="Un grafo de ocho vértices en tres pedazos: 0, 1 y 2 unidos en un triángulo; 3 y 4 unidos; 5, 6 y 7 en una fila. Junto a cada vértice, su id: 0 para el primer pedazo, 1 para el segundo y 2 para el tercero."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 {/* Beat 6 · the question it leaves open, which opens arc II. */}
 
-<Slide title="La búsqueda en profundidad no da el camino más corto">
+<Slide title="Un camino que no es el más corto">
 
-{/* On slide 1's maze, the DFS path winds, and a shorter one is drawn */}
-{/* beside it. At least how many steps to get out? That question opens */}
-{/* the BFS arc. [the grid with both paths: DFS's and a shorter one] */}
+La búsqueda en profundidad responde si se llega, y `pathTo` da un camino: el
+hilo, que sigue por donde la búsqueda avanzó primero. No es, en general, el
+más corto. Cuando el laberinto tiene más de un camino a la salida, el de la
+búsqueda en profundidad puede dar vueltas, y al lado hay otro con menos pasos.
+
+¿Con cuántos pasos, como mínimo, se llega a la salida?
+
+<Pair>
+<Maze
+  grid={["....", ".#..", "...."]}
+  numbers
+  ends={[0, 11]}
+  thread={[0, 4, 8, 9, 10, 6, 2, 3, 7, 11]}
+  caption="pathTo(11) de la búsqueda en profundidad: 9 pasos"
+  label="Un laberinto de tres por cuatro con un solo muro, en la celda 5. El camino que da pathTo(11) después de una búsqueda en profundidad desde 0: 0, 4, 8, 9, 10, 6, 2, 3, 7, 11, nueve pasos."
+/>
+<Maze
+  grid={["....", ".#..", "...."]}
+  numbers
+  ends={[0, 11]}
+  thread={[0, 1, 2, 3, 7, 11]}
+  caption="otro camino: 5 pasos"
+  label="El mismo laberinto con otro camino de 0 a 11: 0, 1, 2, 3, 7, 11, cinco pasos."
+/>
+</Pair>
 
 </Slide>
 
