@@ -2860,6 +2860,236 @@ check(Solution.islands(big), 1);
 
 </Slide>
 
+{/* River — the ferryman's crossing at two stages of the modelling pattern (#356, moved here from class 2 by #363): `river` the two banks, the river and the boat, with the ferryman, the wolf, the goat and the cabbage on the starting bank; `states` two trips written as states, what stays on the starting bank, so the state graph beside it reads. File-local. */}
+
+export function River({ stage = 'river', label }) {
+  const tag = (x, y, t, k) => (
+    <g key={k}>
+      <rect x={x - 42} y={y - 12} width="84" height="24" rx="12" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.2" />
+      <text x={x} y={y + 4} textAnchor="middle" fontSize="12" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{t}</text>
+    </g>
+  );
+  const arrow = (x1, x2, y, text, k) => (
+    <g key={k}>
+      <line x1={x1} y1={y} x2={x2 - 8} y2={y} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
+      <polygon points={`${x2},${y} ${x2 - 9},${y - 5} ${x2 - 9},${y + 5}`} style={{ fill: 'var(--color-ink-soft)' }} />
+      <text x={(x1 + x2) / 2} y={y + 18} textAnchor="middle" fontSize="10.5" style={{ fill: 'var(--color-ink-soft)' }}>{text}</text>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 320 180" style={{ width: '100%', maxWidth: '340px', height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {stage === 'river' ? (
+        <>
+          <rect x="112" y="8" width="96" height="164" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1" />
+          {['barquero', 'lobo', 'cabra', 'repollo'].map((t, k) => tag(56, 34 + 38 * k, t, t))}
+          <polygon points="122,82 168,82 160,100 130,100" style={{ fill: 'var(--color-rule-strong)' }} />
+          <line x1="128" y1="66" x2="192" y2="66" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" strokeDasharray="4 4" />
+          <polygon points="200,66 191,61 191,71" style={{ fill: 'var(--color-ink-soft)' }} />
+          <text x="264" y="94" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>la otra orilla</text>
+        </>
+      ) : (
+        <>
+          {tag(52, 52, 'BLCR', 'a')}
+          {arrow(98, 222, 52, 'cruza con la cabra', 'x')}
+          {tag(268, 52, 'LR', 'b')}
+          {tag(52, 128, 'LR', 'c')}
+          {arrow(98, 222, 128, 'vuelve solo', 'y')}
+          {tag(268, 128, 'BLR', 'd')}
+        </>
+      )}
+    </svg>
+  );
+}
+
+<Slide title="El barquero">
+
+Un barquero tiene que cruzar un río con un lobo, una cabra y un repollo. El
+bote lleva al barquero y a lo más una cosa más. Si el barquero no está, el
+lobo se come a la cabra, y la cabra se come el repollo. ¿Con cuántos viajes,
+como mínimo, cruzan todos, y cuáles son?
+
+**Entrada.** Ninguna: el acertijo es siempre el mismo.
+
+**Salida.** Los estados del cruce con menos viajes, del primero al último.
+
+<River stage="river" label="Un río entre dos orillas. En la orilla de partida están el barquero, el lobo, la cabra y el repollo, y en el agua, el bote, con una flecha hacia la otra orilla." />
+
+</Slide>
+
+<Slide title="Barquero · el modelo">
+
+- **Los vértices** son los estados: quién está en cada orilla. Con cuatro
+  personajes, un estado son cuatro bits, uno por personaje, en 1 si está en
+  la otra orilla: un número de 0 a 15. Se parte de 0 y se llega a 15.
+- **Las aristas** son los viajes: el barquero cambia de orilla, solo o con
+  una cosa de su orilla, y no deja a nadie en peligro. Son sin dirección,
+  porque un viaje se deshace con el viaje de vuelta, y sin peso.
+- **La pregunta**: el camino más corto de 0 a 15, con sus estados.
+- **El tamaño**: 16 estados, y desde cada uno a lo más cuatro viajes.
+
+<NodeGraph
+  cols={12}
+  rows={3}
+  nodes={[{ v: 'BLCR', x: 0, y: 1 }, { v: 'LR', x: 1.5, y: 1 }, { v: 'BLR', x: 3, y: 1 }, { v: 'R', x: 4.5, y: 0 }, { v: 'L', x: 4.5, y: 2 }, { v: 'BCR', x: 6, y: 0 }, { v: 'BLC', x: 6, y: 2 }, { v: 'C', x: 7.5, y: 1 }, { v: 'BC', x: 9, y: 1 }, { v: 'nadie', x: 10.5, y: 1 }]}
+  edges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['BLR', 'L'], ['R', 'BCR'], ['L', 'BLC'], ['BCR', 'C'], ['BLC', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  tones={{ BLCR: 'mark', nadie: 'keep' }}
+  caption="en la orilla de partida: B, el barquero; L, el lobo; C, la cabra; R, el repollo"
+  label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
+/>
+
+</Slide>
+
+<Slide title="Barquero · los viajes en código">
+
+`side` dice en qué orilla está un personaje. `safe` dice si un estado deja a
+alguien en peligro: la cabra sin el barquero, junto al lobo o al repollo.
+`moves` da los viajes desde un estado: el barquero cruza solo, o con un
+personaje de su orilla, y el estado al que llega cambia esos bits con un
+`^`:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+<SourceFile src="./27-grafos-recorridos.code/barquero/Solution.java" range="16-25" />
+
+<SourceFile src="./27-grafos-recorridos.code/barquero/Solution.java" range="27-38" />
+
+</Split>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Barquero · la idea">
+
+La pregunta pide el menor número de viajes: un camino más corto sin pesos.
+Una búsqueda en anchura desde 0, con los vecinos que da `moves`, llena `prev`;
+al terminar, seguir `prev` desde 15 hasta 0 y darlo vuelta con una pila da
+los estados del cruce, y su largo es la cantidad de viajes.
+
+<NodeGraph
+  cols={12}
+  rows={3}
+  nodes={[{ v: 'BLCR', x: 0, y: 1 }, { v: 'LR', x: 1.5, y: 1 }, { v: 'BLR', x: 3, y: 1 }, { v: 'R', x: 4.5, y: 0 }, { v: 'L', x: 4.5, y: 2 }, { v: 'BCR', x: 6, y: 0 }, { v: 'BLC', x: 6, y: 2 }, { v: 'C', x: 7.5, y: 1 }, { v: 'BC', x: 9, y: 1 }, { v: 'nadie', x: 10.5, y: 1 }]}
+  edges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['BLR', 'L'], ['R', 'BCR'], ['L', 'BLC'], ['BCR', 'C'], ['BLC', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  markEdges={[['BLCR', 'LR'], ['LR', 'BLR'], ['BLR', 'R'], ['R', 'BCR'], ['BCR', 'C'], ['C', 'BC'], ['BC', 'nadie']]}
+  tones={{ BLCR: 'mark', nadie: 'keep' }}
+  caption="en la orilla de partida: B, el barquero; L, el lobo; C, la cabra; R, el repollo"
+  label="Los diez estados del cruce, nombrados por lo que sigue en la orilla de partida. BLCR, destacado, es el comienzo, y nadie, destacado, es el final. BLCR se une con LR, LR con BLR, y BLR con R y con L. R se une con BCR y L con BLC; BCR y BLC se unen con C, C con BC, y BC con nadie."
+/>
+
+</Slide>
+
+<Slide title="Barquero · la solución">
+
+`crossings` es la búsqueda en anchura sobre los 16 estados, con `marked` y
+`prev` en arreglos indexados por el estado, y el camino de vuelta desde 15:
+
+<SourceFile src="./27-grafos-recorridos.code/barquero/Solution.java" range="40-66" />
+
+</Slide>
+
+<Slide title="Barquero · casos y costo">
+
+- **Dos cruces con siete viajes**: después del tercer estado, el barquero
+  puede llevar primero el lobo o primero el repollo. La búsqueda en anchura
+  da uno, el que alcanza primero según el orden de `moves`.
+- **Ningún cruce tiene menos de siete viajes**: el estado 15 está en la capa
+  7 de la búsqueda.
+- **Costo**: cada estado se marca una vez y prueba a lo más cuatro viajes. En
+  un acertijo con $$k$$ personajes, los estados son $$2^k$$: el costo crece
+  con el grafo de estados, no con la entrada, que no hay.
+
+</Slide>
+
+<Slide title="Barquero · el programa completo">
+
+<PresentationWide fraction={0.75}>
+<Exercise title="El barquero">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Queue;
+import java.util.Stack;
+
+class Solution {
+    // Bit 0 is the ferryman, bit 1 the wolf, bit 2 the goat and bit 3 the
+    // cabbage; a bit in 1 means it is on the far bank.
+    static final int FERRYMAN = 1;
+    static final int WOLF = 2;
+    static final int GOAT = 4;
+    static final int CABBAGE = 8;
+
+    static boolean side(int state, int who) {
+        return (state & who) != 0;
+    }
+
+    static boolean safe(int state) {
+        boolean alone = side(state, GOAT) != side(state, FERRYMAN);
+        boolean wolf = side(state, WOLF) == side(state, GOAT);
+        boolean cabbage = side(state, CABBAGE) == side(state, GOAT);
+        return !(alone && (wolf || cabbage));
+    }
+
+    static List<Integer> moves(int state) {
+        List<Integer> result = new ArrayList<>();
+        for (int who : new int[] {0, WOLF, GOAT, CABBAGE}) {
+            if (who == 0 || side(state, who) == side(state, FERRYMAN)) {
+                int next = state ^ FERRYMAN ^ who;
+                if (safe(next)) {
+                    result.add(next);
+                }
+            }
+        }
+        return result;
+    }
+
+    static List<Integer> crossings() {
+        int[] prev = new int[16];
+        Arrays.fill(prev, -1);
+        boolean[] marked = new boolean[16];
+        Queue<Integer> queue = new ArrayDeque<>();
+        marked[0] = true;
+        queue.add(0);
+        while (!queue.isEmpty()) {
+            int v = queue.remove();
+            for (int w : moves(v)) {
+                if (!marked[w]) {
+                    marked[w] = true;
+                    prev[w] = v;
+                    queue.add(w);
+                }
+            }
+        }
+        Stack<Integer> back = new Stack<>();
+        for (int x = 15; x != -1; x = prev[x]) {
+            back.push(x);
+        }
+        List<Integer> path = new ArrayList<>();
+        while (!back.empty()) {
+            path.add(back.pop());
+        }
+        return path;
+    }
+}
+```
+
+```java test
+check(Solution.crossings(), java.util.Arrays.asList(0, 5, 4, 7, 2, 11, 10, 15));
+check(Solution.crossings().size() - 1, 7);
+check(Solution.safe(0), true);
+check(Solution.safe(1), false);
+check(Solution.safe(5), true);
+check(Solution.moves(0), java.util.Arrays.asList(5));
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
 <SectionBreak />
 
 ## Más allá de los recorridos
