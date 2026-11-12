@@ -760,9 +760,11 @@ like when they were written out, and of the traps that come with hand-writing
 them.
 
 **Check every `<Step lines={[…]}>` against its own fence, in the browser.**
-`lines` is unvalidated data: `CodeStepper` silently drops an out-of-range
-number, so a wrong-but-in-range one is invisible to every gate, to the build
-and to the suite. #277 shipped two off-by-ones this way — both introduced by
+In a written listing `lines` is unvalidated data: `CodeStepper` silently drops
+an out-of-range number, so a wrong-but-in-range one is invisible to every
+gate, to the build and to the suite. (A listing quoted from a file numbers
+the FILE's lines, and a line outside its range is an authoring error —
+`add-a-course-document.md` §5i; a wrong-but-in-range one is still yours.) #277 shipped two off-by-ones this way — both introduced by
 re-wrapping a guard onto two lines and renumbering the steps by hand — and
 what found them was the cheapest possible check: **when two steppers share a
 listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
@@ -917,7 +919,8 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       every `id` prefixed per figure. Nothing enforces any of it — and it
       was looked at over both grounds anyway.
 - [ ] Every `<Step lines={[…]}>` read back against its own fence — counting
-      from 1, blank lines included — and against the step's caption AND its
+      from 1, blank lines included; for a listing quoted with `codeSrc`, the
+      FILE's numbers — and against the step's caption AND its
       drawing: the line lit must be the line the caption says just ran.
       `CodeStepper` drops an out-of-range number silently, so a
       wrong-but-in-range one survives the build, the suite, the preview and
@@ -957,9 +960,11 @@ wins — #304's planner orders its tasks with one comparator lambda and an
       (which would add an untitled slide instead). **A slide carrying a
       `<StepShow>` or a `<SequenceStepper>` is measured at EVERY frame**,
       stepping through with the widget's own control: the deck re-measures
-      on every resize (`SlideDeck.tsx`'s `ResizeObserver`) and a walk mounts
-      one frame at a time, so a frame that grows — a tree that gains a level —
-      can shrink the slide where the first frame did not. **Every frame of
+      on every resize (`SlideDeck.tsx`'s `ResizeObserver`), and a
+      `<SequenceStepper>` mounts one frame at a time, so a frame that grows —
+      a tree that gains a level — can shrink the slide where the first frame
+      did not. (`<StepShow>` lays every frame in one cell since #363, so its
+      box holds; its drawing can still shift inside it.) **Every frame of
       one walk sits at the SAME scale, at or above the floor**: a scale
       that moves between frames is a frame that changes size, and the fix is
       to reserve the largest frame (`frontend-code-style.md` §Styling; worked

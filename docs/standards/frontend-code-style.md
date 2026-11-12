@@ -369,12 +369,14 @@ src/
   flip, frame after frame, from a reader opening and closing a panel seconds
   apart — without it that click pinned the slide at its smaller scale.
 - **On a fitted slide, a frame sequence keeps one size from frame to frame.**
-  The deck rescales on any change of the content's size, so a widget or a
-  `<StepShow>` whose frames differ in height rescales the whole slide as the
-  reader steps, and a drawing whose size follows the slide's width can chase
-  the scale it causes. Reserve the largest frame instead: every narration
-  drawn in one grid cell, invisible but the current one (`NarrationStrip`'s
-  `reserve`); drawings capped in absolute units, never a percentage of a box
+  The deck rescales on any change of the content's size, so a widget whose
+  frames differ in height rescales the whole slide as the reader steps, and
+  a drawing whose size follows the slide's width can chase the scale it
+  causes. Reserve the largest frame instead: every narration drawn in one
+  grid cell, invisible but the current one (`NarrationStrip`'s `reserve`,
+  and `<StepShow>`'s `FrameStack` for its frames since #363 — which, in the
+  book, lays only the current and last frames of a walk far from the
+  viewport, measured in its comment); drawings capped in absolute units, never a percentage of a box
   with no height (`sequenceStepperTreeView.tsx`); room for the most items a
   figure will hold (Árboles II's `PendingStack`, always three). All three are
   #322's; sweep every frame of a stepper slide for one scale

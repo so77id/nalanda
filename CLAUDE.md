@@ -54,7 +54,8 @@ This file holds **monorepo-shared** instructions only. Each app has its own
   the TDA card, the invariant list, the cost table with its invariant column,
   and the closing trade) — and, for any solvable problem the document poses,
   `docs/standards/guides/write-an-exercise.md` (the five beats, and the rule
-  that nothing is called before it is written).
+  that nothing is called before it is written; for a graph exercise, its
+  protocol and checklist).
   The four are read together, before drafting.
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —

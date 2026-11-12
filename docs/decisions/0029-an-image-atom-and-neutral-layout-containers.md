@@ -29,6 +29,9 @@ its drawing), and #321 makes a listing beside a drawing part of its API. Miguel'
 next behaviour either container borrows from the other is the one that
 merges them.** `add-a-course-document.md` §5c and §6b say which to use until
 then.
+**Amended by:** #363 (2026-11-07) — §5's rewrite also covers any `<thing>Src`
+attribute, and an `asset:` key of a `.java` file resolves through
+`lib/contentCode.ts`, not `lib/contentAssets` (ADR-0091).
 
 ## Context
 

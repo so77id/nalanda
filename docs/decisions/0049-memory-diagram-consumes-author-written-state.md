@@ -3,6 +3,9 @@
 **Status:** Accepted
 **Amended by:** #277 (2026-09-08) — the hand-written volume this ADR priced,
 and the failure mode the price did not cover (§Addendum — #277).
+**Amended by:** #363 (2026-11-12) — the code side may hold up to three
+listings and a per-step `under`; every step's frame is laid in one cell
+(§Addendum — #363).
 **Date:** 2026-08-19
 **Decision-makers:** Miguel Rodriguez
 **Covers:** `<StepShow>` + `<Step>` + `<CodeStepper>` as the generic "code
@@ -316,3 +319,30 @@ scale. Above it the answer is a widget with a pure trace module, which is what
 #288 decides for the same unit in ADR-0074 (`SequenceStepper`). Read the two
 together: 0049 says the author writes the state, 0074 says that stops scaling
 somewhere and names where.
+
+## Addendum — #363 (2026-11-12)
+
+§Consequences promised an amendment when the contract needed a shape this
+decision did not anticipate. #363 needed four, and #357's walks build on them:
+
+1. **The code side is one to three listings**, not one: `program` over
+   `helper` over `code`, each lit by its own `<Step>` prop (`programLines`,
+   `helperLines`, `lines`), for a walk whose lesson is a call and what it does
+   inside. Each may be quoted from a file instead of written (ADR-0091).
+2. **`<Step under>`** puts what the program holds after the step in the code
+   column, under the listings.
+3. **`ratio`** splits a `beside` slide between code and drawing, from a closed
+   set (`55/45`, `50/50`, `60/40`, `40/60`); anything else is an authoring
+   error, because MDX props are not type-checked.
+4. **Every step's frame is mounted**, not only the current one: the drawings
+   and the `under` slots are laid in one grid cell, only the current one
+   visible, so the widget — and the slide that scales to fit it — keeps the
+   size of its largest frame from step 1 (Miguel: «que tengan el tamaño final
+   desde el comienzo»). In the book that doubled the page that mounts 23
+   walks (#363's review, production build: 57k elements against 28k, longest
+   task 1.7 s against 0.9 s), so a walk far from the viewport lays only its
+   current frame and its last, and lays them all within a screen of it (32k,
+   0.95 s). Rejected: mounting all frames always (the cost above), and
+   current-plus-last always (2 of the 33 frame stacks have a larger frame
+   before the last, and would resize mid-walk).
+

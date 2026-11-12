@@ -4,7 +4,13 @@
 **Date:** 2026-11-07
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #363 (Grafos · TDA y modelado). Numbered 0091 to clear
-`0090-*`, held by the unmerged branch of the pen-trace widget.
+`0090-*`, held by the unmerged branch of the pen-trace widget. Extends
+ADR-0029 §5 (what `remarkContentImages` rewrites, and who resolves an
+`asset:` key) and ADR-0049 (the `<StepShow>` contract).
+**Amended by:** #363's review (2026-11-12) — a later class may quote an
+earlier class's files, and a worked exercise's starter carries its
+`Solution.java` verbatim, checked by the suite (§Addendum).
+
 
 ## Context
 
@@ -34,7 +40,7 @@ way to open the whole file.
    exercise when two would share a name (`amigos/Solution.java`). The files are
    course material like its figures: under `content/`, published with it.
 2. **A listing names a file and a range** instead of carrying the text:
-   `<SourceFile src="./….code/Graph.java" range="12-16" />` for a static
+   `<SourceFile src="./….code/AdjMatrixGraph.java" range="15-19" />` for a static
    listing, `codeSrc` / `programSrc` / `helperSrc` with `…Range` on
    `<StepShow>`. The path is relative to the document and goes through the same
    rewrite as a figure's `src` (`remarkContentImages`, which since #363
@@ -42,7 +48,7 @@ way to open the whole file.
    resolves it against an eager `?raw` glob of `content/**/*.java`, imported
    only by the two widgets, which ship behind lazy wrappers.
 3. **A quoted listing shows where it is.** Its header names the file and the
-   range (`líneas 15–19 de 33`), its gutter counts as the file does, a fold row
+   range (`líneas 15–19 de 35`), its gutter counts as the file does, a fold row
    counts the lines left out above and below, and «Ver archivo» opens every
    file of the listing whole, one tab each, the quoted lines banded and — in a
    walk — the step's lines lit. A `<Step>`'s `lines` name FILE lines.
@@ -61,8 +67,12 @@ way to open the whole file.
 - The exercises' runnable `<Exercise>` starters still carry their own copy: an
   exercise compiles one source, and the harness does not read these files.
   Running the quoted files is a separate idea (a Discussion), not this ADR.
+  The copy is the `class Solution` verbatim, and the suite checks it
+  (§Addendum).
 - A missing file is an authoring error on the page, the way an unresolved
-  figure renders broken: the build does not fail on it.
+  figure renders broken: the build does not fail on it, but the suite does —
+  `content/architecture.test.ts` checks every relative `src` and
+  `<thing>Src` against the filesystem (#363's review).
 - In `npm run dev`, a `.java` file added after the server started can stay out
   of the glob; touching `lib/contentCode.ts` or restarting the server picks it up.
 
@@ -75,3 +85,23 @@ way to open the whole file.
   edits better, but put teaching markup into the code the reader opens whole.
 - **Keep the copies and lint them against each other.** Catches drift after the
   fact and still gives no real numbers or whole file.
+
+## Addendum — #363's review (2026-11-12)
+
+**A later class quotes an earlier class's files.** The graphs unit's next
+class (#357) walks the same `Graph` and `AdjListGraph`. Miguel chose one copy
+over one per class: a document may quote `../26-grafos-tda-modelado.code/…`,
+which resolves like any relative path. What the later class adds goes in its
+own `<doc>.code/`, never into the earlier file, whose ranges other slides
+quote; and a file another document quotes is not edited without moving that
+document's ranges too. Rejected: a copy per class, which brings back problem 1
+of the Context between classes.
+
+**An exercise's starter carries its solution verbatim.** The review found the
+city exercise's starter rewrapped against `ciudad/Solution.java`, so the walk's
+file numbers did not match the runnable listing. Every `<doc>.code/<exercise>/
+Solution.java` now has its `class Solution` contained, character for
+character, in a `java starter` fence of its document, and
+`content/architecture.test.ts` fails otherwise; the same suite checks every
+`<StepShow>`'s quoted ranges against its steps.
+

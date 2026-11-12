@@ -71,7 +71,9 @@ export interface StepShowProps {
    * `code`. For a walk whose lesson is a call and what it does inside — the
    * calls `addEdge(0, 1)`, `addEdge(0, 2)`… over `addEdge` itself (#363) —
    * the way `<SequenceStepper program>` sets a program beside its method
-   * (#322). Without it the widget shows `code` alone, unheaded, as before.
+   * (#322). Without it the widget shows `code` alone — unheaded unless it
+   * has a name (`codeName`, or the file `codeSrc` quotes) or a step has
+   * `under`.
    */
   program?: string;
   /**
@@ -240,11 +242,16 @@ export function StepShow({
   // Every step's frame is laid in one cell so the widget keeps its final size
   // from the first step (#363) — but a book page mounts every walk at once,
   // and all frames of all walks doubled the page's DOM and its first-load
-  // freeze (measured in #363's review: 57k elements against 28k, the longest
-  // task 1.7 s against 0.9 s). So a walk far from the viewport keeps only the
-  // current frame and the last one, which is the biggest in 31 of the 33
-  // walks #363 ships; once it comes within a screen of the viewport it lays
-  // every frame, and any growth that brings happens off-screen. On a slide
+  // freeze. So a walk far from the viewport keeps only the current frame and
+  // the last one, which is the biggest in 31 of the 33 frame stacks #363
+  // ships (23 walks, 10 of them with an `under` column); once it comes within
+  // a screen of the viewport it lays every frame, and any growth that brings
+  // happens off-screen. Measured in #363's review (2026-11-12), production
+  // build, /d/grafos-tda-modelado in the book at 1440x900: every frame laid,
+  // 57k elements and a 1.7 s longest task (7.5 s at 4x CPU); only the current
+  // frame, 28k and 0.9 s; this, 32k and 0.95 s (4.0 s at 4x). Across the 66
+  // walks of the site, three grow when they lay every frame — two older ones
+  // by 98 and 28 px, which a jump straight onto them shows for one frame. On a slide
   // the walk is on screen from the start, and only that slide is mounted.
   const [nearView, setNearView] = useState(() => typeof IntersectionObserver !== 'function');
   useEffect(() => {
@@ -313,7 +320,7 @@ export function StepShow({
       </AuthoringError>
     );
   }
-  if (!(ratio in BESIDE_COLUMNS)) {
+  if (!Object.hasOwn(BESIDE_COLUMNS, ratio)) {
     return (
       <AuthoringError component="StepShow">
         no conoce la proporción <code>ratio=&quot;{ratio}&quot;</code>: usa una de{' '}
@@ -397,15 +404,16 @@ export function StepShow({
   // The files behind the listings, whole, for the viewer: each with the lines
   // its listing quotes and the lines this step lights, in the file's numbering.
   // A listing opens its tab by position, so one file quoted twice gets two.
-  const fileBacked = listings.filter(
-    (l) => l.spec.source !== undefined && l.spec.excerpt !== undefined,
-  );
-  const files: ViewerFile[] = fileBacked.map(({ spec, linesOf }) => ({
-    name: spec.name ?? '',
-    source: spec.source!,
-    first: spec.excerpt!.first,
-    last: spec.excerpt!.last,
-    lines: [...linesOf(current)],
+  const fileBacked = listings.flatMap((listing) => {
+    const { source, excerpt } = listing.spec;
+    return source === undefined || excerpt === undefined ? [] : [{ listing, source, excerpt }];
+  });
+  const files: ViewerFile[] = fileBacked.map(({ listing, source, excerpt }) => ({
+    name: listing.spec.name ?? '',
+    source,
+    first: excerpt.first,
+    last: excerpt.last,
+    lines: [...listing.linesOf(current)],
   }));
   const first = clamped === 0;
   const last = clamped === count - 1;
@@ -466,7 +474,7 @@ export function StepShow({
             {listings.map((listing, i) => {
               const { role, spec, fallback, linesOf } = listing;
               const lit = linesOf(current);
-              const fileIndex = fileBacked.indexOf(listing);
+              const fileIndex = fileBacked.findIndex((f) => f.listing === listing);
               return (
                 <CodeListing
                   key={role}

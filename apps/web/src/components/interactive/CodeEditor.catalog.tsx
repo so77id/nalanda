@@ -57,6 +57,12 @@ export const codeEditorCatalogEntry: CatalogEntry = {
         'Header chrome: language picker (only when editable), file name, warm chip, fullscreen button.',
     },
     {
+      name: 'fileName',
+      type: 'string',
+      description:
+        "The file this listing stands for, shown in the header instead of the runtime's own (Main.java). Only where `showFileName` is on. A markdown fence reaches it by naming the file in its info string, ```java file=Graph.java (MdxPre, #363, ADR-0091 §5): a fence shows a name only when its author writes one.",
+    },
+    {
       name: 'showLineNumbers / showFoldGutter / showCopy',
       type: 'boolean',
       description:

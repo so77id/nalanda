@@ -789,7 +789,15 @@ page-only, invisible to every other gate.
   frames share an object id; both themes at ≥1440px in the reading page and
   in the presentation slide. The state-shape checks the widget refuses
   before rendering (duplicate `object.id`, `ref` at an unknown id) DO have
-  suite coverage in `MemoryVisual.test.tsx` and can stay there.
+  suite coverage in `MemoryVisual.test.tsx` and can stay there. With a
+  listing quoted from a file (#363, ADR-0091), add the viewer: «Ver archivo»
+  opens one tab per listing (one file quoted twice gives two), the quoted
+  lines banded and the step's lines lit; ← and → step the walk from inside it
+  while focus stays in it (on the dialog, or on the tab the reader focused);
+  Escape closes it, returns focus to «Ver archivo» and leaves the slide where
+  it was; on an emulated phone the overlay clears the URL bar
+  (`h-[100dvh]`). And a slide's scale stays the same at every step of a walk
+  (`teach-a-data-structure.md` §Checklist).
 
   For `PredictOutput`, add: the reveal panel prints what the snippet actually
   printed (never an authored string), the diagnostics panel names the right
