@@ -305,8 +305,9 @@ cables que quedan, como una lista de aristas, con la central en el vértice 0.
 El preorden de un árbol visita un nodo y después recorre cada hijo con la misma
 regla. En un árbol, cada nodo conoce a sus hijos y cada arista se recorre una
 sola vez, hacia abajo: desde la raíz, la regla llega a todos los nodos que
-cuelgan de ella, una vez a cada uno. Una red, en cambio, sabe los vecinos de
-cada vértice, no cuáles son sus hijos.
+cuelgan de ella, una vez a cada uno. Si la red fuera un árbol con raíz en la
+central, el preorden desde la central llegaría justo a lo que tiene luz. Una
+red, en cambio, sabe los vecinos de cada vértice, no cuáles son sus hijos.
 
 <NodeGraph
   cols={7}
@@ -706,8 +707,9 @@ La pila de llamadas guarda cada llamada a medio camino; esta guarda los
 vértices pendientes, y saca primero el último que entró. Si el último vértice
 marcado apiló vecinos, sigue por uno de ellos, en profundidad; si no apiló
 ninguno, vuelve al pendiente más reciente, como la recursión cuando una llamada
-termina. Visita los vecinos en orden inverso, y un vértice puede quedar dos
-veces en la pila: por eso se revisa al sacarlo.
+termina. Visita los vecinos en el orden inverso al de su lista: el último que
+apila es el primero que saca. Un vértice puede quedar dos veces en la pila: por
+eso se revisa al sacarlo.
 
 <Pair stack>
 <NodeGraph
@@ -804,8 +806,9 @@ vez: en total, la búsqueda lee cada lista de adyacencia una sola vez.
   curso, y en cada una la copia de su lista que entrega `adj(v)`; en total,
   hasta $$2E$$ entradas.
 - **Memoria de la versión con pila, $$O(V + E)$$**: `marked`, y una pila que
-  recibe un vértice cada vez que se apila, hasta una vez por arista, más el
-  origen.
+  recibe el origen y, por cada arista, a lo más un vértice: lo apila el extremo
+  que se marca primero, porque cuando se marca el otro, el primero ya está
+  marcado.
 
 Si la búsqueda no alcanza todo el grafo, recorre solo la parte que alcanza, más
 crear `marked`, de $$V$$ casillas.
@@ -1164,9 +1167,10 @@ ya es desde la capa más cercana.
 
 <Slide title="La búsqueda en anchura">
 
-La regla marca al encolar: **sacar el vértice del frente de la cola, y por cada
-vecino sin marcar, marcarlo, anotar en `dist` su distancia, la del vértice más
-uno, anotar en `prev` desde qué vértice se llegó, y encolarlo.**
+La regla marca al encolar: **marcar el origen, con `dist` 0, y encolarlo;
+mientras la cola no esté vacía, sacar el vértice del frente, y por cada vecino
+sin marcar, marcarlo, anotar en `dist` su distancia, la del vértice más uno,
+anotar en `prev` desde qué vértice se llegó, y encolarlo.**
 
 Un vértice marcado no vuelve a entrar, así que cada uno entra a la cola una sola
 vez, y la distancia que recibe es la de su capa. Avanza capa por capa, a lo
@@ -1195,11 +1199,13 @@ valores.** Al sacar un vértice con `dist` $$d$$, sus vecinos nuevos reciben
 $$d + 1$$ y van al final, así que la invariante sigue valiendo y los vértices
 salen de la cola en orden de `dist`.
 
-Un vértice `w` que se ve por primera vez desde `v` recibe
-`dist[w] = dist[v] + 1`. Si hubiera un camino más corto hasta `w`, el vértice
-anterior a `w` en ese camino estaría más cerca que `v`: habría salido antes de
-la cola y, al salir, habría visto a `w`. Nadie lo vio antes, así que no hay
-camino más corto, y `dist[w]` es la distancia.
+Se prueba por inducción en la distancia: los vértices más cercanos al origen
+que `w` ya tienen su distancia en `dist`. Un vértice `w` que se ve por primera
+vez desde `v` recibe `dist[w] = dist[v] + 1`. Si hubiera un camino más corto
+hasta `w`, el vértice anterior a `w` en ese camino tendría un `dist` menor que
+el de `v`: habría salido de la cola antes que `v` y, al salir, habría visto a
+`w`. Nadie lo vio antes, así que no hay camino más corto, y `dist[w]` es la
+distancia.
 
 <Pair>
 <ArrayRows
@@ -1427,10 +1433,10 @@ a su primer vértice.
 
 <Pair>
 <LineOrder
-  order={[0, 1, 5, 2, 4, 3]}
+  order={[1, 2, 0, 4, 5, 3]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   caption="la malla: todos los arcos hacia la derecha"
-  label="La malla en una línea, en el orden 0, 1, 5, 2, 4, 3. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
+  label="La malla en una línea, en el orden 1, 2, 0, 4, 5, 3. Cada arco se dibuja sobre la línea, y todos apuntan hacia la derecha."
 />
 <LineOrder
   order={[0, 1, 2]}
