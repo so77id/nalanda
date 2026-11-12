@@ -128,8 +128,11 @@ Three ways to animate the walks were weighed with Miguel in S3.
   `inDegree` and the list `order` go under the listing, the queue of sources
   beside the graph, and **the line** under it: the vertices in the order
   they were appended, each arc between two of them a bow above, every one
-  pointing right — the drawing that defines a topological order. A cycle
-  leaves its vertices off the line, painted red at the end. Planned in S14,
+  pointing right — the drawing that defines a topological order. An arc
+  leaves the graph's drawing at the frame where it stops counting (`lower`),
+  as the rule says to take the source out with its arcs (the plan v2's third
+  adversarial review). A cycle leaves its vertices off the line, painted red
+  at the end. Planned in S14,
   built in S15.
 
 ## Alternatives considered
