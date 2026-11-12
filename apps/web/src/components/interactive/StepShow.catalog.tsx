@@ -93,9 +93,9 @@ export const stepShowCatalogEntry: CatalogEntry = {
     },
     {
       name: 'ratio',
-      type: 'string',
+      type: "'55/45' | '50/50' | '60/40' | '40/60'",
       description:
-        'With `beside`, how the slide splits between code and drawing, as "code/drawing" percentages; default "55/45". "40/60" for short listings beside a drawing of two pictures stacked (#363). Ignored in the book and without `beside`.',
+        'With `beside`, how the slide splits between code and drawing, as "code/drawing" percentages; default "55/45". "50/50" or "40/60" for short listings beside a drawing of two pictures stacked, "60/40" for a wide program (#363). Any other value renders an authoring error. Ignored in the book and without `beside`.',
     },
     {
       name: 'codeName',

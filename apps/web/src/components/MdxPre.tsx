@@ -8,6 +8,11 @@ interface Props {
   children?: ReactNode;
 }
 
+/** The file a fence names in its meta, `file=Graph.java`, or undefined. */
+function fileOf(meta: string | null): string | undefined {
+  return meta === null ? undefined : /(?:^|\s)file=(\S+)/.exec(meta)?.[1];
+}
+
 /**
  * Every `<pre>` a document produces — the seam where a markdown fence becomes a
  * component.
@@ -30,11 +35,6 @@ interface Props {
  * (#85 AC11, measured at 1440px and 390px; the rule for authors is in
  * `guides/add-a-course-document.md` step 3).
  */
-/** The file a fence names in its meta, `file=Graph.java`, or undefined. */
-function fileOf(meta: string | null): string | undefined {
-  return meta === null ? undefined : /(?:^|\s)file=(\S+)/.exec(meta)?.[1];
-}
-
 export function MdxPre({ children }: Props) {
   const fence = fenceOf(children);
   if (!fence || !isRuntimeId(fence.language)) return <pre>{children}</pre>;

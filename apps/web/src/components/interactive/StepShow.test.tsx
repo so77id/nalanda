@@ -1,10 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
-import { besideColumns } from './stepShowLayout';
 
 // The breakout writes width/marginLeft after MEASURING an ancestor transform,
 // which jsdom cannot produce — so the hook is stubbed and what the test pins
@@ -159,11 +158,80 @@ describe('StepShow', () => {
     const states = () => frames().map((f) => f.dataset.stepshowFrame);
     expect(states()).toEqual(['current', 'reserved']);
     for (const f of frames().filter((f) => f.dataset.stepshowFrame === 'reserved')) {
-      expect(f.style.visibility).toBe('hidden');
+      expect(f.className).toMatch(/\binvisible\b/);
       expect(f.getAttribute('aria-hidden')).toBe('true');
     }
     fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect(states()).toEqual(['reserved', 'current']);
+  });
+
+  it('far from the viewport lays only the current frame and the last, then all of them', () => {
+    // A book page mounts every walk at once, and every frame of every walk
+    // doubled #363's page (its review measured it). Far away a walk keeps the
+    // current frame and the last as the sizer; within a screen it lays all.
+    const observers: { cb: IntersectionObserverCallback; options?: IntersectionObserverInit }[] =
+      [];
+    class FakeObserver {
+      constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        observers.push({ cb, options });
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver);
+    try {
+      const { container } = render(
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+          <Step lines={[3]}>
+            <span>c</span>
+          </Step>
+        </StepShow>,
+      );
+      const texts = () =>
+        [...container.querySelectorAll('[data-stepshow-frame]')].map((f) => f.textContent);
+      expect(texts()).toEqual(['a', 'c']);
+
+      const near = observers.find((o) => o.options?.rootMargin !== undefined)!;
+      act(() =>
+        near.cb(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+      expect(texts()).toEqual(['a', 'b', 'c']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('lays every frame on a slide from the start', () => {
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    try {
+      const { container } = render(
+        <ModeProvider mode="presentation">
+          <StepShow code={CODE} language="java">
+            <Step lines={[1]}>a</Step>
+            <Step lines={[2]}>b</Step>
+            <Step lines={[3]}>c</Step>
+          </StepShow>
+        </ModeProvider>,
+      );
+      expect(container.querySelectorAll('[data-stepshow-frame]')).toHaveLength(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('advances with Next, retreats with Previous, and jumps back with Reset', () => {
@@ -369,11 +437,66 @@ describe('StepShow', () => {
     expect([lit(0), lit(1)]).toEqual([[2], [8]]);
   });
 
-  it('reads a beside ratio as the two columns, and falls back on a malformed one', () => {
-    expect(besideColumns('40/60')).toBe('minmax(0,40fr) minmax(0,60fr)');
-    expect(besideColumns(undefined)).toBeUndefined();
-    expect(besideColumns('40')).toBeUndefined();
-    expect(besideColumns('0/100')).toBeUndefined();
+  it('splits a beside slide by the ratio asked for', () => {
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} beside ratio="40/60">
+          <Step lines={[1]}>uno</Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    expect(container.querySelector('[data-layout]')?.className).toContain(
+      'grid-cols-[minmax(0,2fr)_minmax(0,3fr)]',
+    );
+  });
+
+  it('refuses a ratio it does not know, rather than falling back in silence', () => {
+    render(
+      // @ts-expect-error — MDX props are not type-checked; this is the typo it can carry.
+      <StepShow code={CODE} beside ratio="45/55">
+        <Step lines={[1]}>uno</Step>
+      </StepShow>,
+    );
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/45\/55/);
+  });
+
+  it('refuses a listing given both written and quoted from a file', () => {
+    render(
+      <StepShow code={CODE} codeSrc="asset:x.code/Graph.java">
+        <Step lines={[1]}>uno</Step>
+      </StepShow>,
+    );
+    expect(document.querySelector('[data-authoring-error]')?.textContent).toMatch(/codeSrc/);
+  });
+
+  it('refuses a step that lights a line outside the quoted range, naming the step', () => {
+    render(
+      <StepShow codeSrc="asset:x.code/Graph.java" codeRange="3-4">
+        <Step lines={[3]}>uno</Step>
+        <Step lines={[5]}>dos</Step>
+      </StepShow>,
+    );
+    const banner = document.querySelector('[data-authoring-error]')?.textContent ?? '';
+    expect(banner).toMatch(/paso 2/);
+    expect(banner).toMatch(/línea 5/);
+  });
+
+  it('opens the right tab when one file is quoted twice', () => {
+    render(
+      <StepShow
+        programSrc="asset:x.code/Graph.java"
+        programRange="1-2"
+        codeSrc="asset:x.code/Graph.java"
+        codeRange="3-4"
+      >
+        <Step lines={[4]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: /ver archivo/i })[1]!);
+    const tabs = within(screen.getByRole('dialog')).getAllByRole('tab');
+    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['false', 'true']);
   });
 
   it('sets a helper between the program and the listing, lit on its own', () => {
@@ -506,6 +629,18 @@ describe('StepShow', () => {
     render(
       <StepShow code={CODE} program={'f();'} language="java">
         <Step lines={[7]} programLines={[1]} under={<span>a = true</span>}>
+          <span>dibujo</span>
+        </Step>
+      </StepShow>,
+    );
+
+    expect(screen.getByTestId('stepshow-under').textContent).toBe('a = true');
+  });
+
+  it('keeps a step’s `under` with a lone unnamed listing', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[7]} under={<span>a = true</span>}>
           <span>dibujo</span>
         </Step>
       </StepShow>,

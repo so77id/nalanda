@@ -383,9 +383,13 @@ describe('architecture: content invariants', () => {
   // Deliberately a second opinion rather than a re-run of `remarkContentImages`:
   // this reads the source and touches the filesystem, so a bug in the plugin's
   // path arithmetic cannot make both agree that a missing file is fine.
-  describe('every image a document references is a file that exists', () => {
+  describe('every file a document references exists', () => {
     const MARKDOWN_IMAGE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
-    const JSX_SRC = /\bsrc=(?:"([^"]+)"|'([^']+)')/g;
+    // `src`, and any `<thing>Src` — the files a `<StepShow>` quotes (ADR-0091),
+    // the same attributes `remarkContentImages` resolves (`isFileAttribute`).
+    // A typo there paints a red box behind a lazy widget, which no render test
+    // reaches (apps/web/CLAUDE.md class 4), so this is the only gate it has.
+    const JSX_SRC = /\b(?:src|[a-z]+Src)=(?:"([^"]+)"|'([^']+)')/g;
     // Anything with a scheme, protocol-relative, or already rooted is not ours.
     const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
 
@@ -402,6 +406,10 @@ describe('architecture: content invariants', () => {
       referencesIn(key).map((url) => ({ key, url }) as const),
     );
 
+    it('finds the listings’ files among them (guards the <thing>Src half)', () => {
+      expect(withImages.some(({ url }) => url.includes('.code/'))).toBe(true);
+    });
+
     it('finds image references to check', () => {
       expect(
         withImages.length,
@@ -415,7 +423,7 @@ describe('architecture: content invariants', () => {
         const file = join(dirname(join(APP_ROOT, key)), url);
         expect(
           existsSync(file),
-          `${key} references "${url}", which is not a file. Draw it, or fix the path — it renders as a broken box and would ship that way.`,
+          `${key} references "${url}", which is not a file. Draw or write it, or fix the path — it renders as a broken box (or a red one) and would ship that way.`,
         ).toBe(true);
       },
     );

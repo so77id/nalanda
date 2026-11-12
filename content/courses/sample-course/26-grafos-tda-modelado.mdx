@@ -8762,17 +8762,20 @@ class Solution {
                 }
             }
         }
-        WeightedGraph g = new WeightedListGraph(names.size());
+        WeightedGraph g =
+                new WeightedListGraph(names.size());
         for (String line : roads) {
             String[] parts = line.split(" ");
-            g.addEdge(ids.get(parts[0]), ids.get(parts[1]),
+            g.addEdge(ids.get(parts[0]),
+                    ids.get(parts[1]),
                     Integer.parseInt(parts[2]));
         }
         String[] result = new String[g.V()];
         for (int v = 0; v < g.V(); v++) {
             Edge best = null;
             for (Edge e : g.adj(v)) {
-                if (best == null || e.weight < best.weight) {
+                if (best == null
+                        || e.weight < best.weight) {
                     best = e;
                 }
             }
