@@ -698,8 +698,9 @@ alcanzado. Después, `marked(v)` dice si la búsqueda llegó a `v`.
 <Slide title="La búsqueda en profundidad con una pila">
 
 La misma búsqueda se escribe con una pila propia, un `Stack` que el programa
-maneja, en lugar de la pila de llamadas de Java, que tiene un límite. La regla: **sacar un vértice; si ya está
-marcado, descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
+maneja, en lugar de la pila de llamadas de Java. La regla: **apilar el origen
+y, mientras la pila no esté vacía, sacar un vértice; si ya está marcado,
+descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
 La pila de llamadas guarda cada llamada a medio camino; esta guarda los
 vértices pendientes, y saca primero el último que entró. Si el último vértice
@@ -842,8 +843,9 @@ sin marcar.
 
 <Slide title="La salida de un laberinto">
 
-Un laberinto es un grafo implícito: sus vecinos se calculan con una regla
-cuando se piden, en vez de leerse de una matriz o de unas listas. Las celdas
+Un laberinto tiene una entrada y una salida, y entre ellas pasillos y muros.
+¿Se llega a la salida, y por qué celdas? El laberinto es un grafo implícito:
+sus vecinos se calculan con una regla cuando se piden, en vez de leerse de una matriz o de unas listas. Las celdas
 libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y la
 columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que comparten
 un lado están unidas.
@@ -878,8 +880,8 @@ el que se pasa, preferir los pasillos sin marcas y volver atrás cuando no
 quedan. La búsqueda marca cada celda por la que pasa, como con una tiza: la tiza
 es `marked`.
 
-Para saber por dónde va, anota además en cada celda desde qué celda llegó:
-`prev[w] = v`. Seguir `prev` desde la celda en curso lleva hasta la entrada: es
+Para saber por dónde va, anota además en cada celda `w` a la que llega la celda
+`v` desde la que llegó: `prev[w] = v`. Seguir `prev` desde la celda en curso lleva hasta la entrada: es
 el hilo de Ariadna, que en el mito une a Teseo con la entrada.
 
 <Maze
@@ -1187,33 +1189,36 @@ search_ (BFS).
 
 <Slide title="Por qué la distancia es la mínima">
 
-La búsqueda en anchura mantiene una invariante: **la cola tiene a lo más dos
-capas seguidas, primero vértices de una capa $$d$$ y detrás vértices de la capa
-$$d + 1$$.** Al sacar un vértice de la capa $$d$$, sus vecinos nuevos van al
-final, a la capa $$d + 1$$, y la invariante sigue valiendo.
+La búsqueda en anchura mantiene una invariante: **la cola tiene primero
+vértices con `dist` $$d$$ y detrás vértices con `dist` $$d + 1$$, nunca otros
+valores.** Al sacar un vértice con `dist` $$d$$, sus vecinos nuevos reciben
+$$d + 1$$ y van al final, así que la invariante sigue valiendo y los vértices
+salen de la cola en orden de `dist`.
 
-Por eso los vértices salen en orden de distancia. Cuando un vértice `w` se ve por primera vez, desde
-`v`, ya salieron todos los vértices más cercanos que `v` y ninguno lo vio: no
-hay un camino más corto hasta `w`, y `dist[w] = dist[v] + 1` es definitiva.
+Un vértice `w` que se ve por primera vez desde `v` recibe
+`dist[w] = dist[v] + 1`. Si hubiera un camino más corto hasta `w`, el vértice
+anterior a `w` en ese camino estaría más cerca que `v`: habría salido antes de
+la cola y, al salir, habría visto a `w`. Nadie lo vio antes, así que no hay
+camino más corto, y `dist[w]` es la distancia.
 
 <Pair>
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["1 Beto", "2 Carla"] }, { name: 'capa', head: ["", ""], cells: [1, 1] }]}
+  rows={[{ name: 'cola', head: ["frente", ""], cells: ["1 Beto", "2 Carla"] }, { name: 'dist', head: ["", ""], cells: [1, 1] }]}
   cols={3}
   caption="después de sacar a 0 Ana"
-  label="La cola después de sacar a Ana, del frente al final: Beto y Carla, los dos de la capa 1."
+  label="La cola después de sacar a Ana, del frente al final: Beto y Carla, los dos con dist 1."
 />
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["2 Carla", "3 Diego"] }, { name: 'capa', head: ["", ""], cells: [1, 2] }]}
+  rows={[{ name: 'cola', head: ["frente", ""], cells: ["2 Carla", "3 Diego"] }, { name: 'dist', head: ["", ""], cells: [1, 2] }]}
   cols={3}
   caption="después de sacar a 1 Beto"
-  label="La cola después de sacar a Beto: Carla, de la capa 1, y detrás Diego, de la capa 2."
+  label="La cola después de sacar a Beto: Carla, con dist 1, y detrás Diego, con dist 2."
 />
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente"], cells: ["3 Diego"] }, { name: 'capa', head: [""], cells: [2] }]}
+  rows={[{ name: 'cola', head: ["frente"], cells: ["3 Diego"] }, { name: 'dist', head: [""], cells: [2] }]}
   cols={3}
   caption="después de sacar a 2 Carla"
-  label="La cola después de sacar a Carla: solo Diego, de la capa 2."
+  label="La cola después de sacar a Carla: solo Diego, con dist 2."
 />
 </Pair>
 
@@ -1361,7 +1366,7 @@ primera copia que entra es la primera que sale.
 
 </Slide>
 
-<Slide title="Un orden para cosas que dependen de otras">
+<Slide title="Un orden con prerrequisitos">
 
 Los dos recorridos dicen qué se alcanza desde un vértice, y la búsqueda en
 anchura, a qué distancia. Cuando unas cosas dependen de otras, como los ramos de
