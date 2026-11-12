@@ -1281,20 +1281,30 @@ Live: `/catalog/c/SequenceStepper`.
      (the default); `dfs-iterative`, the same search with a `Stack` of its
      own, which marks on pop; `dfs-mark-on-push`, the tempting version that
      marks on push and does not walk depth first — its listing lives only on
-     its slide, so it is written inline.
+     its slide, so it is written inline; `bfs`, the breadth-first search
+     with a queue, which marks on enqueue and keeps `dist`; and
+     `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice
+     and is written inline too.
    - **Every event needs its lines**; one left out is an authoring error. For
      `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`,
      `return`. For `dfs-iterative`: `pushStart` (the stack and its first
      push), `pop`, `skip` (`if (marked[v]) continue`), `mark`, `look`,
      `prev`, `push`, `end` (the loop's test). For `dfs-mark-on-push`: the
-     same without `skip`, plus `markStart` (`marked[s] = true`).
+     same without `skip`, plus `markStart` (`marked[s] = true`). For `bfs`:
+     `markStart`, `distStart` (`dist[s] = 0`), `enqueueStart`, `dequeue`,
+     `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For
+     `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`,
+     `enqueue`, `end`.
    - **What a frame draws**: the vertex the walk is on in mark — the running
      call, or the vertex last popped —, the ones already finished or reached
      in keep, the way back to the start (the thread) and the edge being
      looked at as marked edges, the call stack or the walk's own stack beside
      the graph, and `marked` and `prev` under the listing, the cell just
      written in mark. Marking on push, a neighbour skipped though the walk
-     never reached it is painted red. One step per assignment, per neighbour
+     never reached it is painted red. A breadth-first walk draws its queue,
+     front first, adds `dist` under the listing and writes each reached
+     vertex's distance beside it (`d=…`); marking on dequeue, a vertex
+     enqueued while it is already in the queue is painted red. One step per assignment, per neighbour
      looked at, per call and per return: a walk over six vertices runs about
      36 steps, so a slide walks a graph of four or five.
    - **The recursive and the iterative search are not paired** line by line

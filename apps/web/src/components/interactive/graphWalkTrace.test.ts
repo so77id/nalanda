@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjacencyOf, traceDfs, traceDfsStack, traceGridDfs } from './graphWalkTrace';
+import { adjacencyOf, traceBfs, traceDfs, traceDfsStack, traceGridDfs } from './graphWalkTrace';
 
 describe('adjacencyOf', () => {
   it('appends both ends of an undirected edge, in the order the edges arrive (AdjListGraph.addEdge)', () => {
@@ -328,5 +328,88 @@ describe('traceGridDfs (the depth-first search over a maze)', () => {
     expect(() => traceGridDfs(['.x'], 0)).toThrow(RangeError);
     expect(() => traceGridDfs(MAZE, 3)).toThrow(RangeError);
     expect(() => traceGridDfs(MAZE, 12)).toThrow(RangeError);
+  });
+});
+
+const DIAMOND = adjacencyOf(4, [
+  [0, 1],
+  [0, 2],
+  [1, 3],
+  [2, 3],
+]);
+// The five-vertex graph of arc I: 0-1, 0-2, 1-3, 2-3, 3-4.
+const FIVE = adjacencyOf(5, [
+  [0, 1],
+  [0, 2],
+  [1, 3],
+  [2, 3],
+  [3, 4],
+]);
+
+describe('traceBfs, marking on enqueue (the breadth-first search)', () => {
+  it('marks the start, writes its distance, enqueues it, then dequeues, looks, marks, sets dist and prev, enqueues', () => {
+    const events = traceBfs(DIAMOND, 0, 'push').map((f) => f.event);
+    expect(events.slice(0, 9)).toEqual([
+      'markStart',
+      'distStart',
+      'enqueueStart',
+      'dequeue',
+      'look',
+      'mark',
+      'dist',
+      'prev',
+      'enqueue',
+    ]);
+    expect(events.at(-1)).toBe('end');
+  });
+
+  it('visits by layers and gives each vertex its distance from the start', () => {
+    const last = traceBfs(FIVE, 0, 'push').at(-1)!;
+    expect(last.order).toEqual([0, 1, 2, 3, 4]);
+    expect(last.dist).toEqual([0, 1, 1, 2, 3]);
+    expect(last.prev).toEqual([-1, 0, 0, 1, 3]);
+  });
+
+  it('enqueues every vertex once', () => {
+    const enqueued = traceBfs(DIAMOND, 0, 'push').filter((f) => f.event === 'enqueue');
+    expect(enqueued.map((f) => f.w)).toEqual([1, 2, 3]);
+    expect(enqueued.some((f) => f.twice)).toBe(false);
+  });
+
+  it('keeps the queue front first', () => {
+    const f = traceBfs(DIAMOND, 0, 'push').find((x) => x.event === 'enqueue' && x.w === 2)!;
+    expect(f.stack).toEqual([1, 2]);
+  });
+
+  it('never reaches a vertex with no path from the start, whose dist stays −1', () => {
+    const last = traceBfs(adjacencyOf(3, [[0, 1]]), 0, 'push').at(-1)!;
+    expect(last.dist).toEqual([0, 1, -1]);
+  });
+});
+
+describe('traceBfs, marking on dequeue (the tempting version)', () => {
+  it('enqueues a vertex twice when two vertices of one layer reach it', () => {
+    const frames = traceBfs(DIAMOND, 0, 'pop');
+    const enqueued = frames.filter((f) => f.event === 'enqueue');
+    expect(enqueued.map((f) => [f.v, f.w, f.twice])).toEqual([
+      [0, 1, false],
+      [0, 2, false],
+      [1, 3, false],
+      [2, 3, true],
+    ]);
+    expect(frames.filter((f) => f.event === 'skip').map((f) => f.v)).toEqual([3]);
+  });
+
+  it('keeps neither dist nor prev', () => {
+    const last = traceBfs(DIAMOND, 0, 'pop').at(-1)!;
+    expect(last.dist).toBeNull();
+    expect(last.prev).toEqual([-1, -1, -1, -1]);
+  });
+
+  it('says a vertex not yet marked is already in the queue', () => {
+    const look = traceBfs(DIAMOND, 0, 'pop').find(
+      (f) => f.event === 'look' && f.v === 2 && f.w === 3,
+    )!;
+    expect(look.text).toBe('Mira el vecino 3 de 2: no está marcado, aunque ya está en la cola.');
   });
 });

@@ -9,6 +9,64 @@ const DFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/DepthFirs
 const ITER_SRC =
   'asset:courses/sample-course/27-grafos-recorridos.code/IterativeDepthFirstPaths.java';
 const MAZE_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/MazeDepthFirstPaths.java';
+const BFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/BreadthFirstPaths.java';
+
+// The breadth-first search's bfs starts at 22.
+const BFS_LINES = {
+  markStart: 24,
+  distStart: 25,
+  enqueueStart: [23, 26],
+  dequeue: [27, 28],
+  look: [29, 30],
+  mark: 31,
+  dist: 32,
+  prev: 33,
+  enqueue: 34,
+  end: 27,
+};
+
+// The tempting breadth-first search marks on dequeue: written inline.
+const ON_POP = `private void bfs(Graph g, int s) {
+    Queue<Integer> queue = new ArrayDeque<>();
+    queue.add(s);
+    while (!queue.isEmpty()) {
+        int v = queue.remove();
+        if (marked[v]) {
+            continue;
+        }
+        marked[v] = true;
+        for (int w : g.adj(v)) {
+            if (!marked[w]) {
+                queue.add(w);
+            }
+        }
+    }
+}`;
+
+const ON_POP_LINES = {
+  enqueueStart: [2, 3],
+  dequeue: [4, 5],
+  skip: [6, 7],
+  mark: 9,
+  look: [10, 11],
+  enqueue: 12,
+  end: 4,
+};
+
+const DIAMOND = [
+  { v: 0, x: 1, y: 0 },
+  { v: 1, x: 0, y: 1 },
+  { v: 2, x: 2, y: 1 },
+  { v: 3, x: 1, y: 2 },
+];
+
+const FIVE = [
+  { v: 0, x: 0, y: 1 },
+  { v: 1, x: 2, y: 0 },
+  { v: 2, x: 2, y: 2 },
+  { v: 3, x: 4, y: 1 },
+  { v: 4, x: 6, y: 1 },
+];
 
 const PROGRAM = `Graph g = new AdjListGraph(6);
 Graphs.readEdges(in, g);
@@ -97,16 +155,16 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   name: 'GraphWalk',
   family: 'interactive',
   description:
-    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. The recursive one also walks a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `marked` the cells’ paint and `prev` an arrow from each cell back to where it was reached from, the thread in mark.',
+    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as marked edges — beside the call stack, with the `marked` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. The recursive one also walks a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `marked` the cells’ paint and `prev` an arrow from each cell back to where it was reached from, the thread in mark. The breadth-first search marks on enqueue and keeps `dist`, each vertex carrying its distance beside it and the queue drawn front first; its tempting version marks on dequeue and paints red a vertex enqueued while it is already in the queue.',
   whenToUse:
     'When a slide walks a traversal over a small graph step by step and the frames would otherwise be written by hand — fifteen to thirty `<Step>`s, each a `<NodeGraph>` and its arrays, where one copied wrong is caught by nobody. ' +
     'NOT for a single picture of a graph (`<NodeGraph>`), nor for a walk whose lesson is a structure the trace does not draw.',
   props: [
     {
       name: 'algorithm',
-      type: "'dfs' | 'dfs-iterative' | 'dfs-mark-on-push'",
+      type: "'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop'",
       description:
-        'The walk to simulate. Default `dfs`, the recursive depth-first search; `dfs-iterative`, with a stack of its own, marking on pop; `dfs-mark-on-push`, the tempting version, which does not walk depth first.',
+        'The walk to simulate. Default `dfs`, the recursive depth-first search; `dfs-iterative`, with a stack of its own, marking on pop; `dfs-mark-on-push`, the tempting version, which does not walk depth first; `bfs`, the breadth-first search with a queue, marking on enqueue, with `dist`; `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice.',
     },
     {
       name: 'nodes',
@@ -139,7 +197,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'lines',
       type: 'Record<event, number | number[]>',
       description:
-        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`; over a grid, also the lines computing the cell), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. A missing one is an authoring error.',
+        'The lines each event lights, in the listing’s numbering (the file’s, with `codeSrc`). For `dfs`: `mark`, `look` (the `for` and its `if`; over a grid, also the lines computing the cell), `prev`, `recurse`, `return`. For `dfs-iterative`: `pushStart`, `pop`, `skip`, `mark`, `look`, `prev`, `push`, `end`. For `dfs-mark-on-push`: `markStart`, `pushStart`, `pop`, `look`, `mark`, `prev`, `push`, `end`. For `bfs`: `markStart`, `distStart`, `enqueueStart`, `dequeue`, `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`, `enqueue`, `end`. A missing one is an authoring error.',
     },
     {
       name: 'codeSrc / codeRange',
@@ -332,6 +390,71 @@ MazeDepthFirstPaths paths = new MazeDepthFirstPaths(grid, 0);\`}
           codeRange="30-41"
           lines={MAZE_LINES}
           label="Un laberinto de 3 por 4, con la entrada arriba a la izquierda y la salida abajo a la derecha."
+        />
+      ),
+    },
+    {
+      title: 'BFS on five vertices: each vertex enqueued once, with its distance',
+      code: `<GraphWalk
+  algorithm="bfs"
+  nodes={FIVE}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]}
+  cols={7}
+  rows={3}
+  codeSrc="./27-grafos-recorridos.code/BreadthFirstPaths.java"
+  codeRange="22-38"
+  lines={{ markStart: 24, distStart: 25, enqueueStart: [23, 26], dequeue: [27, 28],
+           look: [29, 30], mark: 31, dist: 32, prev: 33, enqueue: 34, end: 27 }}
+  label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="bfs"
+          nodes={FIVE}
+          edges={[
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+            [3, 4],
+          ]}
+          cols={7}
+          rows={3}
+          codeSrc={BFS_SRC}
+          codeRange="22-38"
+          lines={BFS_LINES}
+          label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
+        />
+      ),
+    },
+    {
+      title: 'Marking on dequeue, on a diamond: 3 enters the queue twice',
+      code: `<GraphWalk
+  algorithm="bfs-mark-on-pop"
+  nodes={DIAMOND}
+  edges={[[0, 1], [0, 2], [1, 3], [2, 3]]}
+  cols={3}
+  rows={3}
+  code={ON_POP}
+  lines={{ enqueueStart: [2, 3], dequeue: [4, 5], skip: [6, 7], mark: 9,
+           look: [10, 11], enqueue: 12, end: 4 }}
+  label="Un rombo: 0 unido a 1 y a 2, y los dos unidos a 3."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="bfs-mark-on-pop"
+          nodes={DIAMOND}
+          edges={[
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+          ]}
+          cols={3}
+          rows={3}
+          code={ON_POP}
+          lines={ON_POP_LINES}
+          label="Un rombo: 0 unido a 1 y a 2, y los dos unidos a 3."
         />
       ),
     },
