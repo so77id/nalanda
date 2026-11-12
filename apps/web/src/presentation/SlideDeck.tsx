@@ -331,7 +331,17 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             <button
               type="button"
               aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-              onClick={toggleFullscreen}
+              onClick={() => {
+                toggleFullscreen();
+                // The button would keep the keyboard, and a clicker's next
+                // press would skip the walk on this slide: hand the keyboard
+                // to the slide's walk, if it has one, or to no control at all
+                // (#357 review round 7).
+                const walk = stageNode?.querySelector<HTMLElement>('[role="group"][tabindex="0"]');
+                if (walk) walk.focus({ preventScroll: true });
+                else if (document.activeElement instanceof HTMLElement)
+                  document.activeElement.blur();
+              }}
               className="rounded p-2 hover:bg-sunk hover:text-ink-soft"
             >
               ⛶
