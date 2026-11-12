@@ -2670,7 +2670,10 @@ herramienta, con un cambio pequeño en su código.
 {/* Each modelled from scratch with #363's graph-exercise pattern and a */}
 {/* runnable <Exercise>; each solution is a file in its folder of */}
 {/* 27-grafos-recorridos.code/, run on a JDK 21 with the Exercise's tests. */}
-{/* S23: the posed exercises, in the book only, with `solution`. */}
+{/* Posed (S23), in the book only, with `solution`, chosen by Claude in */}
+{/* Miguel's absence from the issue's candidates and the arcs' tools: one-way */}
+{/* streets (the transpose), the fewest steps in a maze (BFS), two exam turns */}
+{/* (bipartite). Each solution was run on a JDK 21 with its tests. */}
 
 <Slide title="Las islas de un mapa satelital">
 
@@ -3481,6 +3484,242 @@ check(Solution.order(new String[] {"A", "B"}, new String[0][]), java.util.Arrays
 </PresentationWide>
 
 </Slide>
+
+Ejercicios propuestos, para resolver sin ver la respuesta. En cada uno, lo
+primero es el modelo: qué son los vértices, qué son las aristas, y qué
+recorrido responde la pregunta.
+
+<Exercise title="Las calles de sentido único">
+
+Una ciudad tiene $$V$$ esquinas, numeradas de $$0$$ a $$V - 1$$, y calles de
+sentido único: la calle `{u, v}` va de la esquina `u` a la `v`. ¿Se puede
+ir de cualquier esquina a cualquier otra? Escribamos `allReachable`, que
+responde `true` si se puede.
+
+Con las calles `{0, 1}`, `{1, 2}`, `{2, 3}` y `{3, 0}`, la ciudad es una
+vuelta y se puede; con `{0, 1}` y `{1, 2}`, desde la esquina 2 no se sale.
+
+No hace falta buscar desde cada esquina: basta con una. Todas las esquinas se
+alcanzan desde 0, y desde todas se llega a 0. Lo segundo es lo primero en el
+**grafo transpuesto**, el mismo grafo con cada calle dada vuelta.
+
+```java starter
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+
+class Solution {
+    static boolean allReachable(int V, int[][] streets) {
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.allReachable(4, new int[][] {{0, 1}, {1, 2}, {2, 3}, {3, 0}}), true);
+check(Solution.allReachable(3, new int[][] {{0, 1}, {1, 2}}), false);
+check(Solution.allReachable(3, new int[][] {{0, 1}, {1, 0}, {1, 2}, {2, 1}}), true);
+check(Solution.allReachable(1, new int[][] {}), true);
+check(Solution.allReachable(4, new int[][] {{0, 1}, {1, 0}, {2, 3}, {3, 2}}), false);
+check(Solution.allReachable(3, new int[][] {{1, 0}, {2, 0}, {0, 1}}), false);
+```
+
+```java solution
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+
+class Solution {
+    static boolean allReachable(int V, int[][] streets) {
+        List<List<Integer>> forward = new ArrayList<>();
+        List<List<Integer>> backward = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            forward.add(new ArrayList<>());
+            backward.add(new ArrayList<>());
+        }
+        for (int[] street : streets) {
+            forward.get(street[0]).add(street[1]);
+            backward.get(street[1]).add(street[0]);
+        }
+        return reached(forward, 0) == V && reached(backward, 0) == V;
+    }
+
+    static int reached(List<List<Integer>> adj, int s) {
+        boolean[] marked = new boolean[adj.size()];
+        Stack<Integer> stack = new Stack<>();
+        stack.push(s);
+        int count = 0;
+        while (!stack.empty()) {
+            int v = stack.pop();
+            if (marked[v]) {
+                continue;
+            }
+            marked[v] = true;
+            count++;
+            for (int w : adj.get(v)) {
+                if (!marked[w]) {
+                    stack.push(w);
+                }
+            }
+        }
+        return count;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Los pasos mínimos en un laberinto">
+
+Un laberinto es una grilla de celdas libres, `.`, y muros, `#`. La entrada es
+la celda de arriba a la izquierda, la salida es la de abajo a la derecha, y
+desde una celda libre se avanza a otra libre que comparta un lado con ella.
+Escribamos `steps`, que devuelve la menor cantidad de pasos de la entrada a la
+salida, o −1 si no se llega.
+
+En la grilla `....`, `.#..`, `....`, la respuesta es 5.
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Queue;
+
+class Solution {
+    static int steps(String[] grid) {
+        return -1;
+    }
+}
+```
+
+```java test
+check(Solution.steps(new String[] {"....", ".#..", "...."}), 5);
+check(Solution.steps(new String[] {"...#", ".#..", ".##."}), 5);
+check(Solution.steps(new String[] {".#", "#."}), -1);
+check(Solution.steps(new String[] {"."}), 0);
+check(Solution.steps(new String[] {"#."}), -1);
+check(Solution.steps(new String[] {".....", "####.", ".....", ".####", "....."}), 16);
+```
+
+```java solution
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Queue;
+
+class Solution {
+    static final int[] DR4 = {-1, 1, 0, 0};
+    static final int[] DC4 = {0, 0, -1, 1};
+
+    static boolean free(String[] grid, int r, int c) {
+        return r >= 0 && r < grid.length
+                && c >= 0 && c < grid[0].length()
+                && grid[r].charAt(c) == '.';
+    }
+
+    static int steps(String[] grid) {
+        int rows = grid.length;
+        int cols = grid[0].length();
+        if (!free(grid, 0, 0)) {
+            return -1;
+        }
+        int[] dist = new int[rows * cols];
+        Arrays.fill(dist, -1);
+        Queue<Integer> queue = new ArrayDeque<>();
+        dist[0] = 0;
+        queue.add(0);
+        while (!queue.isEmpty()) {
+            int v = queue.remove();
+            for (int k = 0; k < 4; k++) {
+                int r = v / cols + DR4[k];
+                int c = v % cols + DC4[k];
+                if (free(grid, r, c) && dist[r * cols + c] < 0) {
+                    dist[r * cols + c] = dist[v] + 1;
+                    queue.add(r * cols + c);
+                }
+            }
+        }
+        return dist[rows * cols - 1];
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Dos turnos de exámenes">
+
+Una universidad tiene $$V$$ exámenes, numerados de $$0$$ a $$V - 1$$, y la
+lista de los pares de exámenes que comparten algún estudiante: esos dos no
+pueden ir en el mismo turno. ¿Alcanzan dos turnos para todos los exámenes?
+Escribamos `twoTurns`, que responde `true` si alcanzan.
+
+Con los pares `{0, 1}`, `{1, 2}`, `{2, 3}` y `{3, 0}`, alcanzan: 0 y 2 en un
+turno, 1 y 3 en el otro. Con `{0, 1}`, `{1, 2}` y `{2, 0}`, no.
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Queue;
+
+class Solution {
+    static boolean twoTurns(int V, int[][] conflicts) {
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.twoTurns(4, new int[][] {{0, 1}, {1, 2}, {2, 3}, {3, 0}}), true);
+check(Solution.twoTurns(3, new int[][] {{0, 1}, {1, 2}, {2, 0}}), false);
+check(Solution.twoTurns(3, new int[][] {}), true);
+check(Solution.twoTurns(3, new int[][] {{0, 1}, {1, 2}}), true);
+check(Solution.twoTurns(5, new int[][] {{0, 1}, {2, 3}, {3, 4}, {4, 2}}), false);
+```
+
+```java solution
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Queue;
+
+class Solution {
+    static boolean twoTurns(int V, int[][] conflicts) {
+        List<List<Integer>> adj = new ArrayList<>();
+        for (int v = 0; v < V; v++) {
+            adj.add(new ArrayList<>());
+        }
+        for (int[] pair : conflicts) {
+            adj.get(pair[0]).add(pair[1]);
+            adj.get(pair[1]).add(pair[0]);
+        }
+        int[] dist = new int[V];
+        Arrays.fill(dist, -1);
+        for (int s = 0; s < V; s++) {
+            if (dist[s] >= 0) {
+                continue;
+            }
+            dist[s] = 0;
+            Queue<Integer> queue = new ArrayDeque<>();
+            queue.add(s);
+            while (!queue.isEmpty()) {
+                int v = queue.remove();
+                for (int w : adj.get(v)) {
+                    if (dist[w] < 0) {
+                        dist[w] = dist[v] + 1;
+                        queue.add(w);
+                    } else if (dist[w] % 2 == dist[v] % 2) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+}
+```
+
+</Exercise>
 
 <SectionBreak />
 
