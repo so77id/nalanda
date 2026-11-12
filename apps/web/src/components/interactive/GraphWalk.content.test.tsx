@@ -35,7 +35,8 @@ const NET = {
   label: 'Una red eléctrica.',
 };
 
-// The friends: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena.
+// The friends: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena; Carla-Diego is read
+// third, so that both depth-first searches give a chain of four.
 const FRIENDS = {
   nodes: [
     { v: 0, x: 1, y: 1 },
@@ -47,9 +48,9 @@ const FRIENDS = {
   edges: [
     [0, 1],
     [0, 2],
+    [2, 3],
     [1, 2],
     [1, 3],
-    [2, 3],
     [3, 4],
   ] as [number, number][],
   cols: 8,
@@ -58,30 +59,30 @@ const FRIENDS = {
   caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
 };
 
-// The malla: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II,
+// The malla: 0 Álgebra, 1 Cálculo I, 2 Programación, 3 Cálculo II,
 // 4 Ecuaciones, 5 Estructuras de Datos; one arc per prerequisite.
 const MALLA = {
   directed: true,
   nodes: [
-    { v: 0, x: 0, y: 0 },
-    { v: 1, x: 0, y: 1 },
+    { v: 0, x: 0, y: 1 },
+    { v: 1, x: 0, y: 0 },
     { v: 2, x: 0, y: 2 },
     { v: 3, x: 2, y: 0 },
     { v: 4, x: 4, y: 0 },
     { v: 5, x: 2, y: 2 },
   ],
   edges: [
-    [0, 3],
+    [1, 3],
     [3, 4],
-    [1, 4],
+    [0, 4],
     [2, 5],
-    [1, 5],
+    [0, 5],
   ] as [number, number][],
   cols: 5,
   rows: 3,
   label: 'La malla.',
   caption:
-    '0 Cálculo I · 1 Álgebra · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Estructuras de Datos',
+    '0 Álgebra · 1 Cálculo I · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Estructuras de Datos',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -248,18 +249,6 @@ const CASES: [string, GraphWalkProps, string][] = [
       },
     },
     'end',
-  ],
-  [
-    'Los recorridos en una malla',
-    {
-      ...MALLA,
-      beside: true,
-      paths: false,
-      codeSrc: `${CODE}DepthFirstSearch.java`,
-      codeRange: '4-16',
-      lines: { mark: 10, look: [11, 12], recurse: 13, return: 16 },
-    },
-    'return',
   ],
   [
     'El código del orden topológico',

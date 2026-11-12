@@ -50,8 +50,11 @@ Three ways to animate the walks were weighed with Miguel in S3.
   return** (the course's step rule): a slide walks a graph of four or five
   vertices.
 - **The drawing is capped at a fixed width** — 320px in the book, 520px on a
-  slide — never a share of its column, so a frame's height cannot follow the
-  width the deck gives it (the re-scale loop of #321). The panels beside and
+  slide, 680px for a graph seven columns wide or more, whose stack or queue
+  then goes under it instead of beside it — never a share of its column, so a
+  frame's height cannot follow the width the deck gives it (the re-scale loop
+  of #321). A maze's grid keeps the narrower basis: on a slide the widget's
+  width follows its content, and a wider grid made the deck scale down. The panels beside and
   under it (the stack, the queue, the arrays, the line) are drawn half again
   as large on a slide, where they were read at about 7px (the plan v2's first
   adversarial review).
@@ -81,8 +84,12 @@ Three ways to animate the walks were weighed with Miguel in S3.
   reached.
 - **The version that marks on push** (`dfs-mark-on-push`) is a walk too, so
   its counterexample is played, not asserted: it paints red a neighbour it
-  skips although it never reached it — «marked» has come to mean «seen». Its
-  listing lives only on its slide (inline `code`).
+  skips although it never reached it — «marked» has come to mean «seen» — and
+  the next pop says the walk leaves that vertex with the neighbour unwalked.
+  A step to a vertex that is not a neighbour is not the defect: a correct
+  search makes it too, going back; only leaving a neighbour unwalked is (the
+  plan v2's second adversarial review). Its listing lives only on its slide
+  (inline `code`).
 - **The recursive and the iterative DFS are not paired** line by line, as
   `<SequenceStepper>`'s `iterative` pairs listings that take the same
   decisions in the same order: the iterative one reads every neighbour of a
@@ -107,7 +114,7 @@ Three ways to animate the walks were weighed with Miguel in S3.
   being looked at. Decided with Miguel in S5b.
 - **The breadth-first search marks on enqueue** (`bfs`), as algs4's
   `BreadthFirstPaths`: `marked`, `dist` and `prev` under the listing, each
-  reached vertex carrying its distance (`d=…`) beside it so the layers show,
+  reached vertex carrying its distance beside it, one digit, so the layers show,
   and the queue drawn front first beside the graph. `dist` starts at −1, so
   an unreached vertex reads as such. **The version that marks on dequeue**
   (`bfs-mark-on-pop`), the tree's level order copied as is, is a walk too:

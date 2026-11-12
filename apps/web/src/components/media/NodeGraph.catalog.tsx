@@ -62,6 +62,12 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
     },
     { name: 'caption', type: 'string', description: 'A line under the drawing.' },
     {
+      name: 'cutEdges',
+      type: 'NodeGraphEdge[]',
+      description:
+        'Edges of `edges` drawn dashed in flag: a link that was there and is not any more, such as the cable a storm cut. Either order matches in an undirected graph.',
+    },
+    {
       name: 'maxScale',
       type: 'number',
       description:

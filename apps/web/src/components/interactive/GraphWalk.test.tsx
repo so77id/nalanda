@@ -613,7 +613,7 @@ describe('GraphWalk, breadth first', () => {
     expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[3]');
     await stepTo(() => frame().dataset['event'] === 'end');
     expect(
-      screen.getByText('La cola quedó vacía: no queda nada por recorrer.'),
+      screen.getByText('La cola quedó vacía: marcó todo lo que se alcanza desde 0.'),
     ).toBeInTheDocument();
   });
 
@@ -781,7 +781,9 @@ describe('GraphWalk without paths', () => {
     expect(document.querySelector('[data-cell="marked[0]"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
     await stepTo(() => frame().dataset['event'] === 'return' && frame().dataset['v'] === '0');
-    expect(screen.getByText('dfs(0) termina: no queda nada por recorrer.')).toBeInTheDocument();
+    expect(
+      screen.getByText('dfs(0) termina: marcó todo lo que se alcanza desde 0.'),
+    ).toBeInTheDocument();
   });
 });
 
