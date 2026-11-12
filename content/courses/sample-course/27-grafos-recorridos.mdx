@@ -2077,13 +2077,126 @@ visita antes que su prerrequisito, y la búsqueda en anchura también.
 
 ## Orden topológico
 
-{/* Arc III · Kahn (slides planned in S14, written in S16). The malla of */}
-{/* class 1: in what order are the courses taken? Both traversal orders break */}
-{/* a prerequisite; «en una línea, todas las flechas a la derecha»; every DAG */}
-{/* has a source; Kahn with the in-degrees (the archived inDegrees walk); the */}
-{/* cycle from the vertices left over; several valid orders. Applications: */}
-{/* the semesters, circular references, a recipe. Leaves open: the questions */}
-{/* with a number on each edge. */}
+{/* Arc III · Kahn. Twelve slides planned in #357 S14 (2026-11-12) by */}
+{/* Claude, in Miguel's absence, from the arc map approved on 2026-11-09; */}
+{/* for his review in S17. Written in S16. The running malla has six */}
+{/* courses: 0 Cálculo I, 1 Álgebra, 2 Programación, 3 Cálculo II, */}
+{/* 4 Ecuaciones, 5 Estructuras de Datos; arcs 0→3, 3→4, 1→4, 2→5, 1→5 */}
+{/* (class 1's malla, two courses more). The code is a class, Topological: */}
+{/* Kahn with a queue of sources, order() and hasOrder(). Beat 6 is */}
+{/* `## Lo que sigue`. */}
+
+{/* Beat 1 · the question, on class 1's malla; beat 2 is arc II's close. */}
+
+<Slide title="El orden de los ramos de una malla">
+
+{/* The malla as a DAG: an arc from each prerequisite to the course that */}
+{/* asks for it. In what order are the courses taken, so that each comes */}
+{/* after its prerequisites? Neither traversal gives it. [NodeGraph of the */}
+{/* six-course malla, the names in the caption] */}
+
+</Slide>
+
+{/* Beat 3 · the idea. */}
+
+<Slide title="El orden topológico">
+
+{/* Defined by a drawing: the vertices on a line, every arc pointing to */}
+{/* the right. A cycle makes it impossible: some arc of the cycle points */}
+{/* left. [LineOrder: the malla in one valid order, all arcs right; the */}
+{/* depth-first order of arc II's malla, one arc left in red] */}
+
+</Slide>
+
+<Slide title="Las fuentes de un grafo dirigido">
+
+{/* A source: a vertex no arc reaches, in-degree 0. Every DAG has one: */}
+{/* walk the incoming arcs backwards from any vertex; without a cycle no */}
+{/* vertex repeats, so the walk stops, at a source. [the malla with a */}
+{/* backward walk ending at a source] */}
+
+</Slide>
+
+<Slide title="La regla de Kahn">
+
+{/* Take a source, put it next on the line, remove it with its arcs: */}
+{/* what is left is still a DAG, so it has a source again. Removing an arc */}
+{/* lowers its head's in-degree; a vertex whose in-degree reaches 0 is a */}
+{/* new source. Kahn, 1962. [the malla after removing two sources, the */}
+{/* new sources lit] */}
+
+</Slide>
+
+{/* Beat 4 · the code. */}
+
+<Slide title="El grado de entrada en un grafo dirigido">
+
+{/* The in-degree of every vertex in one pass over every adj: */}
+{/* inDegrees(g), class 2's archived walk, ported. */}
+
+</Slide>
+
+<Slide title="El código del orden topológico">
+
+{/* Topological, quoted from 27-grafos-recorridos.code/: inDegrees, the */}
+{/* queue of the first sources, then take, append, lower. [GraphWalk kahn */}
+{/* over the malla: inDegree and order under the listing, the queue of */}
+{/* sources beside the graph] */}
+
+</Slide>
+
+<Slide title="Un ciclo en la malla">
+
+{/* With a cycle the queue empties before every vertex is on the line. */}
+{/* Every vertex left over has an arc coming from another leftover vertex: */}
+{/* walking those arcs backwards repeats a vertex, a cycle. hasOrder() is */}
+{/* false. [a malla with a cycle, the leftovers in red, their arcs lit] */}
+
+</Slide>
+
+<Slide title="Varios órdenes válidos">
+
+{/* When several sources wait, any can go next: a DAG may have many */}
+{/* topological orders, all valid. [LineOrder twice: the malla in two */}
+{/* orders, every arc right in both] */}
+
+</Slide>
+
+<Slide title="El costo del orden topológico">
+
+{/* inDegrees reads every list once; each vertex enters the queue once */}
+{/* and its arcs are lowered once: Θ(V + E) with lists, Θ(V²) with the */}
+{/* matrix. */}
+
+</Slide>
+
+{/* Beat 5 · the applications (epic #354 §Hilos 1). */}
+
+<Slide title="Orden topológico">
+
+{/* The named problem, «¿En qué orden se hacen las cosas?», and the malla's */}
+{/* own question: in how many semesters, at least? Kahn by rounds, each */}
+{/* round every current source: the rounds are the semesters (the course's */}
+{/* own addition: no canonical source teaches it). [Semesters.java; the */}
+{/* malla by semesters] */}
+
+</Slide>
+
+<Slide title="Las referencias circulares de una hoja de cálculo">
+
+{/* A cell's formula reads other cells: an arc from each cell read to the */}
+{/* cell that reads it. The sheet computes its cells in a topological */}
+{/* order, and a circular reference is a cycle Kahn leaves over. [a small */}
+{/* sheet, its graph, the cycle in red] */}
+
+</Slide>
+
+<Slide title="Una receta">
+
+{/* The steps of a recipe, each after the ones it needs: any topological */}
+{/* order is a way to cook it. [the recipe's DAG and one order on a line] */}
+
+</Slide>
 
 <SectionBreak />
 
