@@ -3090,6 +3090,187 @@ check(Solution.moves(0), java.util.Arrays.asList(5));
 
 </Slide>
 
+<Slide title="La escalera de palabras">
+
+Una **escalera de palabras** va de una palabra a otra cambiando una letra por
+paso, y cada palabra del camino tiene que estar en un diccionario. ¿Con
+cuántos pasos, como mínimo, se llega de la primera a la última?
+
+**Entrada.** La palabra inicial, la final y un diccionario de a lo más 5000
+palabras, todas del mismo largo, en minúsculas, sin tildes.
+
+**Salida.** La menor cantidad de pasos, o −1 si no se llega.
+
+<NodeGraph
+  cols={7}
+  rows={1}
+  nodes={[{ v: 'gato', x: 0, y: 0 }, { v: 'gata', x: 2, y: 0 }, { v: 'rata', x: 4, y: 0 }, { v: 'rama', x: 6, y: 0 }]}
+  edges={[['gato', 'gata'], ['gata', 'rata'], ['rata', 'rama']]}
+  markEdges={[['gato', 'gata'], ['gata', 'rata'], ['rata', 'rama']]}
+  caption="de gato a rama en tres pasos, con el diccionario pato, gata, pata, rata, rama, cama, casa"
+  label="Una escalera de gato a rama: gato, gata, rata, rama. Cada paso cambia una letra, y cada palabra está en el diccionario."
+/>
+
+</Slide>
+
+<Slide title="Escalera · el modelo">
+
+- **Los vértices** son las palabras: la inicial y las del diccionario.
+- **Las aristas** unen dos palabras que difieren en una sola letra, en la
+  misma posición. Son sin dirección y sin peso.
+- **La pregunta**: la distancia de la palabra inicial a la final.
+- **El tamaño**: hasta 5000 vértices; las aristas no vienen en la entrada, y
+  hay que encontrarlas.
+
+<NodeGraph
+  cols={9}
+  rows={3}
+  nodes={[{ v: 'gato', x: 0, y: 1 }, { v: 'pato', x: 2, y: 0 }, { v: 'gata', x: 2, y: 2 }, { v: 'pata', x: 4, y: 0 }, { v: 'rata', x: 4, y: 2 }, { v: 'rama', x: 6, y: 2 }, { v: 'cama', x: 8, y: 2 }, { v: 'casa', x: 8, y: 0 }]}
+  edges={[['gato', 'pato'], ['gato', 'gata'], ['pato', 'pata'], ['gata', 'pata'], ['gata', 'rata'], ['pata', 'rata'], ['rata', 'rama'], ['rama', 'cama'], ['cama', 'casa']]}
+  tones={{ gato: 'mark', rama: 'keep' }}
+  caption="el diccionario como grafo: una arista entre palabras a una letra"
+  label="El grafo del diccionario con gato: gato unida a pato y a gata; pato a pata; gata a pata y a rata; pata a rata; rata a rama; rama a cama; cama a casa. Destacadas gato, el comienzo, y rama, el final."
+/>
+
+</Slide>
+
+<Slide title="Escalera · comparar con todas las palabras">
+
+Encontrar las vecinas de una palabra comparándola con cada palabra del
+diccionario cuesta $$n \cdot L$$, con $$n$$ palabras de $$L$$ letras, y una
+búsqueda que lo haga con cada palabra suma $$n^2 \cdot L$$: con 5000 palabras
+de cinco letras, más de cien millones de comparaciones. Es más barato
+calcularlas: cambiar cada posición por cada una de las 26 letras y preguntar
+a un conjunto si la palabra que resulta existe. Son $$26 \cdot L$$ preguntas
+por palabra, cada una de $$\Theta(L)$$.
+
+| cambia la posición | palabras que se prueban | están en el diccionario |
+| --- | --- | --- |
+| 0 | aato, bato, …, zato | pato |
+| 1 | gbto, gcto, …, gzto | ninguna |
+| 2 | gaao, gabo, …, gazo | ninguna |
+| 3 | gata, gatb, …, gatz | gata |
+
+</Slide>
+
+<Slide title="Escalera · la idea">
+
+La pregunta es una distancia en un grafo sin pesos: una búsqueda en anchura
+desde la palabra inicial. Los vecinos de una palabra se calculan cambiando sus
+letras, y como las palabras son textos, `dist` es un mapa de palabras a
+distancias, que hace también de `marked`. Al terminar, la distancia de la
+palabra final es la respuesta, o −1 si nunca entró al mapa.
+
+<NodeGraph
+  cols={9}
+  rows={3}
+  nodes={[{ v: 'gato', x: 0, y: 1 }, { v: 'pato', x: 2, y: 0 }, { v: 'gata', x: 2, y: 2 }, { v: 'pata', x: 4, y: 0 }, { v: 'rata', x: 4, y: 2 }, { v: 'rama', x: 6, y: 2 }, { v: 'cama', x: 8, y: 2 }, { v: 'casa', x: 8, y: 0 }]}
+  edges={[['gato', 'pato'], ['gato', 'gata'], ['pato', 'pata'], ['gata', 'pata'], ['gata', 'rata'], ['pata', 'rata'], ['rata', 'rama'], ['rama', 'cama'], ['cama', 'casa']]}
+  markEdges={[['gato', 'gata'], ['gata', 'rata'], ['rata', 'rama']]}
+  tones={{ gato: 'mark', rama: 'keep' }}
+  notes={{ gato: 'd=0', pato: 'd=1', gata: 'd=1', pata: 'd=2', rata: 'd=2', rama: 'd=3', cama: 'd=4', casa: 'd=5' }}
+  caption="las capas desde gato: rama está a distancia 3"
+  label="El grafo del diccionario con la distancia de cada palabra desde gato: gato 0; pato y gata 1; pata y rata 2; rama 3; cama 4; casa 5. Marcado un camino de gato a rama: gato, gata, rata, rama."
+/>
+
+</Slide>
+
+<Slide title="Escalera · la solución">
+
+`ladder` es la búsqueda en anchura con `dist` como mapa; `neighbours` calcula
+las vecinas de una palabra cambiando una letra a la vez:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+<SourceFile src="./27-grafos-recorridos.code/escalera/Solution.java" range="10-26" />
+
+<SourceFile src="./27-grafos-recorridos.code/escalera/Solution.java" range="28-43" />
+
+</Split>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Escalera · casos y costo">
+
+- **La palabra inicial es la final**: la distancia es 0.
+- **La final no se alcanza**, o no está en el diccionario: nunca entra al
+  mapa, y la respuesta es −1.
+- **La inicial no necesita estar en el diccionario**: entra al mapa al
+  comenzar.
+- **Costo**: cada palabra sale de la cola una vez y prueba $$26 \cdot L$$
+  variantes, cada una buscada en el conjunto en $$\Theta(L)$$: en total
+  $$\Theta(n \cdot L^2)$$, contra los $$n^2 \cdot L$$ de comparar con todas.
+
+</Slide>
+
+<Slide title="Escalera · el programa completo">
+
+<PresentationWide fraction={0.75}>
+<Exercise title="La escalera de palabras">
+
+```java starter
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+
+class Solution {
+    static int ladder(String begin, String end, String[] words) {
+        Set<String> dictionary = new HashSet<>(Arrays.asList(words));
+        Map<String, Integer> dist = new HashMap<>();
+        Queue<String> queue = new ArrayDeque<>();
+        dist.put(begin, 0);
+        queue.add(begin);
+        while (!queue.isEmpty()) {
+            String v = queue.remove();
+            for (String w : neighbours(v, dictionary)) {
+                if (!dist.containsKey(w)) {
+                    dist.put(w, dist.get(v) + 1);
+                    queue.add(w);
+                }
+            }
+        }
+        return dist.getOrDefault(end, -1);
+    }
+
+    static Set<String> neighbours(String word, Set<String> dictionary) {
+        Set<String> result = new HashSet<>();
+        char[] letters = word.toCharArray();
+        for (int i = 0; i < letters.length; i++) {
+            char original = letters[i];
+            for (char ch = 'a'; ch <= 'z'; ch++) {
+                letters[i] = ch;
+                String next = new String(letters);
+                if (ch != original && dictionary.contains(next)) {
+                    result.add(next);
+                }
+            }
+            letters[i] = original;
+        }
+        return result;
+    }
+}
+```
+
+```java test
+String[] words = {"pato", "gata", "pata", "rata", "rama", "cama", "casa"};
+check(Solution.ladder("gato", "rama", words), 3);
+check(Solution.ladder("gato", "casa", words), 5);
+check(Solution.ladder("gato", "gato", words), 0);
+check(Solution.ladder("gato", "mono", words), -1);
+check(Solution.ladder("rama", "gato", new String[] {"rata", "gata", "gato"}), 3);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
+
 <SectionBreak />
 
 ## Más allá de los recorridos
