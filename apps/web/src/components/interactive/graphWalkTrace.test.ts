@@ -5,6 +5,7 @@ import {
   traceDfs,
   traceDfsStack,
   traceGridDfs,
+  traceGridDfsStack,
   traceKahn,
 } from './graphWalkTrace';
 
@@ -435,6 +436,39 @@ const MALLA = adjacencyOf(
   true,
 );
 
+describe('traceGridDfsStack (the maze with a stack, #357 review round 4)', () => {
+  const MAZE = ['...#', '...#', '#...'];
+  const wayBack = (prev: number[], t: number) => {
+    const path = [];
+    for (let x = t; x !== -1; x = prev[x]) path.push(x);
+    return path.reverse();
+  };
+
+  it('finds the path IterativeMazeDepthFirstPaths gives on a JDK 21', () => {
+    const last = traceGridDfsStack(MAZE, 0).at(-1)!;
+    expect(wayBack(last.prev, 11)).toEqual([0, 1, 2, 6, 5, 9, 10, 11]);
+    expect(last.order).toEqual([0, 1, 2, 6, 5, 4, 9, 10, 11]);
+  });
+
+  it('rewrites prev when a cell is pushed again, and says so', () => {
+    const rewrite = traceGridDfsStack(MAZE, 0).find(
+      (f) => f.event === 'prev' && f.w === 5 && f.v === 6,
+    )!;
+    expect(rewrite.text).toBe('prev[5] = 6: ahora a 5 se llega desde 6, no desde 1.');
+  });
+
+  it('looks in all four directions, a wall and the border included', () => {
+    const looks = traceGridDfsStack(MAZE, 0).filter((f) => f.event === 'look' && f.v === 2);
+    expect(looks.map((f) => f.cell)).toEqual([
+      [-1, 2],
+      [1, 2],
+      [0, 1],
+      [0, 3],
+    ]);
+    expect(looks.map((f) => f.blocked)).toEqual([true, false, false, true]);
+  });
+});
+
 describe('traceKahn (the topological order)', () => {
   it('orders the malla as Topological.java does on a JDK 21: 0, 1, 2, 3, 5, 4', () => {
     const last = traceKahn(MALLA).at(-1)!;
@@ -468,9 +502,11 @@ describe('traceKahn (the topological order)', () => {
 
   it('takes each arc out of the graph as it stops counting (#357 review round 3)', () => {
     const frames = traceKahn(MALLA);
-    const lowered = frames.find((f) => f.event === 'lower' && f.v === 1 && f.w === 4)!;
-    // 0 → 3 went with 0; 1 → 4 goes now; 1 → 5 is still there.
-    expect(lowered.gone).toEqual([
+    const i = frames.findIndex((f) => f.event === 'lower' && f.v === 1 && f.w === 4);
+    // The frame that names 1 → 4 still draws it; 0 → 3 went with 0.
+    expect(frames[i].gone).toEqual([[0, 3]]);
+    // From the next frame on, 1 → 4 is gone too; 1 → 5 is still there.
+    expect(frames[i + 1].gone).toEqual([
       [0, 3],
       [1, 4],
     ]);

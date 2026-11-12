@@ -468,9 +468,27 @@ describe('GraphWalk over a grid', () => {
     expect(screen.getByText('dfs(11) marca la celda 11, en (2, 3).')).toBeInTheDocument();
   });
 
-  it('tells the author a maze is walked by dfs only, for now', () => {
-    render(maze({ algorithm: 'dfs-iterative' }));
+  it('tells the author a maze is walked by a depth-first search only, for now', () => {
+    render(maze({ algorithm: 'bfs' }));
     expect(screen.getByText(/todavía no recorre una grilla/)).toBeInTheDocument();
+  });
+
+  it('walks a maze with a stack of its own, beside its stack (#357 review round 4)', async () => {
+    render(
+      maze({
+        algorithm: 'dfs-iterative',
+        // The iterative walk's own events; the inline listing only has to hold the lines.
+        lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, prev: 6, push: 7, end: 2 },
+      }),
+    );
+    expect(screen.getByText('Apila el origen 0.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /^Pila, del fondo al tope: 0\.$/ })).toBeInTheDocument();
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    while (next.getAttribute('aria-disabled') !== 'true') {
+      await user.click(next);
+    }
+    expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', 'end');
   });
 
   it('tells the author when the rows differ in length, hold another character, or start on a wall', () => {

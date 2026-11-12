@@ -14,6 +14,7 @@ import {
   traceBfs,
   traceKahn,
   traceGridDfs,
+  traceGridDfsStack,
   type GraphWalkEdge,
   type WalkEvent,
   type WalkFrame,
@@ -73,7 +74,7 @@ export interface GraphWalkProps {
    * A maze instead of `nodes` and `edges`: its rows, `.` a free cell and `#` a
    * wall. The walk runs over its implicit graph — the cell in row r and column
    * c is the vertex r · C + c, its neighbours computed with `DR4`/`DC4` and
-   * `free` — and the drawing is the grid (#357 S5b). `dfs` only, for now.
+   * `free` — and the drawing is the grid (#357 S5b). `dfs` and `dfs-iterative`.
    */
   grid?: string[];
   /** The vertex the walk starts from. Default the first node, or the first free cell. */
@@ -233,7 +234,12 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
   const edgesKey = edges.map(([v, w]) => `${v}-${w}`).join(',');
   const gridKey = grid?.join('\n');
   const frames = useMemo(() => {
-    if (gridKey !== undefined) return traceGridDfs(gridKey.split('\n'), start);
+    if (gridKey !== undefined) {
+      const rows = gridKey.split('\n');
+      return algorithm === 'dfs-iterative'
+        ? traceGridDfsStack(rows, start)
+        : traceGridDfs(rows, start);
+    }
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
     const adj = adjacencyOf(V, parsed, directed);
     if (algorithm === 'dfs') return traceDfs(adj, start, paths);
@@ -294,7 +300,13 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
           }
         >
           {gridKey !== undefined ? (
-            <GridFrame frame={frame} grid={gridKey.split('\n')} depth={depth} label={label} />
+            <GridFrame
+              frame={frame}
+              grid={gridKey.split('\n')}
+              depth={depth}
+              label={label}
+              iterative={algorithm === 'dfs-iterative'}
+            />
           ) : (
             <Frame
               frame={frame}
@@ -498,6 +510,11 @@ interface GridFrameProps {
   grid: string[];
   depth: number;
   label: string;
+  /**
+   * The walk with a stack of its own: the cells it marked in keep, the last
+   * popped in mark, its thread the way back along `prev`, its stack beside.
+   */
+  iterative: boolean;
 }
 
 /**
@@ -507,7 +524,7 @@ interface GridFrameProps {
  * the one it was reached from, those of the calls in progress in mark — the
  * thread; and, on a look, a dashed arrow to the cell asked about.
  */
-function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
+function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
   const onSlide = useMode() === 'presentation';
   const R = grid.length;
   const C = grid[0].length;
@@ -518,12 +535,14 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
     GRID_PAD + r * GRID_CELL + GRID_CELL / 2,
   ];
   const at = (v: number) => center(Math.floor(v / C), v % C);
-  const onStack = new Set(frame.stack);
-  const done = new Set(frame.done);
+  // The thread: the calls in progress, or, with a stack of its own, the way
+  // back along `prev` from the cell last popped.
+  const onStack = iterative ? new Set(threadBack(frame).map(([, x]) => x)) : new Set(frame.stack);
+  const done = new Set(iterative ? frame.order : frame.done);
   const stateOf = (r: number, c: number): CellState => {
     const v = r * C + c;
     if (grid[r][c] === '#') return 'wall';
-    if (v === frame.v) return 'running';
+    if (v === frame.v && (!iterative || frame.marked[v])) return 'running';
     if (done.has(v)) return 'done';
     return onStack.has(v) ? 'open' : 'free';
   };
@@ -647,7 +666,23 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
             {look}
           </svg>
         </div>
-        <CallStack frame={frame} depth={depth} />
+        {iterative ? (
+          <StackPanel
+            title="pila"
+            items={frame.stack.map(String)}
+            hot={
+              frame.event === 'push' || frame.event === 'pushStart' ? frame.stack.length - 1 : -1
+            }
+            depth={depth}
+            label={
+              frame.stack.length === 0
+                ? 'La pila está vacía.'
+                : `Pila, del fondo al tope: ${frame.stack.join(', ')}.`
+            }
+          />
+        ) : (
+          <CallStack frame={frame} depth={depth} />
+        )}
       </div>
     </div>
   );
@@ -1064,8 +1099,8 @@ function gridProblem(
   algorithm: GraphWalkAlgorithm,
   start: number | undefined,
 ): string | null {
-  if (algorithm !== 'dfs') {
-    return `algorithm="${algorithm}" todavía no recorre una grilla: con grid, el recorrido es dfs.`;
+  if (algorithm !== 'dfs' && algorithm !== 'dfs-iterative') {
+    return `algorithm="${algorithm}" todavía no recorre una grilla: con grid, el recorrido es dfs o dfs-iterative.`;
   }
   const lengths = grid.map((row) => row.length);
   if (grid.length === 0 || lengths[0] === 0 || lengths.some((n) => n !== lengths[0])) {

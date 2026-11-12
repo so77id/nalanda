@@ -262,6 +262,31 @@ const GRID_DIRECTIONS = ['arriba', 'abajo', 'a la izquierda', 'a la derecha'];
  * border included, since the loop asks `free` about all four.
  */
 export function traceGridDfs(grid: readonly string[], start: number): WalkFrame[] {
+  const { V, probesOf, C } = gridWalk(grid, start);
+  return walkRecursive(
+    V,
+    start,
+    probesOf,
+    (v) => `dfs(${v}) marca la celda ${v}, en ${position(Math.floor(v / C), v % C)}.`,
+  );
+}
+
+/**
+ * The depth-first search with a stack of its own over a maze, as
+ * `IterativeMazeDepthFirstPaths.java` reads (#357 review round 4): the frames
+ * are `traceDfsStack`'s, marking on pop, with one `look` per direction as
+ * `traceGridDfs` has them.
+ */
+export function traceGridDfsStack(grid: readonly string[], start: number): WalkFrame[] {
+  const { V, probesOf } = gridWalk(grid, start);
+  return walkStack(V, start, 'pop', true, probesOf);
+}
+
+/** A maze checked, and what each cell looks at: up, down, left, right. */
+function gridWalk(
+  grid: readonly string[],
+  start: number,
+): { V: number; C: number; probesOf: (v: number) => Probe[] } {
   const R = grid.length;
   const C = R > 0 ? grid[0].length : 0;
   if (C === 0 || grid.some((row) => row.length !== C)) {
@@ -275,10 +300,10 @@ export function traceGridDfs(grid: readonly string[], start: number): WalkFrame[
   if (!isVertex(R * C, start) || !free(Math.floor(start / C), start % C)) {
     throw new RangeError(`start ${start} is not a free cell of the grid`);
   }
-  return walkRecursive(
-    R * C,
-    start,
-    (v) =>
+  return {
+    V: R * C,
+    C,
+    probesOf: (v) =>
       GRID_STEPS.map(([dr, dc], k): Probe => {
         const r = Math.floor(v / C) + dr;
         const c = (v % C) + dc;
@@ -298,8 +323,7 @@ export function traceGridDfs(grid: readonly string[], start: number): WalkFrame[
                   : `${where} ${w} está libre y sin marcar.`,
         };
       }),
-    (v) => `dfs(${v}) marca la celda ${v}, en ${position(Math.floor(v / C), v % C)}.`,
-  );
+  };
 }
 
 /** `(r, c)`, a negative written with a true minus sign. */
@@ -408,6 +432,19 @@ export function traceDfsStack(
   if (!isVertex(V, start)) {
     throw new RangeError(`start ${start} is not a vertex of 0..${V - 1}`);
   }
+  return walkStack(V, start, markOn, paths, (v) =>
+    adj[v].map((w) => ({ w, blocked: false, cell: null, text: (seen) => lookText(v, w, seen) })),
+  );
+}
+
+/** The walk with a stack of its own, over whatever `probesOf` says `v` looks at. */
+function walkStack(
+  V: number,
+  start: number,
+  markOn: MarkOn,
+  paths: boolean,
+  probesOf: (v: number) => Probe[],
+): WalkFrame[] {
   const r = new Recorder(V);
   const { marked, prev, stack, order } = r;
 
@@ -435,9 +472,11 @@ export function traceDfsStack(
     // walked to: the step a walk in depth never makes. Leaving a vertex whose
     // neighbours are all walked is a plain step back, and is not flagged.
     const last = order.length > 0 ? order[order.length - 1] : null;
+    const around = (u: number) =>
+      probesOf(u).flatMap((p) => (p.blocked || p.w === null ? [] : [p.w]));
     const leftBehind =
-      markOn === 'push' && last !== null && !adj[last].includes(v)
-        ? adj[last].find((u) => u !== v && marked[u] && !order.includes(u))
+      markOn === 'push' && last !== null && !around(last).includes(v)
+        ? around(last).find((u) => u !== v && marked[u] && !order.includes(u))
         : undefined;
     if (markOn === 'push') order.push(v);
     r.record({
@@ -466,7 +505,21 @@ export function traceDfsStack(
         text: `Marca ${v}.`,
       });
     }
-    for (const w of adj[v]) {
+    for (const probe of probesOf(v)) {
+      const { blocked, cell } = probe;
+      if (blocked || probe.w === null) {
+        r.record({
+          event: 'look',
+          v,
+          w: probe.w,
+          seen: null,
+          blocked,
+          cell,
+          text: probe.text(false),
+        });
+        continue;
+      }
+      const w = probe.w;
       const seen = marked[w];
       const unvisited = seen && !order.includes(w);
       r.record({
@@ -475,9 +528,10 @@ export function traceDfsStack(
         w,
         seen,
         unvisited,
+        cell,
         text: unvisited
           ? `Mira el vecino ${w} de ${v}: está marcado y lo salta, pero el recorrido todavía no pasa por ${w}.`
-          : lookText(v, w, seen),
+          : probe.text(seen),
       });
       if (seen) continue;
       if (markOn === 'push') {
@@ -740,7 +794,6 @@ export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
     });
     for (const w of adj[v]) {
       inDegree[w]--;
-      r.gone.push([v, w]);
       r.record({
         event: 'lower',
         v,
@@ -751,6 +804,8 @@ export function traceKahn(adj: readonly (readonly number[])[]): WalkFrame[] {
             ? `El arco ${v} → ${w} deja de contar: inDegree[${w}] baja a 0.`
             : `El arco ${v} → ${w} deja de contar: inDegree[${w}] baja a ${inDegree[w]}.`,
       });
+      // Gone from the next frame on: the frame that names the arc still shows it.
+      r.gone.push([v, w]);
       if (inDegree[w] === 0) {
         sources.push(w);
         r.record({

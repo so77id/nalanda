@@ -170,6 +170,11 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       // portrait branch above: a modal has to have a way out, and the editor
       // is one.
       if (event.key !== 'Escape' && isTypingTarget(event.target)) return;
+      // A widget on the slide can own a key: a focused <StepShow> walks its
+      // steps with the arrows and prevents the default. Without this, the
+      // same ArrowRight also moved ?slide, so a clicker or the keyboard could
+      // not run a walk, and coming back restarted it (#357 review round 4).
+      if (event.defaultPrevented) return;
       switch (event.key) {
         case 'ArrowRight':
         case ' ':

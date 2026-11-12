@@ -60,7 +60,7 @@ const FRIENDS = {
 };
 
 // The malla: 0 Álgebra, 1 Cálculo I, 2 Programación, 3 Cálculo II,
-// 4 Ecuaciones, 5 Estructuras de Datos; one arc per prerequisite.
+// 4 Ecuaciones, 5 Métodos Numéricos; one arc per prerequisite.
 const MALLA = {
   directed: true,
   nodes: [
@@ -69,20 +69,20 @@ const MALLA = {
     { v: 2, x: 0, y: 2 },
     { v: 3, x: 2, y: 0 },
     { v: 4, x: 4, y: 0 },
-    { v: 5, x: 2, y: 2 },
+    { v: 5, x: 4, y: 2 },
   ],
   edges: [
     [1, 3],
+    [0, 3],
     [3, 4],
-    [0, 4],
     [2, 5],
-    [0, 5],
+    [4, 5],
   ] as [number, number][],
   cols: 5,
   rows: 3,
   label: 'La malla.',
   caption:
-    '0 Álgebra · 1 Cálculo I · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Estructuras de Datos',
+    '0 Álgebra · 1 Cálculo I · 2 Programación · 3 Cálculo II · 4 Ecuaciones · 5 Métodos Numéricos',
 };
 
 const ON_PUSH = `private void dfs(Graph g, int s) {
@@ -163,28 +163,6 @@ const CASES: [string, GraphWalkProps, string][] = [
     'end',
   ],
   [
-    'El camino de la versión con pila',
-    {
-      ...NET,
-      beside: true,
-      algorithm: 'dfs-iterative',
-      ratio: '45/55',
-      codeSrc: `${CODE}IterativeDepthFirstPaths.java`,
-      codeRange: '17-33',
-      lines: {
-        pushStart: [18, 19],
-        pop: [20, 21],
-        skip: [22, 23],
-        mark: 25,
-        look: [26, 27],
-        prev: 28,
-        push: 29,
-        end: 20,
-      },
-    },
-    'end',
-  ],
-  [
     'Marcar al apilar',
     {
       beside: true,
@@ -219,16 +197,26 @@ const CASES: [string, GraphWalkProps, string][] = [
     'end',
   ],
   [
-    'La búsqueda en profundidad en el laberinto',
+    'La búsqueda con pila en el laberinto',
     {
       beside: true,
+      algorithm: 'dfs-iterative',
       grid: ['...#', '...#', '#...'],
-      codeSrc: `${CODE}MazeDepthFirstPaths.java`,
-      codeRange: '30-41',
-      lines: { mark: 31, look: [32, 33, 34, 35, 36], prev: 37, recurse: 38, return: 41 },
+      codeSrc: `${CODE}IterativeMazeDepthFirstPaths.java`,
+      codeRange: '30-49',
+      lines: {
+        pushStart: [31, 32],
+        pop: [33, 34],
+        skip: [35, 36],
+        mark: 38,
+        look: [39, 40, 41, 42, 43],
+        prev: 44,
+        push: 45,
+        end: 33,
+      },
       label: 'El laberinto.',
     },
-    'return',
+    'end',
   ],
   [
     'Marcar al sacar de la cola',

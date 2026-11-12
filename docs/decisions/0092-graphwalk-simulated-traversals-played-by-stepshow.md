@@ -111,7 +111,13 @@ Three ways to animate the walks were weighed with Miguel in S3.
   mark while its call runs or waits and in keep once it returned, `prev` as
   an arrow from each cell back to where it was reached from, the arrows of
   the calls in progress in mark (the thread), and a dashed arrow to the cell
-  being looked at. Decided with Miguel in S5b.
+  being looked at. Decided with Miguel in S5b. **The stack version walks a
+  maze too** (`dfs-iterative` with `grid`, `IterativeMazeDepthFirstPaths.java`):
+  the cells it marked in keep, the cell last popped in mark, its thread the
+  way back along `prev` from that cell, and its own stack beside the grid
+  instead of the calls. Added in the plan v2's fourth adversarial review, so
+  the maze, whose input reaches a million cells, is solved with the version
+  that does not overflow.
 - **The breadth-first search marks on enqueue** (`bfs`), as algs4's
   `BreadthFirstPaths`: `marked`, `dist` and `prev` under the listing, each
   reached vertex carrying its distance beside it, one digit, so the layers show,
@@ -129,7 +135,8 @@ Three ways to animate the walks were weighed with Miguel in S3.
   beside the graph, and **the line** under it: the vertices in the order
   they were appended, each arc between two of them a bow above, every one
   pointing right — the drawing that defines a topological order. An arc
-  leaves the graph's drawing at the frame where it stops counting (`lower`),
+  is marked on the frame that says it stops counting (`lower`) and leaves the
+  graph's drawing from the next one,
   as the rule says to take the source out with its arcs (the plan v2's third
   adversarial review). A cycle leaves its vertices off the line, painted red
   at the end. Planned in S14,
