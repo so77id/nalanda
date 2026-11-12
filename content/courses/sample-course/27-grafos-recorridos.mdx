@@ -35,9 +35,9 @@ orden en que se recorre decide qué pregunta responde.
 {/* fields are marked and prev (prev[s] = -1 marks the start), the public */}
 {/* methods hasPathTo and pathTo; IterativeDepthFirstPaths has the same API. */}
 
-{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side. `tones` paints a free cell, keyed by its vertex: mark, keep or flag. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its distance, in the breadth-first search. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. File-local: only the arc of the depth-first search draws a maze. */}
+{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side, or also a corner with `ways={8}`. `land` reads the grid as a map: '#' is land, the free cells, and '.' is water, drawn sunk. `tones` paints a free cell, keyed by its vertex: mark, keep or flag. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its distance, in the breadth-first search. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. File-local: only the arc of the depth-first search draws a maze. */}
 
-export function Maze({ grid, numbers = false, ends, ways = false, tones = {}, notes = {}, thread = [], caption, label }) {
+export function Maze({ grid, numbers = false, ends, ways = false, land = false, tones = {}, notes = {}, thread = [], caption, label }) {
   const cell = 40;
   const pad = 14;
   const side = ends ? 88 : pad;
@@ -50,16 +50,17 @@ export function Maze({ grid, numbers = false, ends, ways = false, tones = {}, no
   const fill = { mark: 'var(--color-mark-soft)', keep: 'var(--color-keep-soft)', flag: 'var(--color-flag-soft)' };
   const stroke = { mark: 'var(--color-mark)', keep: 'var(--color-keep)', flag: 'var(--color-flag)' };
   const at = (v) => [left + (v % cols) * cell + cell / 2, pad + Math.floor(v / cols) * cell + cell / 2];
-  const free = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c] === '.';
+  const open = land ? '#' : '.';
+  const free = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c] === open;
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const v = r * cols + c;
-      const wall = grid[r][c] === '#';
+      const wall = grid[r][c] !== open;
       const tone = wall ? undefined : tones[v];
       cells.push(
         <g key={v}>
-          <rect x={left + c * cell} y={pad + r * cell} width={cell} height={cell} style={{ fill: wall ? 'var(--color-ink-soft)' : 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
+          <rect x={left + c * cell} y={pad + r * cell} width={cell} height={cell} style={{ fill: wall ? (land ? 'var(--color-sunk)' : 'var(--color-ink-soft)') : 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />
           {tone ? <rect x={left + c * cell + 2} y={pad + r * cell + 2} width={cell - 4} height={cell - 4} style={{ fill: fill[tone], stroke: stroke[tone] }} strokeWidth="2.4" /> : null}
           {numbers && !wall ? <text x={left + c * cell + 4} y={pad + r * cell + 12} fontSize="10" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{v}</text> : null}
           {!wall && notes[v] !== undefined ? <text x={left + (c + 1) * cell - 5} y={pad + (r + 1) * cell - 6} textAnchor="end" fontSize="13" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{notes[v]}</text> : null}
@@ -72,11 +73,11 @@ export function Maze({ grid, numbers = false, ends, ways = false, tones = {}, no
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         if (!free(r, c)) continue;
-        for (const [dr, dc] of [[0, 1], [1, 0]]) {
+        for (const [dr, dc] of ways === 8 ? [[0, 1], [1, 0], [1, 1], [1, -1]] : [[0, 1], [1, 0]]) {
           if (!free(r + dr, c + dc)) continue;
           const [x1, y1] = at(r * cols + c);
           const [x2, y2] = at((r + dr) * cols + c + dc);
-          graph.push(<line key={`e${r},${c},${dr}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />);
+          graph.push(<line key={`e${r},${c},${dr},${dc}`} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.4" />);
         }
       }
     }
@@ -2663,10 +2664,201 @@ herramienta, con un cambio pequeño en su código.
 
 ## Ejercicios
 
-{/* S19-S22, worked, on slides: las islas de un mapa satelital, el barquero, */}
-{/* la escalera de palabras, ¿es posible la malla?. Each modelled from */}
-{/* scratch with #363's graph-exercise pattern and a runnable <Exercise>. */}
+{/* Worked, on slides (S19-S22), easiest first: las islas de un mapa */}
+{/* satelital, el barquero, la escalera de palabras, ¿es posible la malla?. */}
+{/* Each modelled from scratch with #363's graph-exercise pattern and a */}
+{/* runnable <Exercise>; each solution is a file in its folder of */}
+{/* 27-grafos-recorridos.code/, run on a JDK 21 with the Exercise's tests. */}
 {/* S23: the posed exercises, in the book only, with `solution`. */}
+
+<Slide title="Las islas de un mapa satelital">
+
+Una imagen satelital se reduce a una grilla de celdas: `#` es tierra y `.`
+es agua. Una **isla** es un grupo de celdas de tierra que se tocan, por un lado
+o por una esquina, y que no toca a ninguna otra celda de tierra. ¿Cuántas
+islas tiene el mapa?
+
+**Entrada.** Una grilla de a lo más $$1000 \times 1000$$ celdas, todas las
+filas del mismo largo.
+
+**Salida.** La cantidad de islas.
+
+<Maze
+  grid={["##...", "#..#.", "...#.", ".#...", "#...#"]}
+  land
+  caption="un mapa de 5 × 5: tierra en claro, agua en gris"
+  label="Un mapa de cinco por cinco: tierra en claro, agua en gris. Fila 0: tierra, tierra, agua, agua, agua. Fila 1: tierra, agua, agua, tierra, agua. Fila 2: agua, agua, agua, tierra, agua. Fila 3: agua, tierra, agua, agua, agua. Fila 4: tierra, agua, agua, agua, tierra."
+/>
+
+</Slide>
+
+<Slide title="Islas · el modelo">
+
+- **Los vértices** son las celdas de tierra. La de la fila $$r$$ y la columna
+  $$c$$ se numera $$r \cdot C + c$$.
+- **Las aristas** unen dos celdas de tierra que se tocan por un lado o por una
+  esquina: la 8-vecindad. Son sin dirección y sin peso.
+- **La pregunta**: cuántas componentes conexas tiene el grafo. Cada isla es
+  una componente.
+- **El tamaño**: hasta $$10^6$$ vértices y, con ocho vecinas, hasta
+  $$4 \cdot 10^6$$ aristas.
+
+<Maze
+  grid={["##...", "#..#.", "...#.", ".#...", "#...#"]}
+  land
+  numbers
+  ways={8}
+  caption="un vértice por celda de tierra, una arista por cada lado o esquina"
+  label="El mapa con su grafo: un vértice en cada celda de tierra y una arista entre cada par que se toca por un lado o por una esquina. Las celdas 16 y 20 se tocan solo por una esquina, y su arista las une."
+/>
+
+</Slide>
+
+<Slide title="Islas · la búsqueda recursiva">
+
+Contar componentes es lanzar una búsqueda desde cada celda de tierra que siga
+sin marcar. La búsqueda recursiva no sirve aquí: una sola isla puede cubrir el
+mapa entero, y entonces el hilo pasa por todas sus celdas, hasta un millón de
+llamadas en curso. Medida en un JDK 21, la pila de llamadas se agota cerca de
+las 17 000. La búsqueda iterativa guarda los pendientes en un `Stack` del
+programa, que vive en la memoria y no en la pila de llamadas.
+
+<Maze
+  grid={['####', '####', '####', '####']}
+  land
+  numbers
+  thread={[0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3]}
+  caption="una isla que cubre el mapa: la recursiva tiene sus 16 celdas en curso"
+  label="Un mapa de cuatro por cuatro todo de tierra. El hilo de la búsqueda recursiva desde 0 serpentea por las 16 celdas: 16 llamadas en curso a la vez."
+/>
+
+</Slide>
+
+<Slide title="Islas · la idea">
+
+Recorremos el mapa celda por celda. Cada celda de tierra que siga sin marcar
+empieza una isla nueva: sumamos una al contador, y una búsqueda iterativa
+desde ella marca todas las celdas de esa isla, mirando sus ocho vecinas. Las
+celdas que ya quedaron marcadas no empiezan nada. Al terminar el recorrido,
+el contador tiene la cantidad de islas.
+
+<Maze
+  grid={["##...", "#..#.", "...#.", ".#...", "#...#"]}
+  land
+  numbers
+  tones={{ 0: 'keep', 1: 'keep', 5: 'keep', 8: 'mark', 13: 'mark', 16: 'keep', 20: 'keep', 24: 'mark' }}
+  notes={{ 0: '1', 1: '1', 5: '1', 8: '2', 13: '2', 16: '3', 20: '3', 24: '4' }}
+  caption="cuatro islas, numeradas en el orden en que se encuentran"
+  label="El mapa con cada celda de tierra marcada con el número de su isla, en el orden en que el recorrido las encuentra: 0, 1 y 5 son la isla 1; 8 y 13, la isla 2; 16 y 20, la isla 3, unidas por una esquina; 24, la isla 4."
+/>
+
+</Slide>
+
+<Slide title="Islas · la solución">
+
+`islands` recorre el mapa y cuenta las búsquedas que empieza. `explore` es la
+búsqueda en profundidad iterativa, que marca al sacar, con las ocho vecinas de
+`DR8` y `DC8`; `land` dice si una celda está dentro del mapa y es tierra:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+<SourceFile src="./27-grafos-recorridos.code/islas/Solution.java" range="13-24" />
+
+<SourceFile src="./27-grafos-recorridos.code/islas/Solution.java" range="26-44" />
+
+</Split>
+</PresentationWide>
+
+</Slide>
+
+<Slide title="Islas · casos y costo">
+
+- **Todo agua**: ninguna búsqueda empieza, y la respuesta es 0.
+- **Todo tierra**: una sola búsqueda marca el mapa entero, y la respuesta es
+  1. Como es iterativa, no agota la pila de llamadas: en un JDK 21, un mapa
+  de $$1000 \times 1000$$ todo de tierra se recorre en menos de un segundo.
+- **Dos celdas que se tocan solo por una esquina** son una misma isla: con
+  cuatro vecinas en vez de ocho, el mapa del ejemplo tendría cinco islas.
+- **Costo**: cada celda se marca una vez y mira sus ocho vecinas, y cada una
+  entra a la pila a lo más ocho veces: $$\Theta(R \cdot C)$$ de tiempo y de
+  memoria, con $$R$$ filas y $$C$$ columnas.
+
+</Slide>
+
+<Slide title="Islas · el programa completo">
+
+<PresentationWide fraction={0.75}>
+<Exercise title="Las islas de un mapa satelital">
+
+```java starter
+import java.util.Stack;
+
+class Solution {
+    static final int[] DR8 = {-1, -1, -1, 0, 0, 1, 1, 1};
+    static final int[] DC8 = {-1, 0, 1, -1, 1, -1, 0, 1};
+
+    static boolean land(String[] map, int r, int c) {
+        return r >= 0 && r < map.length
+                && c >= 0 && c < map[0].length()
+                && map[r].charAt(c) == '#';
+    }
+
+    static int islands(String[] map) {
+        int cols = map[0].length();
+        boolean[] marked = new boolean[map.length * cols];
+        int count = 0;
+        for (int s = 0; s < map.length * cols; s++) {
+            if (land(map, s / cols, s % cols) && !marked[s]) {
+                count++;
+                explore(map, s, marked);
+            }
+        }
+        return count;
+    }
+
+    static void explore(String[] map, int s, boolean[] marked) {
+        int cols = map[0].length();
+        Stack<Integer> stack = new Stack<>();
+        stack.push(s);
+        while (!stack.empty()) {
+            int v = stack.pop();
+            if (marked[v]) {
+                continue;
+            }
+            marked[v] = true;
+            for (int k = 0; k < 8; k++) {
+                int r = v / cols + DR8[k];
+                int c = v % cols + DC8[k];
+                if (land(map, r, c) && !marked[r * cols + c]) {
+                    stack.push(r * cols + c);
+                }
+            }
+        }
+    }
+}
+```
+
+```java test
+String[] map = {"##...", "#..#.", "...#.", ".#...", "#...#"};
+check(Solution.islands(map), 4);
+check(Solution.islands(new String[] {"...."}), 0);
+check(Solution.islands(new String[] {"####"}), 1);
+check(Solution.islands(new String[] {"#.", ".#"}), 1);
+check(Solution.islands(new String[] {"#.#"}), 2);
+StringBuilder row = new StringBuilder();
+for (int i = 0; i < 300; i++) {
+    row.append('#');
+}
+String[] big = new String[300];
+java.util.Arrays.fill(big, row.toString());
+check(Solution.islands(big), 1);
+```
+
+</Exercise>
+</PresentationWide>
+
+</Slide>
 
 <SectionBreak />
 
