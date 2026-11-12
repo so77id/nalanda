@@ -321,6 +321,11 @@ describe('StepShow', () => {
     forward.focus();
     fireEvent.click(forward);
     expect(document.activeElement).toBe(screen.getByRole('group'));
+    // The speed selector too (#357 review round 9).
+    const speed = screen.getByRole('combobox', { name: /velocidad/i });
+    speed.focus();
+    fireEvent.change(speed, { target: { value: 'fast' } });
+    expect(document.activeElement).toBe(screen.getByRole('group'));
   });
 
   it('takes the keyboard on a slide even when a deck control had it (#357 round 6)', () => {

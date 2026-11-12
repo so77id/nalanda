@@ -371,7 +371,9 @@ export function StepShow({
         const onGroup = event.target === event.currentTarget;
         const forward =
           event.key === 'ArrowRight' ||
-          (isPresentation && (event.key === 'PageDown' || (event.key === ' ' && onGroup)));
+          (isPresentation &&
+            (event.key === 'PageDown' ||
+              ((event.key === ' ' || event.key === 'Enter') && onGroup)));
         const backward = event.key === 'ArrowLeft' || (isPresentation && event.key === 'PageUp');
         if (forward && !last) {
           event.preventDefault();
@@ -517,7 +519,10 @@ export function StepShow({
           </span>
           <select
             value={liveSpeed}
-            onChange={(e) => setLiveSpeed(e.target.value as 'slow' | 'normal' | 'fast')}
+            onChange={(e) => {
+              const speed = e.target.value as 'slow' | 'normal' | 'fast';
+              handBack(() => setLiveSpeed(speed))();
+            }}
             className="bg-transparent outline-none text-xs text-ink"
             aria-label="Velocidad de reproducción"
           >

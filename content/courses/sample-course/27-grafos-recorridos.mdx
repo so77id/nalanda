@@ -698,7 +698,7 @@ alcanzado. Después, `marked(v)` dice si la búsqueda llegó a `v`.
 <Slide title="La búsqueda en profundidad con una pila">
 
 La misma búsqueda se escribe con una pila propia, un `Stack` que el programa
-maneja, en lugar de la pila de llamadas de Java, que tiene un límite: **sacar un vértice; si ya está
+maneja, en lugar de la pila de llamadas de Java, que tiene un límite. La regla: **sacar un vértice; si ya está
 marcado, descartarlo; si no, marcarlo y apilar sus vecinos sin marcar.**
 
 La pila de llamadas guarda cada llamada a medio camino; esta guarda los
@@ -868,21 +868,30 @@ celda de arriba a la izquierda y la salida, la de abajo a la derecha.
 <Slide title="Un laberinto de 1000 × 1000">
 
 Un laberinto de $$1000 \times 1000$$ celdas es un grafo de un millón de
-vértices. Una búsqueda recursiva tiene una llamada en curso por cada celda del
-camino que lleva, y en un laberinto sin muros ese camino pasa por todas las
-celdas sin volver: un millón de llamadas en curso a la vez. Medido en un JDK 21
-sobre Linux arm64, con la pila que trae por defecto, la búsqueda recursiva sobre
-la grilla lanza `StackOverflowError` con unas 17 000. La versión con pila
-guarda los pendientes en la memoria donde viven los objetos, mucho más grande,
-y recorre el laberinto completo.
+vértices. `MazeDepthFirstPaths`, la búsqueda recursiva sobre la grilla, tiene
+una llamada en curso por cada celda del camino que lleva.
+
+En un laberinto sin muros, ese camino pasa por todas las celdas sin volver: un
+millón de llamadas en curso a la vez. Medido en un JDK 21 sobre Linux arm64,
+con la pila que trae por defecto, lanza `StackOverflowError` con unas
+17 000. La versión con pila guarda los pendientes en la memoria donde viven
+los objetos, mucho más grande, y recorre el laberinto completo.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/MazeDepthFirstPaths.java" range="30-41" />
 
 <Maze
   grid={["....", "....", "....", "...."]}
   numbers
   thread={[0, 4, 8, 12, 13, 9, 5, 1, 2, 6, 10, 14, 15, 11, 7, 3]}
   caption="sin muros: 16 celdas, 16 llamadas en curso a la vez"
-  label="Una grilla de cuatro por cuatro sin muros. El camino de una búsqueda recursiva desde 0 baja por la primera columna, sube por la segunda, baja por la tercera y sube por la cuarta, y pasa por las 16 celdas: 16 llamadas en curso a la vez."
+  label="Una grilla de cuatro por cuatro sin muros. El camino de la búsqueda recursiva desde 0 baja por la primera columna, sube por la segunda, baja por la tercera y sube por la cuarta, y pasa por las 16 celdas: 16 llamadas en curso a la vez."
 />
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
@@ -933,7 +942,8 @@ esa copia de `w` es la que sale primero de la pila y la marca.
 />
 
 Cada celda se marca una vez y mira cuatro direcciones: con $$R \cdot C$$ celdas
-cuesta $$\Theta(R \cdot C)$$, sin armar ninguna lista de adyacencia.
+cuesta $$\Theta(R \cdot C)$$, sin armar ninguna lista de adyacencia, y
+$$\Theta(R \cdot C)$$ de memoria para `marked`, `prev` y la pila.
 
 </Slide>
 
@@ -1028,9 +1038,12 @@ lista de aristas entre personas numeradas; y las dos personas.
 
 <Slide title="El camino de la búsqueda en profundidad">
 
-Con `prev`, que anota desde qué vértice se llegó a cada uno, las dos búsquedas
-en profundidad dan una cadena de amigos. Ninguna busca la más corta: cada una
-sigue un vecino tan hondo como puede, sin mirar si hay un atajo.
+`DepthFirstPaths` es la búsqueda recursiva con `prev`, que anota desde qué
+vértice se llegó a cada uno; la versión con pila lo anota igual. Las dos dan
+una cadena de amigos, y ninguna busca la más corta: cada una sigue un vecino tan
+hondo como puede, sin mirar si hay un atajo.
+
+<SourceFile src="./27-grafos-recorridos.code/DepthFirstPaths.java" range="17-25" />
 
 <PresentationWide fraction={0.95}>
 <Pair>
@@ -1235,7 +1248,8 @@ una sola vez, al sacarlo. Es el mismo recorrido de las listas que hace la
 búsqueda en profundidad:
 
 - **Con las listas, $$\Theta(V + E)$$.**
-- **Con la matriz, $$\Theta(V^2)$$.**
+- **Con la matriz, $$\Theta(V^2)$$**: cada `adj(v)` recorre una fila de $$V$$
+  casillas.
 - **Memoria, $$\Theta(V)$$**: `marked`, `dist`, `prev` y la cola, que nunca
   tiene más de $$V$$ vértices.
 
@@ -1284,11 +1298,12 @@ cadena.
 Sobre la grilla, la búsqueda en anchura da los pasos mínimos para salir.
 `MazeBreadthFirstPaths` calcula los vecinos de cada celda con `DR4`, `DC4` y
 `free`, y lleva la distancia en `dist`, que también hace de marca: una celda sin
-distancia es una celda sin marcar.
+distancia es una celda sin marcar, así que no necesita `marked`.
 
 Cada celda recibe la menor cantidad de pasos desde la entrada, escrita abajo en
 el dibujo, y `pathTo` de la salida da un camino con esa cantidad. Cuesta
-$$\Theta(R \cdot C)$$, como la búsqueda en profundidad.
+$$\Theta(R \cdot C)$$ de tiempo y de memoria, como la búsqueda en
+profundidad.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
@@ -1343,25 +1358,19 @@ primera copia que entra es la primera que sale.
 <Slide title="Un orden para cosas que dependen de otras">
 
 Los dos recorridos dicen qué se alcanza desde un vértice, y la búsqueda en
-anchura, a qué distancia. El orden en que visitan no dice en qué orden hacer
-las cosas cuando unas dependen de otras: en una malla, una búsqueda por capas
-desde los ramos que no piden nada puede visitar un ramo antes que uno de sus
-prerrequisitos. ¿En qué orden se hacen las cosas, para que cada una llegue
-después de las que necesita?
+anchura, a qué distancia. Cuando unas cosas dependen de otras, como los ramos de
+una malla o las celdas de una hoja de cálculo, la pregunta es otra: ¿en qué
+orden se hacen, para que cada una llegue después de las que necesita?
 
-<Pair>
 <NodeGraph
   cols={6}
   rows={3}
   nodes={[{ v: 'Cálculo I', x: 0, y: 0 }, { v: 'Cálculo II', x: 2.5, y: 0 }, { v: 'Ecuaciones', x: 5, y: 1 }, { v: 'Álgebra', x: 0, y: 2 }]}
   edges={[['Cálculo I', 'Cálculo II'], ['Cálculo II', 'Ecuaciones'], ['Álgebra', 'Ecuaciones']]}
   directed
-  tones={{ Ecuaciones: 'flag' }}
-  caption="Ecuaciones, visitado antes que Cálculo II"
-  label="Cuatro ramos: Cálculo I es prerrequisito de Cálculo II, y Cálculo II y Álgebra lo son de Ecuaciones. En rojo, Ecuaciones."
+  caption="Ecuaciones pide Cálculo II y Álgebra; Cálculo II pide Cálculo I"
+  label="Cuatro ramos: Cálculo I es prerrequisito de Cálculo II, y Cálculo II y Álgebra lo son de Ecuaciones."
 />
-<OutputBox head="por capas desde Álgebra y Cálculo I" lines={["Álgebra", "Cálculo I", "Ecuaciones", "Cálculo II"]} rows={4} label="El orden de una búsqueda en anchura con Álgebra y Cálculo I en la cola desde el comienzo: Álgebra, Cálculo I, Ecuaciones, Cálculo II. Ecuaciones queda antes que Cálculo II, su prerrequisito." />
-</Pair>
 
 </Slide>
 
@@ -1423,11 +1432,11 @@ a su primer vértice.
 
 </Slide>
 
-<Slide title="Los recorridos en una malla">
+<Slide title="Tres órdenes que no respetan los prerrequisitos">
 
 En un grafo dirigido, los vecinos de un vértice son aquellos a los que apuntan
-sus arcos. Ni el orden en que visitan los recorridos ni el grado de entrada dan
-un orden topológico,
+sus arcos. Ni el orden en que visitan los recorridos ni la cantidad de
+prerrequisitos dan un orden topológico,
 aun empezando desde todos los ramos que no piden nada:
 
 - **en profundidad**, desde cada uno de esos ramos, uno tras otro y sin
@@ -1443,20 +1452,20 @@ aun empezando desde todos los ramos que no piden nada:
 <LineOrder
   order={[0, 4, 3, 1, 2, 5]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
-  caption="en profundidad: Ecuaciones antes que Cálculo II"
+  caption="en profundidad: 4 Ecuaciones antes que 2 Cálculo II"
   label="La malla en el preorden de la búsqueda en profundidad desde 0, 1 y 5: 0, 4, 3, 1, 2, 5. Los arcos de 2 a 4, de Cálculo II a Ecuaciones, y de 5 a 3, de Programación a Métodos Numéricos, en rojo, apuntan hacia la izquierda."
 />
 <LineOrder
   order={[0, 1, 5, 4, 2, 3]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
-  caption="en anchura: Ecuaciones antes que Cálculo II"
+  caption="en anchura: 4 Ecuaciones antes que 2 Cálculo II"
   label="La malla en el orden de la búsqueda en anchura desde 0, 1 y 5: 0, 1, 5, 4, 2, 3. El arco de 2 a 4, de Cálculo II a Ecuaciones, en rojo, apunta hacia la izquierda."
 />
 <LineOrder
   order={[0, 1, 5, 2, 3, 4]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
-  caption="por grado de entrada: Métodos Numéricos antes que Ecuaciones"
-  label="La malla ordenada por grado de entrada, 0, 0, 1, 2, 2 y 0: 0, 1, 5, 2, 3, 4. El arco de 4 a 3, de Ecuaciones a Métodos Numéricos, en rojo, apunta hacia la izquierda."
+  caption="por cantidad: 3 Métodos Numéricos antes que 4 Ecuaciones"
+  label="La malla ordenada por cantidad de prerrequisitos, 0, 0, 1, 2, 2 y 0: 0, 1, 5, 2, 3, 4. El arco de 4 a 3, de Ecuaciones a Métodos Numéricos, en rojo, apunta hacia la izquierda."
 />
 </Pair>
 </PresentationWide>
@@ -1574,7 +1583,7 @@ entrada, y una cola guarda las fuentes que esperan. Cada fuente que sale pasa a
   programLines={[3]}
   codeSrc="./27-grafos-recorridos.code/Topological.java"
   codeRange="11-28"
-  lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
+  lines={{ inDegrees: [11, 12], check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
   label="Una malla de seis ramos: 0 Álgebra, 1 Cálculo I, 2 Cálculo II, 3 Métodos Numéricos, 4 Ecuaciones y 5 Programación. Arcos de Cálculo I a Cálculo II, de Cálculo II y de Álgebra a Ecuaciones, y de Programación y de Ecuaciones a Métodos Numéricos."
   caption="0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación"
 />
@@ -1596,24 +1605,39 @@ para sacar los arcos:
 
 <Slide title="Un orden para la malla">
 
-`order()` da la línea: un orden en que se pueden tomar los ramos. No es el
-único. Cuando varias fuentes esperan, cualquiera puede ir primero, y cada
-elección da otra línea: un grafo dirigido sin ciclos puede tener muchos órdenes
-topológicos, y todos sirven.
+`CoursePlan` lee la malla y escribe `order()`, la línea: un orden en que se
+pueden tomar los ramos. No es el único. Cuando varias fuentes esperan,
+cualquiera puede ir primero, y cada elección da otra línea: un grafo dirigido
+sin ciclos puede tener muchos órdenes topológicos, y todos sirven.
 
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<div>
+
+<SourceFile src="./27-grafos-recorridos.code/CoursePlan.java" range="5-10" />
+
+<OutputBox head="salida" lines={["[0, 1, 5, 2, 4, 3]"]} rows={1} label="El programa imprime el orden 0, 1, 5, 2, 4, 3." />
+
+</div>
+
+<Pair stack>
 <LineOrder
   order={[0, 1, 5, 2, 4, 3]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   caption="Álgebra, Cálculo I, Programación, Cálculo II, Ecuaciones, Métodos Numéricos"
   label="La malla en el orden que da Topological: 0, 1, 5, 2, 4, 3, es decir Álgebra, Cálculo I, Programación, Cálculo II, Ecuaciones y Métodos Numéricos; todos los arcos hacia la derecha."
 />
-
 <LineOrder
   order={[5, 1, 0, 2, 4, 3]}
   arcs={[[1, 2], [2, 4], [0, 4], [5, 3], [4, 3]]}
   caption="otro orden válido: Programación, Cálculo I, Álgebra, Cálculo II, Ecuaciones, Métodos Numéricos"
   label="La malla en el orden 5, 1, 0, 2, 4, 3: también todos los arcos hacia la derecha."
 />
+</Pair>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
@@ -1674,7 +1698,7 @@ por esos arcos alguna se repite, en un ciclo.
   programLines={[1]}
   codeSrc="./27-grafos-recorridos.code/Topological.java"
   codeRange="11-28"
-  lines={{ inDegrees: 11, check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
+  lines={{ inDegrees: [11, 12], check: [13, 14], enqueueStart: [14, 15], dequeue: [18, 19], append: 20, lower: [21, 22], enqueue: [23, 24], end: [18, 28] }}
   label="La misma hoja, con C1 = A1 + D1: 0 es C1 = A1 + D1; 1 es A1, que vale 5; 2 es D1 = B1 + C1; 3 es B1 = A1 * 2. Arcos de 1 a 3 y a 0, de 3 y de 0 a 2, y de 2 a 0: C1 y D1 se leen una a la otra, un ciclo."
   caption="la misma hoja, con C1 = A1 + D1; los números: 0 es C1, 1 es A1, 2 es D1, 3 es B1"
 />
@@ -1683,9 +1707,9 @@ por esos arcos alguna se repite, en un ciclo.
 
 <Slide title="La hoja que reporta el ciclo">
 
-`hasOrder()` dice si todos los vértices llegaron a la línea. El programa lee los
-vértices y los arcos, los de una hoja o los de una malla, y con `Topological`
-imprime el orden o reporta la referencia circular.
+`hasOrder()` dice si todos los vértices llegaron a la línea, y `order()` da la
+línea. El programa lee los vértices y los arcos y, con `Topological`, imprime el
+orden o reporta la referencia circular.
 
 <PresentationWide fraction={0.95}>
 <Split ratio="60/40">
