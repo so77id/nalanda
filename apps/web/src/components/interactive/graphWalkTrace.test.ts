@@ -113,7 +113,7 @@ describe('traceDfs', () => {
     expect(frames[3].text).toBe('Llama a dfs(1).');
     expect(frames[5].text).toBe('Mira el vecino 0 de 1: ya está marcado, lo salta.');
     expect(frames[6].text).toBe('dfs(1) termina y vuelve a dfs(0).');
-    expect(frames[7].text).toBe('dfs(0) termina: no queda nada por recorrer.');
+    expect(frames[7].text).toBe('dfs(0) termina: marcó todo lo que se alcanza desde 0.');
   });
 
   it('refuses a start that is not a vertex', () => {
@@ -214,7 +214,7 @@ describe('traceDfsStack, marking on pop (the iterative depth-first search)', () 
       'Saca 1 de la pila.',
       'Marca 1.',
       'Mira el vecino 0 de 1: ya está marcado, lo salta.',
-      'La pila quedó vacía: no queda nada por recorrer.',
+      'La pila quedó vacía: marcó todo lo que se alcanza desde 0.',
     ]);
   });
 
@@ -511,8 +511,8 @@ describe('a depth-first walk without prev (#357 v2: the search that only marks)'
   });
 });
 
-describe('the jump marking on push makes, narrated (#357 review round 1)', () => {
-  it('says the walk jumps between two vertices that are not neighbours', () => {
+describe('the step marking on push makes, narrated (#357 review rounds 1 and 2)', () => {
+  it('says the walk leaves a vertex with a neighbour it never walked to', () => {
     const fan = adjacencyOf(4, [
       [0, 1],
       [0, 2],
@@ -520,10 +520,12 @@ describe('the jump marking on push makes, narrated (#357 review round 1)', () =>
       [1, 3],
     ]);
     const jump = traceDfsStack(fan, 0, 'push').find((f) => f.event === 'pop' && f.v === 2)!;
-    expect(jump.text).toBe(
-      'Saca 2 de la pila y sigue desde ahí: salta de 3 a 2, que no son vecinos.',
-    );
+    expect(jump.text).toBe('Saca 2 de la pila y sigue desde ahí: deja 3 sin recorrer su vecino 1.');
     const step = traceDfsStack(fan, 0, 'push').find((f) => f.event === 'pop' && f.v === 3)!;
     expect(step.text).toBe('Saca 3 de la pila y sigue desde ahí.');
+    // From 2, whose only neighbour is walked, going on to 1 is a plain step
+    // back, as any walk in depth makes: not flagged.
+    const back = traceDfsStack(fan, 0, 'push').find((f) => f.event === 'pop' && f.v === 1)!;
+    expect(back.text).toBe('Saca 1 de la pila y sigue desde ahí.');
   });
 });

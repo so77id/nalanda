@@ -30,6 +30,11 @@ export interface NodeGraphProps {
   /** Edges painted thicker in mark; in an undirected graph, either order matches. */
   markEdges?: NodeGraphEdge[];
   /**
+   * Edges of `edges` drawn dashed in flag: a link that was there and is not
+   * any more — a cut cable. Either order matches in an undirected graph.
+   */
+  cutEdges?: NodeGraphEdge[];
+  /**
    * A walk, as the vertices it visits in order: its edges are marked and each
    * carries the number of its step, as `<PenTrace>` numbers a tracing.
    * Parallel edges are walked in turn.
@@ -113,6 +118,7 @@ function Graph({
   directed = false,
   tones = {},
   markEdges = [],
+  cutEdges = [],
   walk = [],
   notes = {},
   caption,
@@ -134,6 +140,9 @@ function Graph({
   const marked = new Set(
     markEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
   );
+  const cut = new Set(
+    cutEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
+  );
   const walked = walkStrokes(edges, walk, directed) ?? [];
   const steps = stepMarks(layout, { path: walk.map(String), used: walked }, STEP_SPACE);
   return (
@@ -151,10 +160,26 @@ function Graph({
     >
       {layout.edges.map((e, i) => {
         const hot = marked.has(e.key) || walked.includes(i);
-        const color = hot ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+        const gone = cut.has(e.key);
+        const color = gone
+          ? 'var(--color-flag)'
+          : hot
+            ? 'var(--color-mark)'
+            : 'var(--color-rule-strong)';
         return (
-          <g key={`${e.key}#${i}`} data-edge={e.key} data-marked={hot ? '' : undefined}>
-            <path d={e.d} fill="none" style={{ stroke: color }} strokeWidth={hot ? 2.6 : 1.3} />
+          <g
+            key={`${e.key}#${i}`}
+            data-edge={e.key}
+            data-marked={hot ? '' : undefined}
+            data-cut={gone ? '' : undefined}
+          >
+            <path
+              d={e.d}
+              fill="none"
+              style={{ stroke: color }}
+              strokeWidth={hot || gone ? 2.6 : 1.3}
+              strokeDasharray={gone ? '6 5' : undefined}
+            />
             {e.arrow ? <polygon points={e.arrow} style={{ fill: color }} /> : null}
           </g>
         );

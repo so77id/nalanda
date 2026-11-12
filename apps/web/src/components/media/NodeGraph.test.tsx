@@ -182,6 +182,13 @@ describe('NodeGraph', () => {
     expect(marked.map((e) => e.getAttribute('data-edge'))).toEqual(['A>C']);
   });
 
+  it('draws a cut edge dashed, whichever order the author names it in', () => {
+    const { container } = render(<NodeGraph {...STREETS} cutEdges={[['B', 'C']]} />);
+    const cut = [...container.querySelectorAll('[data-edge][data-cut]')];
+    expect(cut.map((e) => e.getAttribute('data-edge'))).toEqual(['C>B']);
+    expect(cut[0].querySelector('path')).toHaveAttribute('stroke-dasharray', '6 5');
+  });
+
   it('in a directed graph, marks only the edge in the order named', () => {
     const { container } = render(<NodeGraph {...FOLLOWS} markEdges={[['B', 'A']]} />);
     const marked = [...container.querySelectorAll('[data-edge][data-marked]')];

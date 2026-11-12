@@ -349,7 +349,7 @@ function walkRecursive(
       w: null,
       text:
         caller === null
-          ? `dfs(${v}) termina: no queda nada por recorrer.`
+          ? `dfs(${v}) termina: marcó todo lo que se alcanza desde ${v}.`
           : `dfs(${v}) termina y vuelve a dfs(${caller}).`,
     });
     stack.pop();
@@ -424,9 +424,14 @@ export function traceDfsStack(
   while (stack.length > 0) {
     const v = stack.pop()!;
     // Marking on push, the walk can leave a vertex for one that is not its
-    // neighbour: the jump a walk in depth never makes.
+    // neighbour while that vertex still has a neighbour marked and never
+    // walked to: the step a walk in depth never makes. Leaving a vertex whose
+    // neighbours are all walked is a plain step back, and is not flagged.
     const last = order.length > 0 ? order[order.length - 1] : null;
-    const jumps = markOn === 'push' && last !== null && !adj[last].includes(v);
+    const leftBehind =
+      markOn === 'push' && last !== null && !adj[last].includes(v)
+        ? adj[last].find((u) => u !== v && marked[u] && !order.includes(u))
+        : undefined;
     if (markOn === 'push') order.push(v);
     r.record({
       event: 'pop',
@@ -435,8 +440,8 @@ export function traceDfsStack(
       text:
         markOn === 'pop'
           ? `Saca ${v} de la pila.`
-          : jumps
-            ? `Saca ${v} de la pila y sigue desde ahí: salta de ${last} a ${v}, que no son vecinos.`
+          : leftBehind !== undefined
+            ? `Saca ${v} de la pila y sigue desde ahí: deja ${last} sin recorrer su vecino ${leftBehind}.`
             : `Saca ${v} de la pila y sigue desde ahí.`,
     });
     if (markOn === 'pop') {
@@ -500,7 +505,7 @@ export function traceDfsStack(
     event: 'end',
     v: null,
     w: null,
-    text: 'La pila quedó vacía: no queda nada por recorrer.',
+    text: `La pila quedó vacía: marcó todo lo que se alcanza desde ${start}.`,
   });
   return r.frames;
 }
@@ -647,7 +652,7 @@ export function traceBfs(
     event: 'end',
     v: null,
     w: null,
-    text: 'La cola quedó vacía: no queda nada por recorrer.',
+    text: `La cola quedó vacía: marcó todo lo que se alcanza desde ${start}.`,
   });
   return r.frames;
 }

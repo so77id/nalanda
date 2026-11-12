@@ -319,7 +319,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
           {props.caption ? (
             <p
               className="m-0 text-center"
-              style={{ fontSize: onSlide ? '0.95rem' : '0.8rem', color: 'var(--color-ink-soft)' }}
+              style={{ fontSize: onSlide ? '1.05rem' : '0.8rem', color: 'var(--color-ink-soft)' }}
               data-testid="graph-walk-caption"
             >
               {props.caption}
@@ -353,6 +353,8 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   // large: the graph takes more of it. Both caps are fixed numbers, never a
   // share of the column, so the frame's height never follows its width.
   const onSlide = useMode() === 'presentation';
+  // Seven columns or more: the network and the friends.
+  const wide = cols >= 7;
   const tones: Record<string, NodeGraphTone> = {};
   // One meaning for every walk of the class: green is marked (Kahn: on the
   // line), amber is the vertex the walk is on, red is what goes wrong.
@@ -378,7 +380,8 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
   if (frame.dist !== null) {
     frame.dist.forEach((d, v) => {
       // An unreached vertex keeps its note's room, so the drawing never grows.
-      notes[String(v)] = d >= 0 ? `d=${d}` : '\u00a0';
+      // One character, a digit: a wider note reaches over its vertex.
+      notes[String(v)] = d >= 0 ? String(d) : '\u00a0';
     });
   }
   const thread = recursive
@@ -396,7 +399,7 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
     >
       <div
         style={{
-          fontSize: onSlide ? '1.05rem' : '0.9rem',
+          fontSize: onSlide ? '1.2rem' : '0.9rem',
           textAlign: 'center',
           lineHeight: 1.4,
           minHeight: '2.8em',
@@ -406,8 +409,15 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
       </div>
       <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {/* Capped so the frame's height never depends on the panel's width:
-            a drawing that grows with it makes the deck re-scale for ever. */}
-        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '520px' : '320px' }}>
+            a drawing that grows with it makes the deck re-scale for ever. On
+            a slide a wide graph takes the whole row, its stack or queue
+            below it, or it is drawn too small to read from the back. */}
+        <div
+          style={{
+            flex: onSlide ? (wide ? '1 1 100%' : '1 1 400px') : '1 1 220px',
+            maxWidth: onSlide ? (wide ? '680px' : '520px') : '320px',
+          }}
+        >
           <NodeGraph
             nodes={nodes}
             edges={edges}
@@ -604,7 +614,7 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
     >
       <div
         style={{
-          fontSize: onSlide ? '1.05rem' : '0.9rem',
+          fontSize: onSlide ? '1.2rem' : '0.9rem',
           textAlign: 'center',
           lineHeight: 1.4,
           minHeight: '2.8em',
@@ -614,7 +624,12 @@ function GridFrame({ frame, grid, depth, label }: GridFrameProps) {
       </div>
       <div className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {/* Capped, as the graph is: the frame's height never follows the width. */}
-        <div style={{ flex: '1 1 220px', maxWidth: onSlide ? '520px' : '320px' }}>
+        <div
+          style={{
+            flex: '1 1 220px',
+            maxWidth: onSlide ? '520px' : '320px',
+          }}
+        >
           <svg
             viewBox={`0 0 ${width} ${height}`}
             style={{ width: '100%', height: 'auto', display: 'block' }}
