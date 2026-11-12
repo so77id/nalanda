@@ -1896,46 +1896,146 @@ no tienen peso, o cuando todas pesan lo mismo.
 
 <Slide title="Camino más corto sin pesos">
 
-{/* The named problem, «¿Con cuántos pasos, como mínimo?», and the lock: */}
-{/* the fewest turns from 0000 to a combination, avoiding the forbidden */}
-{/* ones, a BFS over the state graph whose neighbours moves computes. */}
-{/* [LockTurns.java; the layers of the lock's states] */}
+Encontrar la menor cantidad de aristas de un vértice a otro es el problema
+del **camino más corto sin pesos**: ¿con cuántos pasos, como mínimo? La
+búsqueda en anchura lo responde también en un grafo de estados, donde los
+vecinos se calculan. En el candado, cada combinación es un vértice, y un giro
+de una rueda es una arista que no llega a una combinación prohibida. Las
+combinaciones son textos, así que `dist` es un mapa, y estar en el mapa hace
+de `marked`:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/LockTurns.java" range="12-30" />
+
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: '0000', x: 2, y: 1 }, { v: '1000', x: 0, y: 0 }, { v: '9000', x: 1.33, y: 0 }, { v: '0100', x: 2.67, y: 0 }, { v: '0900', x: 4, y: 0 }, { v: '0010', x: 0, y: 2 }, { v: '0090', x: 1.33, y: 2 }, { v: '0001', x: 2.67, y: 2 }, { v: '0009', x: 4, y: 2 }]}
+  edges={[['0000', '1000'], ['0000', '9000'], ['0000', '0100'], ['0000', '0900'], ['0000', '0010'], ['0000', '0090'], ['0000', '0001'], ['0000', '0009']]}
+  tones={{ '0000': 'mark', '1000': 'flag', '0009': 'flag', '9000': 'keep', '0100': 'keep', '0900': 'keep', '0010': 'keep', '0090': 'keep', '0001': 'keep' }}
+  caption="la capa 1 desde 0000; las prohibidas no entran"
+  label="0000, el origen, unida a las ocho combinaciones a un giro. Seis, en verde, entran a la cola con distancia 1; 1000 y 0009, prohibidas, en rojo, no entran."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Los saltos del caballo">
 
-{/* The fewest jumps of a chess knight between two squares: a BFS over */}
-{/* the board, the neighbours the eight L-shaped jumps. [KnightJumps.java; */}
-{/* a board with each square's distance from the knight] */}
+El caballo del ajedrez salta en L: dos casillas en una dirección y una en la
+otra. ¿Con cuántos saltos, como mínimo, llega de una casilla a otra? El
+tablero es un grafo implícito, con un vértice por casilla y una arista por
+cada salto. Es la misma búsqueda en anchura sobre una grilla, con ocho
+desplazamientos en vez de cuatro y sin muros:
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/KnightJumps.java" range="9-28" />
+
+<Maze
+  grid={['.....', '.....', '.....', '.....', '.....']}
+  tones={{ 0: 'mark' }}
+  notes={{ 0: '0', 1: '3', 2: '2', 3: '3', 4: '2', 5: '3', 6: '4', 7: '1', 8: '2', 9: '3', 10: '2', 11: '1', 12: '4', 13: '3', 14: '2', 15: '3', 16: '2', 17: '3', 18: '2', 19: '3', 20: '2', 21: '3', 22: '2', 23: '3', 24: '4' }}
+  caption="saltos desde la esquina, casilla por casilla"
+  label="Un tablero de cinco por cinco con la menor cantidad de saltos de caballo desde la esquina de arriba a la izquierda hasta cada casilla. Fila 0: 0, 3, 2, 3, 2. Fila 1: 3, 4, 1, 2, 3. Fila 2: 2, 1, 4, 3, 2. Fila 3: 3, 2, 3, 2, 3. Fila 4: 2, 3, 2, 3, 4."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Un incendio con varios focos">
 
-{/* Every focus enters the queue at the start, with dist 0: the search */}
-{/* grows from all at once, and dist[v] is the minute v catches fire, the */}
-{/* distance to the nearest focus. [a grid with two foci and each cell's */}
-{/* minute] */}
+Un incendio parte en varios focos a la vez, y cada minuto el fuego pasa a las
+celdas vecinas que no son muro. ¿En qué minuto se quema cada celda? Es la
+distancia al foco más cercano. La búsqueda en anchura la da si todos los
+focos entran a la cola al comenzar, con distancia 0: las capas crecen desde
+todos a la vez, y el resto del código no cambia.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/FireSpread.java" range="13-20" />
+
+<Maze
+  grid={["....", ".#..", "...."]}
+  tones={{ 0: 'flag', 11: 'flag' }}
+  notes={{ 0: '0', 1: '1', 2: '2', 3: '2', 4: '1', 6: '2', 7: '1', 8: '2', 9: '2', 10: '1', 11: '0' }}
+  caption="dos focos, en 0 y en 11: el minuto en que se quema cada celda"
+  label="Una grilla de tres por cuatro con un muro en el centro de la fila 1 y dos focos, en las esquinas 0 y 11, en rojo. En cada celda, el minuto en que se quema: fila 0: 0, 1, 2, 2; fila 1: 1, muro, 2, 1; fila 2: 2, 2, 1, 0."
+/>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="Grafo bipartito">
 
-{/* The named problem, «¿Se pueden repartir en dos grupos sin conflictos */}
-{/* dentro de cada uno?»: teams with no rivals inside. Colour each vertex */}
-{/* by the parity of its layer; an edge between two vertices of one layer */}
-{/* is the conflict, and closes an odd cycle. [two graphs: one split in */}
-{/* two colours, a triangle with the conflict edge in red; Bipartite.java] */}
+Un grafo es **bipartito** si sus vértices se pueden repartir en dos grupos
+sin aristas dentro de cada uno: ¿se pueden repartir en dos grupos sin
+conflictos dentro de cada uno? Por ejemplo, armar dos equipos sin rivales
+adentro. La búsqueda en anchura da un reparto: las capas pares a un grupo y
+las impares al otro. Una arista entre dos vértices de la misma capa es un
+conflicto, y entonces no hay reparto posible: cierra un ciclo de largo
+impar.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="60/40">
+
+<SourceFile src="./27-grafos-recorridos.code/Bipartite.java" range="16-26" />
+
+<div>
+<NodeGraph
+  cols={5}
+  rows={3}
+  nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 2, y: 2 }, { v: 5, x: 4, y: 2 }]}
+  edges={[[0, 3], [0, 4], [1, 4], [2, 5], [1, 3]]}
+  tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'mark', 4: 'mark', 5: 'mark' }}
+  caption="dos equipos sin rivales adentro"
+  label="Seis jugadores con sus rivalidades: 0-3, 0-4, 1-4, 2-5 y 1-3. Las capas pares de la búsqueda, 0, 1 y 2, en verde, y las impares, 3, 4 y 5, en amarillo: ninguna rivalidad queda dentro de un grupo."
+/>
+<NodeGraph
+  cols={3}
+  rows={3}
+  nodes={[{ v: 0, x: 1, y: 0 }, { v: 1, x: 0, y: 2 }, { v: 2, x: 2, y: 2 }]}
+  edges={[[0, 1], [0, 2], [1, 2]]}
+  markEdges={[[1, 2]]}
+  tones={{ 0: 'keep', 1: 'flag', 2: 'flag' }}
+  caption="1 y 2, de la misma capa, son rivales"
+  label="Un triángulo de rivales: 0 en la capa 0; 1 y 2 en la capa 1, y rivales entre ellos, en rojo."
+/>
+</div>
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
 <Slide title="La bolsa">
 
-{/* The iterative depth-first search and the breadth-first search side by */}
-{/* side: the same loop. The bag changes, a stack or a queue, and so does */}
-{/* the moment of marking, on pop or on push (Erickson's «whatever-first */}
-{/* search»). [the two methods side by side, the lines that differ lit] */}
+La búsqueda en profundidad iterativa y la búsqueda en anchura son el mismo
+ciclo: sacar un vértice de la **bolsa** de pendientes y meter en ella sus
+vecinos sin marcar. Cambian dos cosas. La bolsa: una pila, que saca el último
+que entró, o una cola, que saca el primero. Y el momento de marcar: la
+iterativa marca al sacar, y la de anchura al meter, que es lo que le da a cada
+vértice una distancia definitiva.
+
+<PresentationWide fraction={0.95}>
+<Split ratio="50/50">
+
+<SourceFile src="./27-grafos-recorridos.code/IterativeDepthFirstPaths.java" range="17-33" />
+
+<SourceFile src="./27-grafos-recorridos.code/BreadthFirstPaths.java" range="22-38" />
+
+</Split>
+</PresentationWide>
 
 </Slide>
 
@@ -1943,10 +2043,33 @@ no tienen peso, o cuando todas pesan lo mismo.
 
 <Slide title="Un orden que no respeta los prerrequisitos">
 
-{/* A small malla: A before B and C, B before C, with adj(A) = [C, B]. */}
-{/* Both orders, depth-first and by layers, visit C before B, its */}
-{/* prerequisite. In what order are the courses taken? That opens arc III. */}
-{/* [the malla, the two orders, the broken arrow in red] */}
+Una malla curricular dice qué ramos hay que aprobar antes de cada uno: una
+flecha de un ramo a otro si el primero es prerrequisito del segundo. Ninguno
+de los dos recorridos dice en qué orden tomarlos. Basta que la lista de un
+ramo nombre primero a uno que debe ir después: la búsqueda en profundidad lo
+visita antes que su prerrequisito, y la búsqueda en anchura también.
+
+¿En qué orden se toman los ramos?
+
+<Pair>
+<NodeGraph
+  cols={5}
+  rows={2}
+  nodes={[{ v: 'A', x: 0, y: 1 }, { v: 'B', x: 2, y: 0 }, { v: 'C', x: 4, y: 1 }]}
+  edges={[['A', 'C'], ['A', 'B'], ['B', 'C']]}
+  directed
+  markEdges={[['B', 'C']]}
+  tones={{ C: 'flag' }}
+  caption="adj(A) = [C, B]; B es prerrequisito de C"
+  label="Una malla de tres ramos: A es prerrequisito de B y de C, y B es prerrequisito de C. La lista de A nombra primero a C y después a B. Marcada la flecha de B a C, la que los dos recorridos no respetan; C en rojo."
+/>
+<ArrayRows
+  rows={[{ name: 'profundidad', cells: ['A', 'C', 'B'] }, { name: 'anchura', cells: ['A', 'C', 'B'] }]}
+  cols={3}
+  caption="los dos órdenes desde A: C sale antes que B"
+  label="El orden de la búsqueda en profundidad desde A: A, C, B. El de la búsqueda en anchura: A, C, B. En los dos, C sale antes que B, su prerrequisito."
+/>
+</Pair>
 
 </Slide>
 
