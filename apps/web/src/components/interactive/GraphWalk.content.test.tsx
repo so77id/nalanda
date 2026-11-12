@@ -119,7 +119,7 @@ const ON_POP = `private void bfs(Graph g, int s) {
 }`;
 
 const KAHN_LINES = {
-  inDegrees: 11,
+  inDegrees: [11, 12],
   check: [13, 14],
   enqueueStart: [14, 15],
   dequeue: [18, 19],
