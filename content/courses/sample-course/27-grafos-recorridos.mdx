@@ -842,12 +842,14 @@ sin marcar.
 
 <Slide title="La salida de un laberinto">
 
-Un laberinto es un grafo que no viene escrito como lista de aristas. Las celdas
-libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y la
-columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que comparten
-un lado están unidas. Los vecinos de una celda no se guardan: se calculan con
-los desplazamientos `DR4` y `DC4` y con `free`, que dice si una celda está
-dentro de la grilla y libre.
+Un laberinto es un grafo implícito: no viene escrito como lista de aristas. Las
+celdas libres son los vértices, numerados $$r \cdot C + c$$ en la fila $$r$$ y
+la columna $$c$$ de una grilla de $$R$$ filas y $$C$$ columnas, y dos que
+comparten un lado están unidas. Al revés, la celda $$v$$ está en la fila
+$$\lfloor v / C \rfloor$$ y la columna $$v \bmod C$$; en el código, $$C$$ es `cols`, y las
+divisiones son `v / cols` y `v % cols`. Los vecinos de una celda no se guardan:
+se calculan con los desplazamientos `DR4` y `DC4` y con `free`, que dice si una
+celda está dentro de la grilla y libre.
 
 **Entrada.** La grilla, de hasta $$1000 \times 1000$$ celdas; la entrada es la
 celda de arriba a la izquierda y la salida, la de abajo a la derecha.
@@ -1127,7 +1129,7 @@ ya es desde la capa más cercana.
 <GraphWalk
   beside
   algorithm="bfs-mark-on-pop"
-  title="marcar al sacar de la cola, desde Ana"
+  title="marcar al sacar de la cola, desde 0 Ana"
   nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 0 }, { v: 2, x: 3, y: 2 }, { v: 3, x: 5, y: 1 }, { v: 4, x: 7, y: 2 }]}
   edges={[[0, 1], [0, 2], [2, 3], [1, 2], [1, 3], [3, 4]]}
   cols={8}
@@ -1193,21 +1195,21 @@ hay un camino más corto hasta `w`, y `dist[w] = dist[v] + 1` es definitiva.
 
 <Pair>
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["Beto", "Carla"] }, { name: 'capa', head: ["", ""], cells: [1, 1] }]}
+  rows={[{ name: 'cola', head: ["frente", ""], cells: ["1 Beto", "2 Carla"] }, { name: 'capa', head: ["", ""], cells: [1, 1] }]}
   cols={3}
-  caption="después de sacar a Ana"
+  caption="después de sacar a 0 Ana"
   label="La cola después de sacar a Ana, del frente al final: Beto y Carla, los dos de la capa 1."
 />
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["Carla", "Diego"] }, { name: 'capa', head: ["", ""], cells: [1, 2] }]}
+  rows={[{ name: 'cola', head: ["frente", ""], cells: ["2 Carla", "3 Diego"] }, { name: 'capa', head: ["", ""], cells: [1, 2] }]}
   cols={3}
-  caption="después de sacar a Beto"
+  caption="después de sacar a 1 Beto"
   label="La cola después de sacar a Beto: Carla, de la capa 1, y detrás Diego, de la capa 2."
 />
 <ArrayRows
-  rows={[{ name: 'cola', head: ["frente"], cells: ["Diego"] }, { name: 'capa', head: [""], cells: [2] }]}
+  rows={[{ name: 'cola', head: ["frente"], cells: ["3 Diego"] }, { name: 'capa', head: [""], cells: [2] }]}
   cols={3}
-  caption="después de sacar a Carla"
+  caption="después de sacar a 2 Carla"
   label="La cola después de sacar a Carla: solo Diego, de la capa 2."
 />
 </Pair>
@@ -1647,7 +1649,7 @@ cada celda leída a la celda que la lee, la hoja es un grafo dirigido, y para
 calcular cada celda después de las que lee, la hoja las calcula en un orden
 topológico.
 
-**Entrada.** El número de celdas y, entre celdas numeradas, un arco de cada
+**Entrada.** El número de celdas, hasta $$10^4$$, y, entre celdas numeradas, un arco de cada
 celda que una fórmula lee a la celda de esa fórmula.
 
 **Salida.** Un orden en que se pueden calcular las celdas.
@@ -1665,7 +1667,7 @@ celda que una fórmula lee a la celda de esa fórmula.
 </Pair>
 
 Una fórmula lee una celda que está a su derecha, así que el orden de lectura no
-sirve. `Topological`, el de la malla, da uno que sí:
+sirve. `Topological` da uno que sí:
 
 <LineOrder
   order={[0, 3, 1, 2]}
