@@ -31,8 +31,9 @@ the reader learns the answers faster because the questions never move.
 Do **not** use it for a class that is not about a data structure: a class about
 an algorithm design technique (divide y conquista, ordenamiento) has its own
 arc and its worked cases are chapters 15 and 16. So do the Grafos classes
-after the first (traversals, the minimum spanning tree, the shortest paths):
-they use the structure the first one builds and add none of their own.
+after the TDA class (traversals, the minimum spanning tree, the shortest paths):
+they use the structure it builds and add none of their own, and they follow
+[`teach-an-algorithm.md`](teach-an-algorithm.md).
 
 ## Worked example
 
