@@ -228,7 +228,7 @@ function Body({ grid, mode = 'paint', label, caption, tick = 500, foci, upTo }: 
         aria-label={
           still
             ? `${label} Quemado hasta el turno ${now}.`
-            : `${label} Con las flechas se elige un píxel y con Enter se toca.`
+            : `${label} Con las flechas se elige ${mode === 'fire' ? 'una celda' : 'un píxel'} y con Enter se toca.`
         }
         tabIndex={still ? undefined : 0}
         onKeyDown={still ? undefined : onKeyDown}
