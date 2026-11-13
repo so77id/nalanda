@@ -12,12 +12,12 @@ vi.mock('../../lib/contentCode', () => ({
     ({
       'asset:x.code/Traversals.java': [
         'public class Traversals {',
-        '    static void dfs(Graph g, int v, boolean[] marked, int[] prev) {',
-        '        marked[v] = true;',
+        '    static void dfs(Graph g, int v, boolean[] visited, int[] prev) {',
+        '        visited[v] = true;',
         '        for (int w : g.adj(v)) {',
-        '            if (!marked[w]) {',
+        '            if (!visited[w]) {',
         '                prev[w] = v;',
-        '                dfs(g, w, marked, prev);',
+        '                dfs(g, w, visited, prev);',
         '            }',
         '        }',
         '    }',
@@ -27,12 +27,12 @@ vi.mock('../../lib/contentCode', () => ({
     })[src] ?? null,
 }));
 
-const DFS = `static void dfs(Graph g, int v, boolean[] marked, int[] prev) {
-    marked[v] = true;
+const DFS = `static void dfs(Graph g, int v, boolean[] visited, int[] prev) {
+    visited[v] = true;
     for (int w : g.adj(v)) {
-        if (!marked[w]) {
+        if (!visited[w]) {
             prev[w] = v;
-            dfs(g, w, marked, prev);
+            dfs(g, w, visited, prev);
         }
     }
 }`;
@@ -70,12 +70,12 @@ const ITER = `private void dfs(Graph g, int s) {
     stack.push(s);
     while (!stack.empty()) {
         int v = stack.pop();
-        if (marked[v]) {
+        if (visited[v]) {
             continue;
         }
-        marked[v] = true;
+        visited[v] = true;
         for (int w : g.adj(v)) {
-            if (!marked[w]) {
+            if (!visited[w]) {
                 prev[w] = v;
                 stack.push(w);
             }
@@ -94,13 +94,13 @@ const ITER_LINES = {
 };
 const ON_PUSH = `private void dfs(Graph g, int s) {
     Stack<Integer> stack = new Stack<>();
-    marked[s] = true;
+    visited[s] = true;
     stack.push(s);
     while (!stack.empty()) {
         int v = stack.pop();
         for (int w : g.adj(v)) {
-            if (!marked[w]) {
-                marked[w] = true;
+            if (!visited[w]) {
+                visited[w] = true;
                 prev[w] = v;
                 stack.push(w);
             }
@@ -156,7 +156,7 @@ describe('GraphWalk', () => {
       screen.getByRole('img', { name: /Pila de llamadas: dfs\(0\); corre dfs\(0\)/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: 'marked: true, false, false; prev: −1, −1, −1' }),
+      screen.getByRole('img', { name: 'visited: true, false, false; prev: −1, −1, −1' }),
     ).toBeInTheDocument();
   });
 
@@ -168,7 +168,7 @@ describe('GraphWalk', () => {
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'prev');
     expect(
-      screen.getByRole('img', { name: 'marked: true, false, false; prev: −1, 0, −1' }),
+      screen.getByRole('img', { name: 'visited: true, false, false; prev: −1, 0, −1' }),
     ).toBeInTheDocument();
     await forward(2);
     expect(frame()).toHaveAttribute('data-event', 'mark');
@@ -204,7 +204,7 @@ describe('GraphWalk', () => {
         .join(' | ');
     expect(live()).toMatch(/Paso 1 de \d+, línea 3\./);
     // The arrays the program holds go under the named listing.
-    expect(screen.getByTestId('stepshow-under')).toHaveTextContent('marked');
+    expect(screen.getByTestId('stepshow-under')).toHaveTextContent('visited');
     await forward(1);
     expect(live()).toMatch(/Paso 2 de \d+, líneas 4 y 5\./);
   });
@@ -316,7 +316,7 @@ describe('GraphWalk', () => {
     expect(screen.getByRole('img', { name: 'La pila está vacía.' })).toBeInTheDocument();
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'mark');
-    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'marked[0]');
+    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'visited[0]');
   });
 
   it('marking on push, paints red the neighbour it skips without having walked to it', async () => {
@@ -394,12 +394,12 @@ describe('GraphWalk', () => {
 const MAZE = ['...#', '.#..', '.##.'];
 
 const MAZE_DFS = `private void dfs(int v) {
-    marked[v] = true;
+    visited[v] = true;
     for (int k = 0; k < 4; k++) {
         int r = v / cols + DR4[k];
         int c = v % cols + DC4[k];
         int w = r * cols + c;
-        if (free(r, c) && !marked[w]) {
+        if (free(r, c) && !visited[w]) {
             prev[w] = v;
             dfs(w);
         }
@@ -419,7 +419,7 @@ function cell(rc: string): HTMLElement {
 }
 
 describe('GraphWalk over a grid', () => {
-  it('draws the maze, the walls and the cell its first call marks, with no arrays under the listing', () => {
+  it('draws the maze, the walls and the cell its first call marks, with the arrays under the grid', () => {
     render(maze());
     expect(screen.getByText('dfs(0) marca la celda 0, en (0, 0).')).toBeInTheDocument();
     expect(cell('0,0')).toHaveAttribute('data-state', 'running');
@@ -427,10 +427,15 @@ describe('GraphWalk over a grid', () => {
     expect(cell('1,0')).toHaveAttribute('data-state', 'free');
     expect(screen.getByRole('img', { name: /^Un laberinto\. dfs\(0\) marca/ })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /Pila de llamadas: dfs\(0\)/ })).toBeInTheDocument();
-    expect(document.querySelector('[data-cell="marked[0]"]')).toBeNull();
+    // A cell per square, walls included: the program's arrays, under the grid.
+    expect(screen.queryByTestId('stepshow-under')).toBeNull();
+    expect(document.querySelector('[data-cell="visited[0]"]')).toHaveTextContent('true');
+    expect(document.querySelector('[data-cell="visited[11]"]')).toHaveTextContent('false');
+    expect(document.querySelector('[data-cell="prev[3]"]')).toHaveTextContent('−1');
+    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0');
   });
 
-  it('looks up, off the grid, then down, and walks there: prev as an arrow back, then the call', async () => {
+  it('looks up, off the grid, then down, and walks there: prev written, then the call', async () => {
     render(maze());
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'look');
@@ -440,16 +445,17 @@ describe('GraphWalk over a grid', () => {
     expect(document.querySelector('[data-look]')).toHaveAttribute('data-look', '1,0');
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'prev');
-    expect(document.querySelector('[data-prev="4"]')).toHaveAttribute('data-hot');
+    expect(document.querySelector('[data-cell="prev[4]"]')).toHaveAttribute('data-hot');
+    expect(document.querySelector('[data-cell="prev[4]"]')).toHaveTextContent('0');
     await forward(2);
     expect(frame()).toHaveAttribute('data-event', 'mark');
     expect(cell('1,0')).toHaveAttribute('data-state', 'running');
     expect(cell('0,0')).toHaveAttribute('data-state', 'open');
-    // The thread: the arrow of every call still in progress stays lit.
-    expect(document.querySelector('[data-prev="4"]')).toHaveAttribute('data-hot');
+    // The thread: one line through every call still in progress.
+    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0,4');
   });
 
-  it('keeps a cell once its call returns, and its arrow goes back to ink', async () => {
+  it('keeps a cell once its call returns, and the thread goes back with the calls', async () => {
     render(maze());
     const user = userEvent.setup();
     const next = screen.getByRole('button', { name: /adelante/i });
@@ -459,7 +465,7 @@ describe('GraphWalk over a grid', () => {
     await user.click(next);
     expect(cell('2,0')).toHaveAttribute('data-state', 'done');
     expect(cell('1,0')).toHaveAttribute('data-state', 'done');
-    expect(document.querySelector('[data-prev="8"]')).not.toHaveAttribute('data-hot');
+    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0');
     expect(cell('0,0')).toHaveAttribute('data-state', 'running');
   });
 
@@ -489,6 +495,63 @@ describe('GraphWalk over a grid', () => {
       await user.click(next);
     }
     expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', 'end');
+  });
+
+  it('answers the exit on its last frame, the program lit where it uses visited (#357 review)', async () => {
+    render(
+      maze({
+        algorithm: 'dfs-iterative',
+        paths: false,
+        exit: 11,
+        lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, push: 7, end: 2 },
+        program: 'boolean[] visited = dfs(grid, 0);\nSystem.out.println(visited[11]);',
+        programLines: [1],
+        programLinesAtEnd: [2],
+      }),
+    );
+    const program = () =>
+      screen
+        .getAllByTestId('stepshow-listing')
+        .find((l) => l.getAttribute('data-listing') === 'programa')!
+        .querySelector('[data-highlight-lines]')!
+        .getAttribute('data-highlight-lines');
+    expect(program()).toBe('1');
+    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    while (next.getAttribute('aria-disabled') !== 'true') {
+      await user.click(next);
+    }
+    expect(program()).toBe('2');
+    // The way round the walls, by (1, 2) and (1, 3), reaches the exit.
+    expect(
+      screen.getByText(/visited\[11\], la celda \(2, 3\), es true: se llega a la salida\.$/),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the thread off the copies it discards, and ends on the way to the exit (#357 review)', async () => {
+    render(
+      maze({
+        grid: ['...#', '...#', '#...'],
+        algorithm: 'dfs-iterative',
+        exit: 11,
+        lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, prev: 6, push: 7, end: 2 },
+      }),
+    );
+    const thread = () => document.querySelector('[data-thread]')!.getAttribute('data-thread')!;
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    let skips = 0;
+    while (next.getAttribute('aria-disabled') !== 'true') {
+      await user.click(next);
+      if (frame().dataset['event'] === 'skip') {
+        skips++;
+        // A copy popped only to be thrown away is not where the walk is.
+        expect(thread().split(',').at(-1)).not.toBe(frame().dataset['v']);
+      }
+    }
+    expect(skips).toBeGreaterThan(0);
+    expect(thread()).toBe('0,1,2,6,5,9,10,11');
   });
 
   it('tells the author when the rows differ in length, hold another character, or start on a wall', () => {
@@ -528,14 +591,14 @@ const DIAMOND_EDGES: [number, number][] = [
 
 const BFS = `private void bfs(Graph g, int s) {
     Queue<Integer> queue = new ArrayDeque<>();
-    marked[s] = true;
+    visited[s] = true;
     dist[s] = 0;
     queue.add(s);
     while (!queue.isEmpty()) {
         int v = queue.remove();
         for (int w : g.adj(v)) {
-            if (!marked[w]) {
-                marked[w] = true;
+            if (!visited[w]) {
+                visited[w] = true;
                 dist[w] = dist[v] + 1;
                 prev[w] = v;
                 queue.add(w);
@@ -562,12 +625,12 @@ const ON_POP = `private void bfs(Graph g, int s) {
     queue.add(s);
     while (!queue.isEmpty()) {
         int v = queue.remove();
-        if (marked[v]) {
+        if (visited[v]) {
             continue;
         }
-        marked[v] = true;
+        visited[v] = true;
         for (int w : g.adj(v)) {
-            if (!marked[w]) {
+            if (!visited[w]) {
                 queue.add(w);
             }
         }
@@ -721,7 +784,7 @@ describe('GraphWalk, Kahn', () => {
     );
     expect(frame()).toHaveAttribute('data-event', 'inDegrees');
     expect(document.querySelector('[data-cell="inDegree[1]"]')).not.toBeNull();
-    expect(document.querySelector('[data-cell="marked[0]"]')).toBeNull();
+    expect(document.querySelector('[data-cell="visited[0]"]')).toBeNull();
     expect(screen.getByRole('img', { name: 'La línea está vacía.' })).toBeInTheDocument();
     await stepTo(() => frame().dataset['event'] === 'end');
     expect(
@@ -778,7 +841,7 @@ describe('GraphWalk, Kahn', () => {
 });
 
 describe('GraphWalk without paths', () => {
-  it('needs no prev line and draws only marked under the listing', async () => {
+  it('needs no prev line and draws only visited under the listing', async () => {
     render(
       <GraphWalk
         paths={false}
@@ -796,7 +859,7 @@ describe('GraphWalk without paths', () => {
       />,
     );
     expect(document.querySelector('[data-authoring-error]')).toBeNull();
-    expect(document.querySelector('[data-cell="marked[0]"]')).not.toBeNull();
+    expect(document.querySelector('[data-cell="visited[0]"]')).not.toBeNull();
     expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
     await stepTo(() => frame().dataset['event'] === 'return' && frame().dataset['v'] === '0');
     expect(

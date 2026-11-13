@@ -20,7 +20,8 @@ function tokensIn(selector: string): Record<string, string> {
   const block = new RegExp(`${selector}\\s*\\{([^}]*)\\}`, 'm').exec(CSS);
   if (!block) return {};
   const out: Record<string, string> = {};
-  for (const [, name, hex] of block[1]!.matchAll(/--nl-([a-z-]+):\s*(#[0-9a-fA-F]{6})/g)) {
+  // Names may carry digits since the group tokens (#357): `--nl-group-1`.
+  for (const [, name, hex] of block[1]!.matchAll(/--nl-([a-z][a-z0-9-]*):\s*(#[0-9a-fA-F]{6})/g)) {
     out[name!] = hex!.toLowerCase();
   }
   return out;
@@ -60,7 +61,19 @@ const SURFACES = ['ground', 'surface', 'sunk', 'deck-ground'] as const;
 /** Text: WCAG AA is 4.5:1. `ink-faint` is deliberately included — it carries the
  *  smallest type in the product, so it is the one that must not be waved through
  *  at the 3:1 "large text" allowance. */
-const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep', 'mark'] as const;
+const TEXT_TOKENS = [
+  'ink',
+  'ink-soft',
+  'ink-faint',
+  'accent',
+  'flag',
+  'keep',
+  'mark',
+  // #357: a group's colour carries its number in a figure's array cell.
+  'group-1',
+  'group-2',
+  'group-3',
+] as const;
 
 /** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
  *  carrying non-text) and `CHROME_TOKENS` (large-text chrome). Two spellings
@@ -136,6 +149,10 @@ const PAIRS = [
   // declared token whose contrast against `accent` is checked by nothing,
   // and a future nudge to `--nl-accent` breaks the label silently.
   ['on-accent', 'accent'],
+  // #357: a group's number on its own soft ground, in a figure's array cell.
+  ['group-1', 'group-1-soft'],
+  ['group-2', 'group-2-soft'],
+  ['group-3', 'group-3-soft'],
 ] as const;
 
 const THEMES = [

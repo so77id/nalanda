@@ -50,6 +50,7 @@ was found by looking at a screenshot.
 | `on-keep`                                         | The label on a filled `keep` button                                    | **Inverts** with the theme rather than following it                                                                                                           |
 | `on-accent`                                       | The label on a filled `accent` button                                  | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247)                   |
 | `focus`                                           | The focus ring                                                         | One ring for the whole product                                                                                                                                |
+| `group-1` `group-2` `group-3` and their `-soft`  | Which group a thing belongs to, in a figure: the connected components of a graph (#357) | Categorical, never a status: blue, purple and pink, clear of `keep`, `flag`, `mark`, `accent` and `focus`. Each colour on its own `-soft` ground, held to 4.5:1 |
 
 ## The pairing table
 

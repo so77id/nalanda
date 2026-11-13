@@ -391,3 +391,20 @@ registers one token with one meaning, not a palette.
 contrast): every painted state prints a word of its own under the cell (`nuevo`,
 `✓ este`, `sale`), and the
 widget's legend names the three the reader meets most often.
+
+## Addendum — #357: three group colours
+
+A figure that sorts elements into groups — the connected components of a graph,
+each painted as one piece — needs colours that say only *which group*. None of
+the semantic tokens can: `keep`, `flag` and `mark` each carry a meaning (done,
+refused, look here now), and a component painted in one would say it. So
+`group-1`, `group-2` and `group-3` join the palette, with a `-soft` ground each:
+blue, purple and pink, hues chosen clear of `keep`, `flag`, `mark`, `accent` and
+`focus` in both themes.
+
+They are text tokens — a figure writes a group's number in its colour — so the
+palette test holds each to 4.5:1 on every surface and on its own `-soft` ground,
+in both themes. `<NodeGraph>` takes them as tones (`group-1` to `group-3`).
+Three is what the course needs today; a fourth group is a fourth token, added
+the same way.
+

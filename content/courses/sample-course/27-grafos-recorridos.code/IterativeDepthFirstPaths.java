@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.Stack;
 
 public class IterativeDepthFirstPaths {
-    private final boolean[] marked;
+    private final boolean[] visited;
     private final int[] prev;
 
     public IterativeDepthFirstPaths(Graph g, int s) {
-        marked = new boolean[g.V()];
+        visited = new boolean[g.V()];
         prev = new int[g.V()];
         Arrays.fill(prev, -1);
         dfs(g, s);
@@ -19,12 +19,12 @@ public class IterativeDepthFirstPaths {
         stack.push(s);
         while (!stack.empty()) {
             int v = stack.pop();
-            if (marked[v]) {
+            if (visited[v]) {
                 continue;
             }
-            marked[v] = true;
+            visited[v] = true;
             for (int w : g.adj(v)) {
-                if (!marked[w]) {
+                if (!visited[w]) {
                     prev[w] = v;
                     stack.push(w);
                 }
@@ -33,7 +33,7 @@ public class IterativeDepthFirstPaths {
     }
 
     public boolean hasPathTo(int t) {
-        return marked[t];
+        return visited[t];
     }
 
     public List<Integer> pathTo(int t) {

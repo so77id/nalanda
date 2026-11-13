@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { Children, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
-import { isTypingTarget, useMode } from '../../presentation';
+import { isTypingTarget, useMode, WALK_TAKES_KEYS_ON_ARRIVAL } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { resolveCode } from '../../lib/contentCode';
 import { CodeFileViewer } from './CodeFileViewer';
@@ -229,9 +229,10 @@ export function StepShow({
   // cannot press Tab, and without this its first press skipped the whole walk
   // (#357 review round 5). It leaves it where the reader is typing, or with
   // another walk; the deck's own controls (fullscreen, the way out) keep
-  // focus after a click and must not keep it from the walk (round 6).
+  // focus after a click and must not keep it from the walk (round 6). Off
+  // while WALK_TAKES_KEYS_ON_ARRIVAL is.
   useEffect(() => {
-    if (!isPresentation) return;
+    if (!isPresentation || !WALK_TAKES_KEYS_ON_ARRIVAL) return;
     const el = outerRef.current;
     const active = document.activeElement;
     if (!el) return;

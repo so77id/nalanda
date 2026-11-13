@@ -12,7 +12,7 @@ Class 3 of the Grafos unit walks three traversals step by step — depth-first
 search (recursive and iterative), breadth-first search and Kahn's topological
 order — over small graphs and over the grid of a maze, each frame showing
 which vertices are marked, the call stack or the bag, and arrays such as
-`marked`, `prev`, `dist` and the in-degrees. A walk over five or six vertices
+`visited`, `prev`, `dist` and the in-degrees. A walk over five or six vertices
 runs twenty to forty frames.
 
 Epic #354 planned a `graph` recipe of `<SequenceStepper>` for this (as trees,
@@ -44,8 +44,12 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - **What a frame draws**, approved by Miguel on the prototype: the running
   call in `mark`, the finished ones in `keep`, the edges the calls in progress
   were entered by (the thread) and the edge being looked at as marked edges,
-  the call stack beside the graph, and the program's arrays (`marked`, `prev`)
+  the call stack beside the graph, and the program's arrays (`visited`, `prev`)
   under the listings through `<Step under>`, the cell just written in `mark`.
+  A cell's ink says its value: `true` in `keep`, `false` in `flag`, −1 faint
+  (Miguel's review of the deck, 2026-11-12). The array is named `visited`,
+  as the class's files name it since that review; the prose keeps the verb
+  «marcar».
 - **One step per assignment, per neighbour looked at, per call and per
   return** (the course's step rule): a slide walks a graph of four or five
   vertices.
@@ -71,7 +75,7 @@ Three ways to animate the walks were weighed with Miguel in S3.
   S15 Kahn with its in-degrees and the line layout. The rewrite of the class
   on its plan v2 (2026-11-12) added `paths={false}`: a depth-first walk that
   only marks, with no `prev` event and no `prev` row, because the class meets
-  `marked` on its first problem and `prev` only on its second;
+  `visited` on its first problem and `prev` only on its second;
   the recursive walk's thread is then drawn from its call stack itself. The
   thread is the calls in progress, never `prev`: `prev` is the notes the
   search leaves to read the way back once it ends.
@@ -100,26 +104,35 @@ Three ways to animate the walks were weighed with Miguel in S3.
 - **A maze is walked over its implicit graph** (`grid`), as class 2 models
   it: the cell in row r and column c is the vertex r · C + c, and its
   neighbours are computed up, down, left, right with `DR4`/`DC4` and `free`,
-  never stored, so no `Graph` is built and the listing is
-  `MazeDepthFirstPaths.java`, the same API over a grid. **Every direction is
-  a `look`**, a wall and the border included, because the loop asks `free`
-  about all four and class 2 walked the degree the same way; the narration
-  says why the walk does not step there. That is about eight steps a cell,
-  so the maze is small (eight free cells, 62 steps). **The frame is the
-  grid**: `marked` and `prev` hold a cell per square, walls included, so they
-  are drawn on it instead of under the listing — a marked cell painted in
-  mark while its call runs or waits and in keep once it returned, `prev` as
-  an arrow from each cell back to where it was reached from, the arrows of
-  the calls in progress in mark (the thread), and a dashed arrow to the cell
-  being looked at. Decided with Miguel in S5b. **The stack version walks a
-  maze too** (`dfs-iterative` with `grid`, `IterativeMazeDepthFirstPaths.java`):
-  the cells it marked in keep, the cell last popped in mark, its thread the
-  way back along `prev` from that cell, and its own stack beside the grid
-  instead of the calls. Added in the plan v2's fourth adversarial review, so
-  the maze, whose input reaches a million cells, is solved with the version
-  that does not overflow.
+  never stored, so no `Graph` is built. **Every direction is a `look`**, a
+  wall and the border included, because the loop asks `free` about all four
+  and class 2 walked the degree the same way; the narration says why the walk
+  does not step there. That is about eight steps a cell, so the maze is
+  small. **The frame is the grid**: a marked cell painted in mark while its
+  call runs or waits and in keep once it returned, the thread as one line in
+  mark from the start to the cell the walk is on, and a dashed arrow to the
+  cell being looked at. Decided with Miguel in S5b; the stack version
+  (`dfs-iterative` with `grid`) was added in the plan v2's fourth adversarial
+  review.
+- **Miguel's review of the maze (2026-11-13) reshaped it**, and the class now
+  solves the maze with the stack version only — `MazeReach.java` for «¿se
+  llega?», `MazeExit.java` for «¿por dónde?»; the recursive walk over a grid
+  stays in the component, with no slide on it:
+  - **The arrays go under the grid**, a cell per square, walls included,
+    narrower than a graph's (`false` is the widest value). They were drawn on
+    the grid as an arrow per `prev`, which read as nothing; under the
+    listing, twelve cells cost the slide its scale floor.
+  - **The thread of the stack version ends at the cell marked last**, never
+    at a copy popped only to be discarded: at the end the stack empties of
+    such copies, and the thread jumped along ways the walk was not on.
+  - **`exit`** (a cell): the last frame says whether `visited` reached it, and
+    with `prev` the thread is the way back from it — the maze's two
+    questions answered on the walk itself. **`programLinesAtEnd`** lights, on
+    that frame, where the program uses the answer (`visited[t]`).
+  - `paths={false}` walks a grid too, for the search that only answers
+    whether the exit is reached.
 - **The breadth-first search marks on enqueue** (`bfs`), as algs4's
-  `BreadthFirstPaths`: `marked`, `dist` and `prev` under the listing, each
+  `BreadthFirstPaths`: `visited`, `dist` and `prev` under the listing, each
   reached vertex carrying its distance beside it, one digit, so the layers show,
   and the queue drawn front first beside the graph. `dist` starts at −1, so
   an unreached vertex reads as such. **The version that marks on dequeue**
@@ -160,13 +173,14 @@ Three ways to animate the walks were weighed with Miguel in S3.
   walks here, the priority queue being one more bag.
 - The catalog entry quotes the course's files
   (`27-grafos-recorridos.code/DepthFirstPaths.java`,
-  `IterativeDepthFirstPaths.java`, `MazeDepthFirstPaths.java`,
+  `IterativeDepthFirstPaths.java`, `MazeExit.java`,
   `BreadthFirstPaths.java` and `Topological.java`), as `<SourceFile>`'s
   quotes class 2's: when the class's code changes, the entry's ranges and
   `lines` move with it. The trace was checked against those files run on a
   JDK 21 (S5a, S5b, S10, S15): the same order, `prev` and `dist` on the
   square, on the counterexample, on the maze and on the five-vertex graph,
-  and the same order on the six-course malla.
+  and the same order on the six-course malla; `MazeReach` and `MazeExit`
+  again in Miguel's review (2026-11-13), the same path and the same answer.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit

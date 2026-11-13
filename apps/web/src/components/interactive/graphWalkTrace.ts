@@ -111,7 +111,7 @@ export interface WalkFrame {
    */
   gone: [number, number][];
   /** The cell of an array this frame wrote, if it wrote one. */
-  wrote: { array: 'marked' | 'dist' | 'prev' | 'inDegree' | 'order'; index: number } | null;
+  wrote: { array: 'visited' | 'dist' | 'prev' | 'inDegree' | 'order'; index: number } | null;
   /**
    * On `look` over a grid: the cell looked at, `[row, col]`, in the grid or
    * off it (`w` is null off it). Null over a graph.
@@ -273,13 +273,30 @@ export function traceGridDfs(grid: readonly string[], start: number): WalkFrame[
 
 /**
  * The depth-first search with a stack of its own over a maze, as
- * `IterativeMazeDepthFirstPaths.java` reads (#357 review round 4): the frames
- * are `traceDfsStack`'s, marking on pop, with one `look` per direction as
- * `traceGridDfs` has them.
+ * `MazeExit.java` reads, or `MazeReach.java` with `paths` false (#357): the
+ * frames are `traceDfsStack`'s, marking on pop, with one `look` per direction
+ * as `traceGridDfs` has them. Given the `exit` cell, the last frame answers
+ * the maze's first question: whether `visited[exit]` came out true.
  */
-export function traceGridDfsStack(grid: readonly string[], start: number): WalkFrame[] {
-  const { V, probesOf } = gridWalk(grid, start);
-  return walkStack(V, start, 'pop', true, probesOf);
+export function traceGridDfsStack(
+  grid: readonly string[],
+  start: number,
+  paths = true,
+  exit?: number,
+): WalkFrame[] {
+  const { V, C, probesOf } = gridWalk(grid, start);
+  const frames = walkStack(V, start, 'pop', paths, probesOf);
+  if (exit === undefined || !isVertex(V, exit)) return frames;
+  const last = frames[frames.length - 1];
+  const reached = last.marked[exit];
+  const where = position(Math.floor(exit / C), exit % C);
+  frames[frames.length - 1] = {
+    ...last,
+    text:
+      `${last.text} visited[${exit}], la celda ${where}, es ${reached}: ${reached ? 'se llega' : 'no se llega'} a la salida.` +
+      (paths && reached ? ' Siguiendo prev desde ella, el hilo vuelve a la entrada.' : ''),
+  };
+  return frames;
 }
 
 /** A maze checked, and what each cell looks at: up, down, left, right. */
@@ -351,7 +368,7 @@ function walkRecursive(
       event: 'mark',
       v,
       w: null,
-      wrote: { array: 'marked', index: v },
+      wrote: { array: 'visited', index: v },
       text: markText(v),
     });
     for (const probe of probesOf(v)) {
@@ -454,7 +471,7 @@ function walkStack(
       event: 'markStart',
       v: null,
       w: null,
-      wrote: { array: 'marked', index: start },
+      wrote: { array: 'visited', index: start },
       text: `Marca el origen ${start}.`,
     });
   }
@@ -501,7 +518,7 @@ function walkStack(
         event: 'mark',
         v,
         w: null,
-        wrote: { array: 'marked', index: v },
+        wrote: { array: 'visited', index: v },
         text: `Marca ${v}.`,
       });
     }
@@ -540,7 +557,7 @@ function walkStack(
           event: 'mark',
           v,
           w,
-          wrote: { array: 'marked', index: w },
+          wrote: { array: 'visited', index: w },
           text: `Marca ${w} al apilarlo.`,
         });
       }
@@ -625,7 +642,7 @@ export function traceBfs(
       event: 'markStart',
       v: null,
       w: null,
-      wrote: { array: 'marked', index: start },
+      wrote: { array: 'visited', index: start },
       text: `Marca el origen ${start}.`,
     });
     dist[start] = 0;
@@ -654,7 +671,7 @@ export function traceBfs(
         event: 'mark',
         v,
         w: null,
-        wrote: { array: 'marked', index: v },
+        wrote: { array: 'visited', index: v },
         text: `Marca ${v}.`,
       });
     }
@@ -679,7 +696,7 @@ export function traceBfs(
           event: 'mark',
           v,
           w,
-          wrote: { array: 'marked', index: w },
+          wrote: { array: 'visited', index: w },
           text: `Marca ${w} al encolarlo.`,
         });
         dist[w] = dist[v] + 1;

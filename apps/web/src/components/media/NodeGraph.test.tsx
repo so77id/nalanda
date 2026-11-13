@@ -202,6 +202,17 @@ describe('NodeGraph', () => {
     expect(nodeTones(container)).toEqual({ A: 'mark', B: 'flag', C: 'keep' });
   });
 
+  it('paints a node in a group tone, with its group colour (#357)', () => {
+    const { container } = render(
+      <NodeGraph {...STREETS} tones={{ A: 'group-1', B: 'group-2', C: 'group-3' }} />,
+    );
+    expect(nodeTones(container)).toEqual({ A: 'group-1', B: 'group-2', C: 'group-3' });
+    const circleOf = (v: string) =>
+      container.querySelector(`[data-node][data-value="${v}"] circle`) as SVGElement | null;
+    expect(circleOf('A')?.style.stroke).toBe('var(--color-group-1)');
+    expect(circleOf('C')?.style.fill).toBe('var(--color-group-3-soft)');
+  });
+
   it('writes a note beside its node', () => {
     const { container } = render(<NodeGraph {...STREETS} notes={{ A: 2 }} />);
     const notes = [...container.querySelectorAll('[data-note]')];

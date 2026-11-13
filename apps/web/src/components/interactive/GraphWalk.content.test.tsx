@@ -86,21 +86,6 @@ const MALLA = {
     '0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación',
 };
 
-const ON_PUSH = `private void dfs(Graph g, int s) {
-    Stack<Integer> stack = new Stack<>();
-    marked[s] = true;
-    stack.push(s);
-    while (!stack.empty()) {
-        int v = stack.pop();
-        for (int w : g.adj(v)) {
-            if (!marked[w]) {
-                marked[w] = true;
-                stack.push(w);
-            }
-        }
-    }
-}`;
-
 const ON_POP = `private void bfs(Graph g, int s) {
     Queue<Integer> queue = new LinkedList<>();
     queue.add(s);
@@ -131,89 +116,71 @@ const KAHN_LINES = {
 
 const CASES: [string, GraphWalkProps, string][] = [
   [
-    'El código de la búsqueda en profundidad',
-    {
-      ...NET,
-      beside: true,
-      paths: false,
-      codeSrc: `${CODE}DepthFirstSearch.java`,
-      codeRange: '4-16',
-      lines: { mark: 10, look: [11, 12], recurse: 13, return: 16 },
-    },
-    'return',
-  ],
-  [
-    'La búsqueda en profundidad con una pila',
+    'La búsqueda con pila en la red eléctrica',
     {
       ...NET,
       beside: true,
       algorithm: 'dfs-iterative',
       paths: false,
-      codeSrc: `${CODE}IterativeDepthFirstSearch.java`,
-      codeRange: '11-26',
+      codeSrc: `${CODE}TemplateStack.java`,
+      codeRange: '4-22',
       lines: {
-        pushStart: [12, 13],
-        pop: [14, 15],
-        skip: [16, 17],
-        mark: 19,
-        look: [20, 21],
-        push: 22,
-        end: 14,
+        pushStart: [5, 6, 7],
+        pop: [8, 9],
+        skip: [10, 11],
+        mark: [13, 14],
+        look: [15, 16],
+        push: 17,
+        end: 8,
       },
     },
     'end',
   ],
   [
-    'Marcar al apilar',
+    '¿Se llega a la salida?',
     {
       beside: true,
-      algorithm: 'dfs-mark-on-push',
+      ratio: '55/45',
+      algorithm: 'dfs-iterative',
       paths: false,
-      nodes: [
-        { v: 0, x: 1, y: 0 },
-        { v: 1, x: 0, y: 2 },
-        { v: 2, x: 3, y: 0 },
-        { v: 3, x: 2, y: 2 },
-      ],
-      edges: [
-        [0, 1],
-        [0, 2],
-        [0, 3],
-        [1, 3],
-      ],
-      cols: 4,
-      rows: 3,
-      code: ON_PUSH,
+      grid: ['...#', '...#', '#...'],
+      exit: 11,
+      codeSrc: `${CODE}MazeReach.java`,
+      codeRange: '16-39',
       lines: {
-        markStart: [2, 3],
-        pushStart: 4,
-        pop: [5, 6],
-        look: [7, 8],
-        mark: 9,
-        push: 10,
-        end: 5,
+        pushStart: [19, 20],
+        pop: [21, 22],
+        skip: [23, 24],
+        mark: 26,
+        look: [29, 30, 31, 32, 33],
+        push: 34,
+        end: [21, 38],
       },
-      label: 'Un triángulo con un vértice colgando.',
+      program: 'boolean[] visited = dfs(grid, 0);\nSystem.out.println(visited[11]);',
+      programLines: [1],
+      programLinesAtEnd: [2],
+      label: 'El laberinto.',
     },
     'end',
   ],
   [
-    'La búsqueda con pila en el laberinto',
+    'La búsqueda que deja el hilo',
     {
       beside: true,
+      exit: 11,
       algorithm: 'dfs-iterative',
       grid: ['...#', '...#', '#...'],
-      codeSrc: `${CODE}IterativeMazeDepthFirstPaths.java`,
-      codeRange: '30-49',
+      codeSrc: `${CODE}MazeExit.java`,
+      codeRange: '19-46',
       lines: {
-        pushStart: [31, 32],
-        pop: [33, 34],
-        skip: [35, 36],
-        mark: 38,
-        look: [39, 40, 41, 42, 43],
-        prev: 44,
-        push: 45,
-        end: 33,
+        pushStart: [25, 26],
+        pop: [27, 28],
+        skip: [29, 30],
+        mark: 32,
+        look: [33, 34, 35, 36, 37],
+        prev: [38, 39],
+        push: 40,
+        end: [27, 45],
       },
       label: 'El laberinto.',
     },

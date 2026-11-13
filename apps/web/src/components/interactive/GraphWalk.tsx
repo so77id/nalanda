@@ -64,7 +64,7 @@ export interface GraphWalkProps {
   rows?: number;
   /**
    * Whether a depth-first walk keeps `prev`, the way back. Default true;
-   * false walks a search that keeps only `marked` — no `prev` event, no `prev`
+   * false walks a search that keeps only `visited` — no `prev` event, no `prev`
    * row — for the slide that has not met the thread yet (#357 v2).
    */
   paths?: boolean;
@@ -77,17 +77,22 @@ export interface GraphWalkProps {
    * `free` — and the drawing is the grid (#357 S5b). `dfs` and `dfs-iterative`.
    */
   grid?: string[];
+  /**
+   * With `grid`, `dfs-iterative`: the exit cell, as r · C + c. The last frame
+   * then says whether `visited` reached it — the maze's first question.
+   */
+  exit?: number;
   /** The vertex the walk starts from. Default the first node, or the first free cell. */
   start?: number;
   /**
    * The lines each event lights, in the listing's own numbering — the FILE's
    * when the listing comes from `codeSrc` (ADR-0091). For `dfs`: `mark`
-   * (`marked[v] = true`), `look` (the `for` and its `if`), `prev`
+   * (`visited[v] = true`), `look` (the `for` and its `if`), `prev`
    * (`prev[w] = v`), `recurse` (the call) and `return` (the method's end).
    * For `dfs-iterative`: `pushStart` (the stack and its first push), `pop`,
-   * `skip` (the `if (marked[v]) continue`), `mark`, `look`, `prev`, `push`
+   * `skip` (the `if (visited[v]) continue`), `mark`, `look`, `prev`, `push`
    * and `end` (the loop's test, failing). For `dfs-mark-on-push`: the same
-   * without `skip`, plus `markStart` (`marked[s] = true`).
+   * without `skip`, plus `markStart` (`visited[s] = true`).
    */
   lines: Partial<Record<WalkEvent, number | number[]>>;
   /** The listing, written in the document. Or `codeSrc`. */
@@ -104,6 +109,11 @@ export interface GraphWalkProps {
   programName?: string;
   /** The program's lines lit in every frame: the call the walk is inside. */
   programLines?: number[];
+  /**
+   * The program's lines lit on the last frame instead: where the program uses
+   * what the walk left, as the maze's prints `visited[t]` (#357 review).
+   */
+  programLinesAtEnd?: number[];
   /** On a slide, the drawing beside the listing (`<StepShow beside>`). */
   beside?: boolean;
   /** With `beside`, the "code/drawing" split. */
@@ -223,10 +233,12 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     directed = false,
     paths = true,
     grid,
+    exit,
     start,
     lines,
     label,
     programLines,
+    programLinesAtEnd,
   } = props;
   const V = nodes.length;
   // MDX re-mints inline literals on every render: memoise on a primitive key
@@ -237,7 +249,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     if (gridKey !== undefined) {
       const rows = gridKey.split('\n');
       return algorithm === 'dfs-iterative'
-        ? traceGridDfsStack(rows, start)
+        ? traceGridDfsStack(rows, start, paths, exit)
         : traceGridDfs(rows, start);
     }
     const parsed: GraphWalkEdge[] = edgesKey === '' ? [] : edgesKey.split(',').map(parseEdge);
@@ -247,7 +259,17 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     if (algorithm === 'bfs') return traceBfs(adj, start, 'push');
     if (algorithm === 'bfs-mark-on-pop') return traceBfs(adj, start, 'pop');
     return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push', paths);
-  }, [algorithm, V, edgesKey, gridKey, directed, start, paths]);
+  }, [algorithm, V, edgesKey, gridKey, directed, start, paths, exit]);
+  const arrays: ArrayName[] =
+    algorithm === 'kahn'
+      ? ['inDegree', 'order']
+      : algorithm === 'bfs'
+        ? ['visited', 'dist', 'prev']
+        : algorithm === 'bfs-mark-on-pop'
+          ? ['visited']
+          : paths
+            ? ['visited', 'prev']
+            : ['visited'];
   const depth = Math.max(...frames.map((f) => f.stack.length));
 
   return (
@@ -271,33 +293,22 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
       language="java"
     >
       {frames.map((frame, i) => (
-        // `marked` and `prev` are the program's own variables, passed to the
+        // `visited` and `prev` are the program's own variables, passed to the
         // walk: they go under the listings, where `<StepShow>` shows what the
         // program holds (#363), and leave the drawing the graph and the stack.
-        // A maze's arrays hold a cell per square, walls included: the grid
-        // draws them instead, `marked` as the cells' paint, `prev` as arrows.
+        // A maze's hold a cell per square, walls included, and go under the
+        // grid instead: under a maze's listing they cost the slide its floor
+        // (#357 review), and beside the grid they sit by the numbers that
+        // index them. The grid keeps only the paint and the thread.
         <Step
           key={i}
           lines={asLines(lines[frame.event])}
-          programLines={programLines}
-          under={
-            gridKey === undefined ? (
-              <ArraysPanel
-                frame={frame}
-                rows={
-                  algorithm === 'kahn'
-                    ? ['inDegree', 'order']
-                    : algorithm === 'bfs'
-                      ? ['marked', 'dist', 'prev']
-                      : algorithm === 'bfs-mark-on-pop'
-                        ? ['marked']
-                        : paths
-                          ? ['marked', 'prev']
-                          : ['marked']
-                }
-              />
-            ) : undefined
+          programLines={
+            programLinesAtEnd !== undefined && i === frames.length - 1
+              ? programLinesAtEnd
+              : programLines
           }
+          under={gridKey === undefined ? <ArraysPanel frame={frame} rows={arrays} /> : undefined}
         >
           {gridKey !== undefined ? (
             <GridFrame
@@ -306,6 +317,8 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               depth={depth}
               label={label}
               iterative={algorithm === 'dfs-iterative'}
+              arrays={arrays}
+              exit={exit}
             />
           ) : (
             <Frame
@@ -515,16 +528,21 @@ interface GridFrameProps {
    * popped in mark, its thread the way back along `prev`, its stack beside.
    */
   iterative: boolean;
+  /** The program's arrays, drawn under the grid. */
+  arrays: ArrayName[];
+  /** The exit cell: once the walk ends, the thread is the way back from it. */
+  exit?: number;
 }
 
 /**
  * A frame of the walk over a maze: the grid, each free cell numbered
  * r · C + c; the cells marked in mark while their call runs or waits and in
- * keep once it returned; `prev` as an arrow from each reached cell back to
- * the one it was reached from, those of the calls in progress in mark — the
- * thread; and, on a look, a dashed arrow to the cell asked about.
+ * keep once it returned; the thread, one line in mark from the start to the
+ * cell the walk is on — the calls in progress, or the way back along `prev`
+ * — as the maze slides draw Teseo's thread; and, on a look, a dashed arrow to
+ * the cell asked about. Under them, the program's arrays, `prev` among them.
  */
-function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
+function GridFrame({ frame, grid, depth, label, iterative, arrays, exit }: GridFrameProps) {
   const onSlide = useMode() === 'presentation';
   const R = grid.length;
   const C = grid[0].length;
@@ -536,8 +554,10 @@ function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
   ];
   const at = (v: number) => center(Math.floor(v / C), v % C);
   // The thread: the calls in progress, or, with a stack of its own, the way
-  // back along `prev` from the cell last popped.
-  const onStack = iterative ? new Set(threadBack(frame).map(([, x]) => x)) : new Set(frame.stack);
+  // back along `prev` from the cell last marked — never from a copy popped
+  // only to be discarded, which drew a way the walk was not on (#357 review).
+  const thread = iterative ? threadCells(frame, exit) : frame.stack;
+  const onStack = new Set(thread);
   const done = new Set(iterative ? frame.order : frame.done);
   const stateOf = (r: number, c: number): CellState => {
     const v = r * C + c;
@@ -592,17 +612,30 @@ function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
       );
     }
   }
-  const arrows = [];
-  for (let x = 0; x < frame.prev.length; x++) {
-    const p = frame.prev[x];
-    if (p < 0) continue;
-    const hot = onStack.has(x) || (frame.wrote?.array === 'prev' && frame.wrote.index === x);
-    arrows.push(
-      <g key={x} data-prev={x} data-hot={hot ? '' : undefined}>
-        <Arrow from={at(x)} to={at(p)} hot={hot} />
-      </g>,
-    );
-  }
+  const last = thread.length > 0 ? at(thread[thread.length - 1]) : null;
+  const threadLine = (
+    <g data-thread={thread.join(',')}>
+      {thread.length > 1 ? (
+        <polyline
+          points={thread.map((v) => at(v).join(',')).join(' ')}
+          fill="none"
+          style={{ stroke: 'var(--color-mark)' }}
+          strokeWidth={4}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
+      {last ? (
+        <circle
+          cx={last[0]}
+          cy={last[1]}
+          r={6.5}
+          style={{ fill: 'var(--color-mark)', stroke: 'var(--color-surface)' }}
+          strokeWidth={2}
+        />
+      ) : null}
+    </g>
+  );
   let look = null;
   if (frame.event === 'look' && frame.v !== null && frame.cell !== null) {
     const [r, c] = frame.cell;
@@ -624,7 +657,7 @@ function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
           />
         ) : null}
         {/* Three quarters of the way: off the grid, it ends in the margin. */}
-        <Arrow from={[x1, y1]} to={[x1 + (x2 - x1) * 0.75, y1 + (y2 - y1) * 0.75]} hot dashed />
+        <LookArrow from={[x1, y1]} to={[x1 + (x2 - x1) * 0.75, y1 + (y2 - y1) * 0.75]} />
       </g>
     );
   }
@@ -662,7 +695,7 @@ function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
             data-testid="graph-walk-grid"
           >
             {cells}
-            {arrows}
+            {threadLine}
             {look}
           </svg>
         </div>
@@ -684,33 +717,23 @@ function GridFrame({ frame, grid, depth, label, iterative }: GridFrameProps) {
           <CallStack frame={frame} depth={depth} />
         )}
       </div>
+      <div className="flex w-full justify-center">
+        <ArraysPanel frame={frame} rows={arrays} narrow />
+      </div>
     </div>
   );
 }
 
-/** A straight arrow, its head at `to`: `prev` pointing back, or a look. */
-function Arrow({
-  from,
-  to,
-  hot,
-  dashed = false,
-}: {
-  from: [number, number];
-  to: [number, number];
-  hot: boolean;
-  dashed?: boolean;
-}) {
+/** The dashed arrow of a look, in mark, its head at `to`, where it was aimed. */
+function LookArrow({ from, to }: { from: [number, number]; to: [number, number] }) {
   const [x1, y1] = from;
   const dx = to[0] - x1;
   const dy = to[1] - y1;
   const len = Math.hypot(dx, dy);
-  // `prev` stops short of the cell it points to, so two arrows meeting in a
-  // cell do not cover each other's heads; a look ends where it was aimed.
-  const reach = dashed ? len : len - 9;
   const [ux, uy] = [dx / len, dy / len];
-  const [tx, ty] = [x1 + ux * reach, y1 + uy * reach];
+  const [tx, ty] = to;
   const head = 7;
-  const color = hot ? 'var(--color-mark)' : 'var(--color-ink-soft)';
+  const color = 'var(--color-mark)';
   return (
     <g>
       <line
@@ -719,9 +742,9 @@ function Arrow({
         x2={tx - ux * head}
         y2={ty - uy * head}
         style={{ stroke: color }}
-        strokeWidth={hot ? 3 : 1.6}
+        strokeWidth={3}
         strokeLinecap="round"
-        strokeDasharray={dashed ? '5 4' : undefined}
+        strokeDasharray="5 4"
       />
       <polygon
         points={`${tx},${ty} ${tx - ux * head - uy * 4.5},${ty - uy * head + ux * 4.5} ${tx - ux * head + uy * 4.5},${ty - uy * head - ux * 4.5}`}
@@ -729,6 +752,23 @@ function Arrow({
       />
     </g>
   );
+}
+
+/**
+ * The thread of an iterative walk over a maze, its cells from the start: to
+ * the cell it marked last — the way the recursive walk's calls in progress
+ * hold — and, once it ended, to the `exit` it reached, the way it found.
+ */
+function threadCells(frame: WalkFrame, exit?: number): number[] {
+  const reachedExit = frame.event === 'end' && exit !== undefined && frame.marked[exit] === true;
+  const end = reachedExit ? exit : frame.order[frame.order.length - 1];
+  if (end === undefined) return [];
+  const out = [end];
+  // A walk of V cells has at most V − 1 steps back; the bound is a guard.
+  for (let i = 0; i < frame.prev.length && frame.prev[out[out.length - 1]] >= 0; i++) {
+    out.push(frame.prev[out[out.length - 1]]);
+  }
+  return out.reverse();
 }
 
 /**
@@ -989,19 +1029,28 @@ function QueuePanel({ frame, depth, title }: { frame: WalkFrame; depth: number; 
   );
 }
 
-/** `marked` and `prev`, one cell per vertex, the cell the frame wrote in mark. */
-type ArrayName = 'marked' | 'dist' | 'prev' | 'inDegree' | 'order';
+/** `visited` and `prev`, one cell per vertex, the cell the frame wrote in mark. */
+type ArrayName = 'visited' | 'dist' | 'prev' | 'inDegree' | 'order';
 
 /**
  * The program's arrays, one cell per vertex, the cell the frame wrote in
- * mark: `marked` and `prev` for a search, `dist` too for the breadth-first
+ * mark: `visited` and `prev` for a search, `dist` too for the breadth-first
  * one; `inDegree` and the list `order`, filled from its start, for Kahn's.
  */
-function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
+function ArraysPanel({
+  frame,
+  rows,
+  narrow = false,
+}: {
+  frame: WalkFrame;
+  rows: ArrayName[];
+  /** A maze's: a cell per square, so as narrow as `false` allows. */
+  narrow?: boolean;
+}) {
   const k = usePanelScale();
   const V = frame.marked.length;
   const nameW = 76;
-  const cw = 46;
+  const cw = narrow ? 40 : 46;
   // Every array has V cells, so the indices are written once, over the first
   // row: on a slide each repeated header cost a row's worth of height.
   const head = 14;
@@ -1011,7 +1060,7 @@ function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
   const minus = (n: number) => (n < 0 ? '−1' : String(n));
   const hotIn = (array: ArrayName) => (frame.wrote?.array === array ? frame.wrote.index : -1);
   const cellsOf = (name: ArrayName): string[] => {
-    if (name === 'marked') return frame.marked.map(String);
+    if (name === 'visited') return frame.marked.map(String);
     if (name === 'prev') return frame.prev.map(minus);
     if (name === 'dist') return (frame.dist ?? []).map(minus);
     if (name === 'inDegree') return (frame.inDegree ?? []).map(String);
@@ -1076,10 +1125,7 @@ function ArraysPanel({ frame, rows }: { frame: WalkFrame; rows: ArrayName[] }) {
                     textAnchor="middle"
                     fontSize="11"
                     fontFamily="var(--font-mono, monospace)"
-                    style={{
-                      fill:
-                        t === 'false' || t === '−1' ? 'var(--color-ink-soft)' : 'var(--color-ink)',
-                    }}
+                    style={{ fill: cellInk(t) }}
                   >
                     {t}
                   </text>
@@ -1139,4 +1185,16 @@ function parseEdge(text: string): GraphWalkEdge {
 
 function inRange(V: number, v: number): boolean {
   return Number.isInteger(v) && v >= 0 && v < V;
+}
+
+/**
+ * The ink of a value in an array: a boolean in its meaning's colour, as every
+ * drawing of the class paints it — true in keep, false in flag — and −1, an
+ * entry not written yet, faint.
+ */
+function cellInk(t: string): string {
+  if (t === 'true') return 'var(--color-keep)';
+  if (t === 'false') return 'var(--color-flag)';
+  if (t === '−1') return 'var(--color-ink-soft)';
+  return 'var(--color-ink)';
 }

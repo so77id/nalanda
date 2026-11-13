@@ -192,12 +192,12 @@ describe('traceDfsStack, marking on pop (the iterative depth-first search)', () 
     expect(frames.map((f) => f.wrote)).toEqual([
       null,
       null,
-      { array: 'marked', index: 0 },
+      { array: 'visited', index: 0 },
       null,
       { array: 'prev', index: 1 },
       null,
       null,
-      { array: 'marked', index: 1 },
+      { array: 'visited', index: 1 },
       null,
       null,
     ]);
@@ -239,8 +239,8 @@ describe('traceDfsStack, marking on push (the tempting version)', () => {
       ['look', 1, 0],
       ['end', null, null],
     ]);
-    expect(frames[0].wrote).toEqual({ array: 'marked', index: 0 });
-    expect(frames[4].wrote).toEqual({ array: 'marked', index: 1 });
+    expect(frames[0].wrote).toEqual({ array: 'visited', index: 0 });
+    expect(frames[4].wrote).toEqual({ array: 'visited', index: 1 });
     expect(frames[4].text).toBe('Marca 1 al apilarlo.');
   });
 
@@ -280,7 +280,7 @@ const MAZE = ['...#', '.#..', '.##.'];
 describe('traceGridDfs (the depth-first search over a maze)', () => {
   it('numbers the cell in row r and column c as r · C + c, and walks them in the order Java does', () => {
     const frames = traceGridDfs(MAZE, 0);
-    // Run on a JDK 21 against MazeDepthFirstPaths.java (S5b).
+    // Run on a JDK 21 against the recursive maze search of S5b, since retired from the class.
     expect(frames.at(-1)!.order).toEqual([0, 4, 8, 1, 2, 6, 7, 11]);
     expect(frames.at(-1)!.prev).toEqual([-1, 0, 1, -1, 0, -1, 2, 6, 4, -1, -1, 7]);
   });
@@ -444,7 +444,26 @@ describe('traceGridDfsStack (the maze with a stack, #357 review round 4)', () =>
     return path.reverse();
   };
 
-  it('finds the path IterativeMazeDepthFirstPaths gives on a JDK 21', () => {
+  it('walks MazeReach without prev, and its last frame answers whether the exit was reached', () => {
+    const frames = traceGridDfsStack(MAZE, 0, false, 11);
+    expect(frames.some((f) => f.event === 'prev')).toBe(false);
+    expect(frames.at(-1)!.prev.every((p) => p === -1)).toBe(true);
+    expect(frames.at(-1)!.text).toBe(
+      'La pila quedó vacía: marcó todo lo que se alcanza desde 0. visited[11], la celda (2, 3), es true: se llega a la salida.',
+    );
+    const walled = traceGridDfsStack(['..#.', '..#.', '..#.'], 0, false, 11);
+    expect(walled.at(-1)!.text).toMatch(
+      /visited\[11\], la celda \(2, 3\), es false: no se llega a la salida\.$/,
+    );
+  });
+
+  it('with prev and the exit, says the thread goes back from it', () => {
+    expect(traceGridDfsStack(MAZE, 0, true, 11).at(-1)!.text).toMatch(
+      /es true: se llega a la salida\. Siguiendo prev desde ella, el hilo vuelve a la entrada\.$/,
+    );
+  });
+
+  it('finds the path MazeExit gives on a JDK 21', () => {
     const last = traceGridDfsStack(MAZE, 0).at(-1)!;
     expect(wayBack(last.prev, 11)).toEqual([0, 1, 2, 6, 5, 9, 10, 11]);
     expect(last.order).toEqual([0, 1, 2, 6, 5, 4, 9, 10, 11]);
