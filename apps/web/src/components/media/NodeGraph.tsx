@@ -12,8 +12,13 @@ import {
 
 export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
 
-/** What a tone says: `mark` look here, `flag` this is wrong, `keep` this is done. */
-export type NodeGraphTone = 'mark' | 'flag' | 'keep';
+/**
+ * What a tone says: `mark` look here, `flag` this is wrong, `keep` this is
+ * done; `group-1` to `group-6` only which group a node belongs to (the pieces
+ * of a graph, the layers of a breadth-first search, #357), with no status.
+ */
+export type NodeGraphTone =
+  'mark' | 'flag' | 'keep' | 'group-1' | 'group-2' | 'group-3' | 'group-4' | 'group-5' | 'group-6';
 
 export interface NodeGraphProps {
   nodes: NodeGraphNode[];
@@ -30,6 +35,11 @@ export interface NodeGraphProps {
   /** Edges painted thicker in mark; in an undirected graph, either order matches. */
   markEdges?: NodeGraphEdge[];
   /**
+   * Edges of `edges` drawn dashed in flag: a link that was there and is not
+   * any more — a cut cable. Either order matches in an undirected graph.
+   */
+  cutEdges?: NodeGraphEdge[];
+  /**
    * A walk, as the vertices it visits in order: its edges are marked and each
    * carries the number of its step, as `<PenTrace>` numbers a tracing.
    * Parallel edges are walked in turn.
@@ -38,6 +48,11 @@ export interface NodeGraphProps {
   /** A short note beside a node, keyed by value: its degree, for instance. */
   notes?: Record<string, string | number>;
   caption?: string;
+  /**
+   * How far the drawing may grow over its natural width. Default 1.4; a
+   * widget that draws the graph beside other panels on a slide raises it.
+   */
+  maxScale?: number;
   /** What the figure shows, in Spanish: its accessible name. Required. */
   label: string;
 }
@@ -49,12 +64,24 @@ const FILL: Record<Paint, string> = {
   mark: 'var(--color-mark-soft)',
   flag: 'var(--color-flag-soft)',
   keep: 'var(--color-keep-soft)',
+  'group-1': 'var(--color-group-1-soft)',
+  'group-2': 'var(--color-group-2-soft)',
+  'group-3': 'var(--color-group-3-soft)',
+  'group-4': 'var(--color-group-4-soft)',
+  'group-5': 'var(--color-group-5-soft)',
+  'group-6': 'var(--color-group-6-soft)',
 };
 const STROKE: Record<Paint, string> = {
   idle: 'var(--color-rule-strong)',
   mark: 'var(--color-mark)',
   flag: 'var(--color-flag)',
   keep: 'var(--color-keep)',
+  'group-1': 'var(--color-group-1)',
+  'group-2': 'var(--color-group-2)',
+  'group-3': 'var(--color-group-3)',
+  'group-4': 'var(--color-group-4)',
+  'group-5': 'var(--color-group-5)',
+  'group-6': 'var(--color-group-6)',
 };
 
 /**
@@ -108,9 +135,11 @@ function Graph({
   directed = false,
   tones = {},
   markEdges = [],
+  cutEdges = [],
   walk = [],
   notes = {},
   caption,
+  maxScale = 1.4,
   label,
 }: NodeGraphProps) {
   const r = NODE_R;
@@ -128,6 +157,9 @@ function Graph({
   const marked = new Set(
     markEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
   );
+  const cut = new Set(
+    cutEdges.flatMap(([a, b]) => (directed ? [`${a}>${b}`] : [`${a}>${b}`, `${b}>${a}`])),
+  );
   const walked = walkStrokes(edges, walk, directed) ?? [];
   const steps = stepMarks(layout, { path: walk.map(String), used: walked }, STEP_SPACE);
   return (
@@ -135,7 +167,7 @@ function Graph({
       viewBox={`0 0 ${width} ${height}`}
       style={{
         width: '100%',
-        maxWidth: `${Math.round(width * 1.4)}px`,
+        maxWidth: `${Math.round(width * maxScale)}px`,
         height: 'auto',
         display: 'block',
         margin: '1rem auto',
@@ -145,10 +177,26 @@ function Graph({
     >
       {layout.edges.map((e, i) => {
         const hot = marked.has(e.key) || walked.includes(i);
-        const color = hot ? 'var(--color-mark)' : 'var(--color-rule-strong)';
+        const gone = cut.has(e.key);
+        const color = gone
+          ? 'var(--color-flag)'
+          : hot
+            ? 'var(--color-mark)'
+            : 'var(--color-rule-strong)';
         return (
-          <g key={`${e.key}#${i}`} data-edge={e.key} data-marked={hot ? '' : undefined}>
-            <path d={e.d} fill="none" style={{ stroke: color }} strokeWidth={hot ? 2.6 : 1.3} />
+          <g
+            key={`${e.key}#${i}`}
+            data-edge={e.key}
+            data-marked={hot ? '' : undefined}
+            data-cut={gone ? '' : undefined}
+          >
+            <path
+              d={e.d}
+              fill="none"
+              style={{ stroke: color }}
+              strokeWidth={hot || gone ? 2.6 : 1.3}
+              strokeDasharray={gone ? '6 5' : undefined}
+            />
             {e.arrow ? <polygon points={e.arrow} style={{ fill: color }} /> : null}
           </g>
         );

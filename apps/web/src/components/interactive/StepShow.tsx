@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { Children, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
-import { useMode } from '../../presentation';
+import { isTypingTarget, useMode, WALK_TAKES_KEYS_ON_ARRIVAL } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { resolveCode } from '../../lib/contentCode';
 import { CodeFileViewer } from './CodeFileViewer';
@@ -225,6 +225,21 @@ export function StepShow({
     enabled: isPresentation,
     fraction: isBeside ? 0.75 : 0.5,
   });
+  // On a slide, the walk takes the keyboard when the slide arrives: a clicker
+  // cannot press Tab, and without this its first press skipped the whole walk
+  // (#357 review round 5). It leaves it where the reader is typing, or with
+  // another walk; the deck's own controls (fullscreen, the way out) keep
+  // focus after a click and must not keep it from the walk (round 6). Off
+  // while WALK_TAKES_KEYS_ON_ARRIVAL is.
+  useEffect(() => {
+    if (!isPresentation || !WALK_TAKES_KEYS_ON_ARRIVAL) return;
+    const el = outerRef.current;
+    const active = document.activeElement;
+    if (!el) return;
+    if (isTypingTarget(active)) return;
+    if (active instanceof Element && active.closest('[role="group"]') !== null) return;
+    el.focus({ preventScroll: true });
+  }, [isPresentation]);
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
     const el = outerRef.current;
@@ -330,6 +345,15 @@ export function StepShow({
     );
   }
 
+  // On a slide a control is momentary: after it acts, the keyboard goes back
+  // to the walk, so the next Space or page key steps the walk (or, at its
+  // end, moves the deck) instead of pressing that control again (#357 review
+  // round 8).
+  const handBack = (action: () => void) => () => {
+    action();
+    if (isPresentation) outerRef.current?.focus({ preventScroll: true });
+  };
+
   const codeSpec = specOf(code, codeSrc, codeRange, codeName);
   const programSpec = specOf(program, programSrc, programRange, programName);
   const helperSpec = specOf(helper, helperSrc, helperRange, helperName);
@@ -431,12 +455,29 @@ export function StepShow({
       aria-label="Ejecución paso a paso: usa las flechas izquierda y derecha para recorrer los pasos"
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
       onKeyDown={(event) => {
-        if (event.key === 'ArrowRight') {
+        // A clicker sends the arrows or PageDown/PageUp, a keyboard also
+        // Space: each steps the walk. At its ends the key is left to the
+        // deck, so a clicker moves on to the next slide or back to the one
+        // before instead of being stuck on this one (#357 review round 5).
+        // The page keys and Space are a clicker's only on a slide: in the
+        // book they still scroll the page.
+        const onGroup = event.target === event.currentTarget;
+        const forward =
+          event.key === 'ArrowRight' ||
+          (isPresentation &&
+            (event.key === 'PageDown' ||
+              ((event.key === ' ' || event.key === 'Enter') && onGroup)));
+        const backward = event.key === 'ArrowLeft' || (isPresentation && event.key === 'PageUp');
+        if (forward && !last) {
           event.preventDefault();
           advance();
-        } else if (event.key === 'ArrowLeft') {
+        } else if (backward && !first) {
           event.preventDefault();
           retreat();
+        } else if (isPresentation && event.key === ' ' && !onGroup) {
+          // Space on a control activates that control and nothing else: the
+          // deck must not change slide underneath it.
+          event.stopPropagation();
         }
       }}
     >
@@ -543,20 +584,20 @@ export function StepShow({
         #116, and now an invariant of the shared button.
       */}
       <footer className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
-        <ControlButton onClick={reset} disabled={first} label="Reiniciar">
+        <ControlButton onClick={handBack(reset)} disabled={first} label="Reiniciar">
           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={retreat} disabled={first} label="Atrás">
+        <ControlButton onClick={handBack(retreat)} disabled={first} label="Atrás">
           <SkipBack className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
-        <ControlButton onClick={togglePlay} label={isPlaying ? 'Pausar' : 'Reproducir'}>
+        <ControlButton onClick={handBack(togglePlay)} label={isPlaying ? 'Pausar' : 'Reproducir'}>
           {isPlaying ? (
             <Pause className="h-3.5 w-3.5" aria-hidden />
           ) : (
             <Play className="h-3.5 w-3.5" aria-hidden />
           )}
         </ControlButton>
-        <ControlButton onClick={advance} disabled={last} label="Adelante">
+        <ControlButton onClick={handBack(advance)} disabled={last} label="Adelante">
           <SkipForward className="h-3.5 w-3.5" aria-hidden />
         </ControlButton>
         <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
@@ -565,7 +606,10 @@ export function StepShow({
           </span>
           <select
             value={liveSpeed}
-            onChange={(e) => setLiveSpeed(e.target.value as 'slow' | 'normal' | 'fast')}
+            onChange={(e) => {
+              const speed = e.target.value as 'slow' | 'normal' | 'fast';
+              handBack(() => setLiveSpeed(speed))();
+            }}
             className="bg-transparent outline-none text-xs text-ink"
             aria-label="Velocidad de reproducción"
           >

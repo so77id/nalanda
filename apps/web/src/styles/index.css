@@ -60,6 +60,24 @@
   --color-flag-soft: var(--nl-flag-soft);
   --color-mark-soft: var(--nl-mark-soft);
   --color-accent-soft: var(--nl-accent-soft);
+
+  /* Groups: which group a thing belongs to, and nothing else — no status, no
+     "look here". A figure that sorts elements into groups (the connected
+     components of a graph, #357) paints each group in one of these, with its
+     soft ground; the hues stay clear of keep, flag, mark, accent and focus so
+     a group never reads as one of those meanings. */
+  --color-group-1: var(--nl-group-1);
+  --color-group-2: var(--nl-group-2);
+  --color-group-3: var(--nl-group-3);
+  --color-group-4: var(--nl-group-4);
+  --color-group-5: var(--nl-group-5);
+  --color-group-6: var(--nl-group-6);
+  --color-group-1-soft: var(--nl-group-1-soft);
+  --color-group-2-soft: var(--nl-group-2-soft);
+  --color-group-3-soft: var(--nl-group-3-soft);
+  --color-group-4-soft: var(--nl-group-4-soft);
+  --color-group-5-soft: var(--nl-group-5-soft);
+  --color-group-6-soft: var(--nl-group-6-soft);
   --color-on-keep: var(--nl-on-keep);
 
   /* Label on a filled `bg-accent` button. Used by <Benchmark> and
@@ -129,6 +147,20 @@
   --nl-mark-soft: #fdf0d9;
   --nl-plate: #ffffff;
   --nl-accent-soft: #ffe1d1;
+  --nl-group-1: #1f5aa8;
+  --nl-group-2: #6f3aa8;
+  --nl-group-3: #a8306a;
+  /* Olive, slate and sky (#357 arc II: six layers of a breadth-first search,
+     none repeated): clear of keep, flag, mark, accent and focus too. */
+  --nl-group-4: #5c6800;
+  --nl-group-5: #4b5769;
+  --nl-group-6: #0b689e;
+  --nl-group-1-soft: #e3ecf8;
+  --nl-group-2-soft: #efe6f8;
+  --nl-group-3-soft: #f9e3ee;
+  --nl-group-4-soft: #eef1d4;
+  --nl-group-5-soft: #e8ebf0;
+  --nl-group-6-soft: #ddeff9;
   --nl-on-keep: #fef9f7;
   /* Identical to `--nl-on-keep` today: same class of label, same
      invert-with-theme shape. A split into its own value is a design
@@ -159,6 +191,18 @@
     /* Identical in every theme, deliberately — see --color-plate. */
     --nl-plate: #ffffff;
     --nl-accent-soft: #241634;
+    --nl-group-1: #7aa8ff;
+    --nl-group-2: #c4a0ff;
+    --nl-group-3: #f48fc0;
+    --nl-group-4: #c6d45a;
+    --nl-group-5: #a9b4c6;
+    --nl-group-6: #6cc4f0;
+    --nl-group-1-soft: #13223a;
+    --nl-group-2-soft: #231a37;
+    --nl-group-3-soft: #331728;
+    --nl-group-4-soft: #23280b;
+    --nl-group-5-soft: #1c212b;
+    --nl-group-6-soft: #0f2633;
     --nl-on-keep: #0d1117;
     /* See #247 / the light block. Same value as `--nl-on-keep` today. */
     --nl-on-accent: #0d1117;
@@ -187,6 +231,18 @@
   /* Identical in every theme, deliberately — see --color-plate. */
   --nl-plate: #ffffff;
   --nl-accent-soft: #241634;
+  --nl-group-1: #7aa8ff;
+  --nl-group-2: #c4a0ff;
+  --nl-group-3: #f48fc0;
+  --nl-group-4: #c6d45a;
+  --nl-group-5: #a9b4c6;
+  --nl-group-6: #6cc4f0;
+  --nl-group-1-soft: #13223a;
+  --nl-group-2-soft: #231a37;
+  --nl-group-3-soft: #331728;
+  --nl-group-4-soft: #23280b;
+  --nl-group-5-soft: #1c212b;
+  --nl-group-6-soft: #0f2633;
   --nl-on-keep: #0d1117;
   /* See #247 / the light block. Same value as `--nl-on-keep` today. */
   --nl-on-accent: #0d1117;

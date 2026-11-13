@@ -391,3 +391,32 @@ registers one token with one meaning, not a palette.
 contrast): every painted state prints a word of its own under the cell (`nuevo`,
 `✓ este`, `sale`), and the
 widget's legend names the three the reader meets most often.
+
+## Addendum — #357: three group colours
+
+A figure that sorts elements into groups — the connected components of a graph,
+each painted as one piece — needs colours that say only *which group*. None of
+the semantic tokens can: `keep`, `flag` and `mark` each carry a meaning (done,
+refused, look here now), and a component painted in one would say it. So
+`group-1`, `group-2` and `group-3` join the palette, with a `-soft` ground each:
+blue, purple and pink, hues chosen clear of `keep`, `flag`, `mark`, `accent` and
+`focus` in both themes.
+
+They are text tokens — a figure writes a group's number in its colour — so the
+palette test holds each to 4.5:1 on every surface and on its own `-soft` ground,
+in both themes. `<NodeGraph>` takes them as tones (`group-1` to `group-3`).
+Three is what the course needs today; a fourth group is a fourth token, added
+the same way.
+
+**Three more, the same day the class's breadth-first arc was rebuilt
+(2026-11-13):** `group-4` to `group-6` — olive, slate and sky — so the six
+layers of a breadth-first search over the class's maze each take a colour of
+their own, none repeated (Miguel: «usa colores diferentes, no repitas»). The
+hues left free by the status tokens are few, so slate is the neutral among
+them and sky sits apart from `group-1`'s blue by lightness and from `focus` by
+hue. Same tests, same rule: a text token, 4.5:1 on every surface and on its own
+`-soft` ground, in both themes. `<NodeGraph>` takes all six as tones too —
+which is also what makes Tailwind emit the three new variables, since it
+emits a theme variable only when the app's code uses it, and the class's
+document is not scanned.
+

@@ -21,6 +21,7 @@ import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
 import { isTypingTarget } from './typingTarget';
 import { usePortraitPhone } from './usePortraitPhone';
+import { WALK_TAKES_KEYS_ON_ARRIVAL } from './walkKeys';
 
 // Exiting is guarded everywhere it happens: exitFullscreen() REJECTS when
 // nothing is fullscreen, and `void` attaches no catch, so an unguarded call is
@@ -170,13 +171,22 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       // portrait branch above: a modal has to have a way out, and the editor
       // is one.
       if (event.key !== 'Escape' && isTypingTarget(event.target)) return;
+      // A widget on the slide can own a key: a focused <StepShow> walks its
+      // steps with the arrows and prevents the default. Without this, the
+      // same ArrowRight also moved ?slide, so a clicker or the keyboard could
+      // not run a walk, and coming back restarted it (#357 review round 4).
+      if (event.defaultPrevented) return;
       switch (event.key) {
         case 'ArrowRight':
+        case 'PageDown':
         case ' ':
+          // PageDown and PageUp are what most presentation clickers send.
           event.preventDefault();
           go(index + 1);
           break;
         case 'ArrowLeft':
+        case 'PageUp':
+          event.preventDefault();
           go(index - 1);
           break;
         case 'Home':
@@ -322,7 +332,19 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             <button
               type="button"
               aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-              onClick={toggleFullscreen}
+              onClick={() => {
+                toggleFullscreen();
+                // The button would keep the keyboard, and a clicker's next
+                // press would skip the walk on this slide: hand the keyboard
+                // to the slide's walk, if it has one, or to no control at all
+                // (#357 review round 7).
+                const walk = WALK_TAKES_KEYS_ON_ARRIVAL
+                  ? stageNode?.querySelector<HTMLElement>('[role="group"][tabindex="0"]')
+                  : null;
+                if (walk) walk.focus({ preventScroll: true });
+                else if (document.activeElement instanceof HTMLElement)
+                  document.activeElement.blur();
+              }}
               className="rounded p-2 hover:bg-sunk hover:text-ink-soft"
             >
               ⛶

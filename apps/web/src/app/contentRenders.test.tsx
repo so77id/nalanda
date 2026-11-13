@@ -71,9 +71,11 @@ describe('architecture: every published document renders clean', () => {
     ).toBeGreaterThan(0);
   });
 
-  // 15 s per document, approved by the user: the default 5 s ran out on a loaded
+  // 30 s per document, approved by the user: the default 5 s ran out on a loaded
   // runner for the largest classes, and once after a merge, so the site did not
-  // publish. testing-strategy.md §Conventions (apps/web), "The preload itself".
+  // publish; then 15 s ran out for «Grafos · TDA y modelado», whose every
+  // StepShow frame is laid out (#357). testing-strategy.md §Conventions
+  // (apps/web), "The preload itself".
   it.each(registry.entries.map((e) => e.meta.id))(
     '%s carries no authoring error',
     async (id) => {
@@ -89,6 +91,6 @@ describe('architecture: every published document renders clean', () => {
       );
       expect(errors, `${id} paints an authoring error a reader would see`).toEqual([]);
     },
-    15_000,
+    30_000,
   );
 });

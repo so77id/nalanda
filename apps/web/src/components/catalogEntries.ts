@@ -27,11 +27,13 @@ import { explanationCatalogEntry } from './interactive/Explanation.catalog';
 import { fibIterStepsCatalogEntry } from './interactive/FibIterSteps.catalog';
 import { fibMemoStepsCatalogEntry } from './interactive/FibMemoSteps.catalog';
 import { fibTabStepsCatalogEntry } from './interactive/FibTabSteps.catalog';
+import { graphWalkCatalogEntry } from './interactive/GraphWalk.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
+import { floodFillCatalogEntry } from './interactive/FloodFill.catalog';
 import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { sortStepperCatalogEntry } from './interactive/SortStepper.catalog';
 import { sequenceStepperCatalogEntry } from './interactive/SequenceStepper.catalog';
@@ -89,6 +91,7 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
+  floodFillCatalogEntry,
   divideCombineTreeCatalogEntry,
   sortStepperCatalogEntry,
   sequenceStepperCatalogEntry,
@@ -108,5 +111,6 @@ export const catalogEntries: CatalogEntry[] = [
   fibMemoStepsCatalogEntry,
   fibTabStepsCatalogEntry,
   fibIterStepsCatalogEntry,
+  graphWalkCatalogEntry,
   memoryVisualCatalogEntry,
 ];

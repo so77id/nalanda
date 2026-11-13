@@ -64,6 +64,8 @@ export { Explanation } from './interactive/Explanation';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
+// Light: an SVG of rects and a timer, no CodeMirror, no runtime seam (#357).
+export { FloodFill } from './interactive/FloodFill';
 export { DivideCombineTree } from './interactive/DivideCombineTree';
 // SVG-free chip layout, no CodeMirror, no runtime seam — same eager-import
 // shape as `<DivideCombineTree>`. Static tree with one interactive toggle.
@@ -130,6 +132,10 @@ export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
 export type { FibTabStepsProps } from './interactive/lazyFibTabSteps';
 export { LazyFibIterSteps } from './interactive/lazyFibIterSteps';
 export type { FibIterStepsProps } from './interactive/lazyFibIterSteps';
+// A walk over a graph simulated and played by <StepShow> (ADR-0092): lazy for
+// the same reason as the fib composites.
+export { LazyGraphWalk } from './interactive/lazyGraphWalk';
+export type { GraphWalkProps } from './interactive/lazyGraphWalk';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,

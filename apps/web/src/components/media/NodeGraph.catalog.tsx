@@ -36,9 +36,10 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
     },
     {
       name: 'tones',
-      type: "Record<label, 'mark' | 'flag' | 'keep'>",
+      type: "Record<label, 'mark' | 'flag' | 'keep' | 'group-1' … 'group-6'>",
       default: '{}',
-      description: 'A tone on a vertex, keyed by label: look here, wrong, done.',
+      description:
+        'A tone on a vertex, keyed by label: look here, wrong, done — or, with group-1 to group-6, only which group it belongs to (the pieces of a graph, the layers of a breadth-first search, #357).',
     },
     {
       name: 'markEdges',
@@ -61,6 +62,18 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
         'A short note beside a vertex, keyed by label — its degree, for instance. It goes on the side its edges leave most free, in the vertex’s tone.',
     },
     { name: 'caption', type: 'string', description: 'A line under the drawing.' },
+    {
+      name: 'cutEdges',
+      type: 'NodeGraphEdge[]',
+      description:
+        'Edges of `edges` drawn dashed in flag: a link that was there and is not any more, such as the cable a storm cut. Either order matches in an undirected graph.',
+    },
+    {
+      name: 'maxScale',
+      type: 'number',
+      description:
+        'How far the drawing may grow over its natural width. Default 1.4. `<GraphWalk>` raises it on a slide, where its graph shares the row with a stack or a queue and was read too small.',
+    },
     {
       name: 'label',
       type: 'string',

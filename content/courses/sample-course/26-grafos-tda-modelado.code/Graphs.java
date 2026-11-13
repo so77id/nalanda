@@ -19,4 +19,14 @@ public class Graphs {
             g.addEdge(v, w, weight);
         }
     }
+
+    static int[] inDegrees(Graph g) {
+        int[] inDegree = new int[g.V()];
+        for (int v = 0; v < g.V(); v++) {
+            for (int w : g.adj(v)) {
+                inDegree[w]++;
+            }
+        }
+        return inDegree;
+    }
 }

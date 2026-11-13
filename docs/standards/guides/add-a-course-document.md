@@ -19,6 +19,11 @@ trade — that this guide only
 supplies the mechanics for, and meeting it at the pre-PR checklist is meeting
 it too late.
 
+**If the class is about an algorithm** — the graph traversals, the shortest
+paths, the minimum spanning tree — **read
+[`teach-an-algorithm.md`](teach-an-algorithm.md) before drafting**: each
+algorithm is one arc in the same six beats.
+
 ## Worked example
 
 The seed course `content/courses/sample-course/` exercises most of the authoring
@@ -69,6 +74,8 @@ content/courses/sample-course/
 ├── 26-grafos-tda-modelado.mdx  # presentation: explicit, questions: pool (15, each with one correct alternative, approved one by one; they measure graphs, not Java, and the TDA act alone and the exercises carry fewer than four) — class 2 of the Grafos unit, the unit's structure class (teach-a-data-structure.md applies): the Graph TDA (a card, the eighth copy, #305) and its rules for undirected, directed and weighted graphs, the adjacency matrix and the adjacency lists written from one script, their comparison (one cost table; dense against sparse), modelling (one question — who hears a rumour — through vertices, edges, direction and weight; the size rules), five worked exercises on the graph-exercise protocol (write-an-exercise.md §A graph exercise: the protocol) and three posed, and a closing on implicit graphs; every listing quoted from its `.code/` folder (ADR-0091, §5i): <SourceFile> ×23 + <StepShow> ×23 (all `codeSrc`; `program`/`helper` listings over the method, `<Step under>` for what the program holds, `beside` with `ratio`) + <Exercise> ×8 + <PresentationWide> ×11 + <NodeGraph> throughout + nine file-local figure components and helpers (InputLines and OutputBox, an exercise's input and output; valueTone; AdjMatrix and AdjLists, the two structures, AdjLists drawing each weighted entry as its `Edge`; ArrayRows, named rows of indexed cells; Pair, two pictures side by side wrapping by the width of their column; MazeGrid and GridCells, the maze and a grid's cells); the neighbour walks and the in-degree slide wait in the archive for #357
 ├── 26-grafos-tda-modelado.code/   # the Java its listings quote (§5i, ADR-0091): Graph, the two structures and their variants, Graphs, Main — one subfolder per exercise (amigos/, celebridad/, ciudad/, laberinto/, candado/), each with its Solution.java
 ├── 26-grafos-tda-modelado.archive.txt  # slides moved out verbatim, one headed block each: the situations that went to the classes answering them (the street map to #359, the curriculum and the ferryman to #357); the walks over every neighbour and the in-degree slide (for #357, with the two Graphs methods they quote); and slides the class superseded — the seed's questions table and modelling slide, the edge-list and names-to-numbers slides, the joint memory slide, the implicit-graph slides, the airline and single-stroke exercises and the first «Sugerir amigos», the set-per-vertex NameGraph slide
+├── 25-grafos-introduccion.mdx  # presentation: explicit, questions: pool (16, each with one correct alternative, approved one by one; Königsberg, the history, and Caminos or Tipos por arista alone carry fewer than four) — opens the Grafos unit, after edd-set-map in index.yaml, and is its first class, from the problem to the types of graphs; the unit's structure class, where teach-a-data-structure.md applies, is class 2 (#363). Three acts open it: the problem posed whole (the city — the file-local KonigsbergMap draws one frame at three stages: city, land and water, graph —, the city-to-graph evolution in three panels ending on the word «grafo», and the walk tried as a <PenTrace keepTrying> that searches without ever saying there is no walk, ending on what an order of bridges is and why trying them all is no way out); the words, one definition per slide with one drawing or a yes/no pair side by side, gathered by theme before the result that uses them as algs4 §4.1, Kleinberg and Tardos §3.1 and Rosen ch. 10 do — «Las partes de un grafo» on Königsberg (the vertices as the set V; the edges, Königsberg's {A, D} beside a one-way edge, named arco and written (A, D) — the class says arco for every directed edge from there on, as the theory does; «Conjuntos y tuplas», the nomenclature the class's maths reads with — a set in braces, unordered and without repeats, {A, D} = {D, A}, against a tuple in parentheses, ordered, (A, D) ≠ (D, A) — and the edge written {A, D}, abbreviated AD as Diestel does; what a graph is, G = (V, E) with V and E sets, shown on a small graph without and with direction, E written in full ({{A, B}, …} and {(A, B), …}) and abbreviated; parallel edges then make E repeat, so it stops being a set — the maths stated, the drawing leading —, shape, isomorphic graphs, neighbours, parallel edges, degree) and «Caminos y ciclos» (paths with their length, simple paths, cycles, simple cycles, connected graphs; algs4's definitions, epic #354); and Euler's answer with no definition inside, in his own order (Königsberg's question restated in the new words, a path that uses every edge; each pass through a vertex spends two of its edges, shown as pieces of a walk (passing, starting, ending, starting and passing again), so such a path leaves at most two odd vertices; Königsberg answered at once, four odd vertices being the reason that discards every order without trying one; only then the name, Eulerian path and cycle — length |E| —, given after Euler as the hinge from Königsberg to any graph, the one name the story gives itself; then when there is one: the handshake lemma in three steps showing a single odd vertex never remains, the graph that has to be connected (two triangles apart, then joined by one edge and walked), Euler's rule — necessity his, 1736, sufficiency Hierholzer's, 1873 — closed by asking about one and two more bridges, answered with the degrees by two <PenTrace solvable>). Then the Eulerian-path problem in general (a problem stated as input, question and answer, with its cost, about E steps against E! orders; the one-stroke game as one case of it: three <PenTrace figure solvable>, the star, the house, the envelope; each figure's graph with the rule's verdict; the rubbish truck on its own slide, walked; reducing a problem to another, the mapping of the walk, the figure and the truck in one table, isomorphic graphs named as its most direct form); from the walk to a theory (the origin of graphs, Euler's 1736 paper, a file-local Milestones timeline to 1998; graphs today in six situations; why study them, naming P versus NP and the Millennium Prize through finding, deciding and checking an answer, a sudoku as the example); «Tipos de grafos», the second block of words, in two parts each slide opening on its definition and drawing two or three real examples — by kind of edge (undirected, directed with in- and out-degree, weighted, self-loops, simple graphs against multigraphs (Königsberg) and pseudographs (dominoes)) and by the shape of the graph (complete with |E| = n(n − 1)/2 counted in two steps, dense and sparse against that maximum, connected as a short reminder with Chiloé, strongly and weakly connected for directed graphs, trees without a root, rooted trees with the same tree rooted twice, DAGs, sources and sinks, planar as one of the many other types) — closed by a table of the question each type answers; modelling, the implicit graphs and the worked exercises moved to the next class (#357); the Graph TDA, its two structures and their variants and costs moved to class 2 (`26-grafos-tda-modelado.mdx`, #363) with modelling, the implicit graphs and the worked exercises; a book-only Lo que sigue. <NodeGraph> throughout (arrows, weights centred on their edge, parallel edges, self-loops, walks numbered by step, notes, pills: #356), <PenTrace> ×6, and two file-local figures (KonigsbergMap, Milestones); it ends on the types of graphs and «Lo que sigue»; Hamiltonian cycles and the four colours moved to the closing class, P y NP (#360), as the first of its look-alike pairs, with no exercises: they depend on modelling
+├── 27-grafos-recorridos.mdx  # presentation: explicit, questions: none (the bank is its own WP after the merge) — class 3 of the Grafos unit (#357), after grafos-tda-modelado in index.yaml, rewritten on its plan v2 (2026-11-12). Two arcs in this first PR, DFS → BFS, each with one template: a problem on a given graph → why what the student knows does not reach (a drawn counterexample) → the algorithm (rule, why it works, code, walk, cost) → the solution → a second problem on an implicit graph (an explicit one for Kahn) → what it cannot answer. DFS as a template that each problem fills with its own search (Miguel's review, 2026-11-12/13), from a power network (the tree's preorder loops, skipping the parent loops on a cycle, marking fixes it; the template recursive and with a Stack, before or after the neighbours; what stays dark; the paint bucket), then connected components (one search per piece, `id` in the group colours) and the maze, its implicit graph introduced in full (the cells numbered r · C + c, the four directions with DR4 and DC4, free walked one condition at a time) and solved with the Stack version only: MazeReach answers whether the exit is reached, MazeExit leaves Teseo's thread in prev, path reads it back as (r, c) pairs, the cost counted in cells, and the path against the shortest; BFS as the stack template with a queue (rebuilt with Miguel, 2026-11-13: visited, prev and path reused; marking on enqueue argued on a triangle; the queue's invariant), first on the maze's shortest way out (MazeShortest, no dist), then on class 2's friends at how many hops (FriendDistance, dist and no prev), the six degrees of separation told as Karinthy's bet and Milgram's letters, and the shortest path in other contexts; then the paint bucket shown spreading by layers (<FloodFill>, no code: drawing programs fill by spans), and a fire with several foci as the arc's third problem (all foci in the queue at once, the last cell out is the answer, walked one dequeue per step); closed by the question an order of prerequisites asks; The third arc, Kahn's topological order from class 1's malla, and «Más allá» (reverse postorder, strongly connected components) left this first PR and come back in a second one (branch feat/issue-357-orden-topologico). A table of the named problems it raised, and a book-only Lo que sigue on weights, which opens the shortest-paths class. <GraphWalk> (ADR-0092) plays every walk; code in `27-grafos-recorridos.code/`, each program run on a JDK 21; file-local figures Maze, CellIndex, Compass, QueueTimeline, Calls, LineOrder and class 2's OutputBox, Pair and ArrayRows, copied while #363 was open and still to be promoted
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
@@ -1249,6 +1256,104 @@ Live: `/catalog/c/SequenceStepper`.
      support types (`write-an-exercise.md` C5). The content suite checks it.
    - **Code that exists only on its slide** stays a fence (optionally
      ```` ```java file=Graph.java ```` for its header) or an inline `code`.
+
+5j. **Walk a graph step by step (optional, ADR-0092).** `<GraphWalk>`
+   simulates a traversal over a small graph and plays it as a `<StepShow>`:
+   the frames are computed, never written by hand, so none can disagree with
+   the algorithm. The method is quoted from its file (5i); `lines` says which
+   FILE lines each event of the walk lights, and the example calls go on the
+   slide as `program`:
+
+   ```mdx
+   <GraphWalk
+     beside
+     nodes={[{ v: 0, x: 0, y: 0 }, { v: 1, x: 2, y: 0 }, { v: 2, x: 1, y: 2 }]}
+     edges={[[0, 1], [0, 2], [1, 2]]}
+     cols={3}
+     rows={3}
+     codeSrc="./27-grafos-recorridos.code/DepthFirstPaths.java"
+     codeRange="17-25"
+     lines={{ mark: 18, look: [19, 20], prev: 21, recurse: 22, return: 25 }}
+     program={`DepthFirstPaths paths = new DepthFirstPaths(g, 0);`}
+     programLines={[1]}
+     label="Un triángulo."
+   />
+   ```
+
+   - **The vertices are 0..V−1, in order**, each at a grid position as on
+     `<NodeGraph>`. **The edges go in the order the program adds them**: that
+     is the order of every adjacency list (`AdjListGraph.addEdge` appends), so
+     the order the walk visits neighbours in.
+   - **`algorithm` picks the walk**: `dfs`, the recursive depth-first search
+     (the default); `dfs-iterative`, the same search with a `Stack` of its
+     own, which marks on pop; `dfs-mark-on-push`, the tempting version that
+     marks on push and does not walk depth first — its listing lives only on
+     its slide, so it is written inline (`paths={false}` walks either
+     depth-first search keeping only `visited`, with no `prev` line to map);
+     `bfs`, the breadth-first search
+     with a queue, which marks on enqueue and keeps `dist` and `prev` —
+     `dist={false}` or `paths={false}` leaves one out, with its events and
+     its row, for a problem that does not ask for it; and
+     `bfs-mark-on-pop`, its tempting version, which enqueues a vertex twice
+     and is written inline too; and `kahn`, the topological order of a
+     graph drawn `directed`.
+   - **Every event needs its lines**; one left out is an authoring error. For
+     `dfs`: `mark`, `look` (the `for` and its `if`), `prev`, `recurse`,
+     `return`. For `dfs-iterative`: `pushStart` (the stack and its first
+     push), `pop`, `skip` (`if (visited[v]) continue`), `mark`, `look`,
+     `prev`, `push`, `end` (the loop's test). For `dfs-mark-on-push`: the
+     same without `skip`, plus `markStart` (`visited[s] = true`). For `bfs`:
+     `markStart`, `distStart` (`dist[s] = 0`), `enqueueStart`, `dequeue`,
+     `look`, `mark`, `dist`, `prev`, `enqueue`, `end`. For
+     `bfs-mark-on-pop`: `enqueueStart`, `dequeue`, `skip`, `mark`, `look`,
+     `enqueue`, `end`. For `kahn`: `inDegrees`, `check` (a vertex that is not
+     a source), `enqueueStart` (one that is), `dequeue`, `append`, `lower`
+     (`inDegree[w]--`), `enqueue`, `end`.
+   - **`caption`** writes one line under every frame — what the vertex
+     numbers stand for (`0 Ana · 1 Beto · …`) — when the problem named its
+     vertices: the walk runs on numbers, as the code does.
+   - **What a frame draws**: the vertex the walk is on in mark — the running
+     call, or the vertex last popped —, the ones already finished or reached
+     in keep, the way back to the start (the thread) and the edge being
+     looked at as marked edges, the call stack or the walk's own stack beside
+     the graph, and `visited` and `prev` under the listing, the cell just
+     written in mark — `true` in keep, `false` in flag, −1 faint. Marking on push, a neighbour skipped though the walk
+     never reached it is painted red. A breadth-first walk draws its queue,
+     front first, adds `dist` under the listing and writes each reached
+     vertex's distance beside it, one digit; marking on dequeue, a vertex
+     enqueued while it is already in the queue is painted red. Kahn's walk
+     takes each arc out of the graph as it stops counting, and
+     draws its queue of sources, `inDegree` and `order` under the listing,
+     and the line it builds under the graph, every arc a bow pointing right;
+     a cycle leaves its vertices off the line, in red. One step per assignment, per neighbour
+     looked at, per call and per return: a walk over six vertices runs about
+     36 steps, so a slide walks a graph of four or five.
+   - **The recursive and the iterative search are not paired** line by line
+     (the `iterative` rule of `<SequenceStepper>`): the iterative one reads
+     every neighbour of a vertex at once and pushes it, the recursive one
+     reads one and goes down, and the stack turns the neighbours' order
+     around. Each walks on its own slide.
+   - **A maze is walked as `grid`**, in place of `nodes`, `edges`, `cols` and
+     `rows`: its rows, all of one length, `.` a free cell and `#` a wall. The
+     walk runs over the implicit graph — the cell in row r and column c is the
+     vertex r · C + c, its neighbours computed up, down, left, right — so the
+     listing is a method that computes them (`MazeExit.java`), and `look`
+     lights the `for`, the lines computing the cell and the `if`. Every
+     direction is a step, a wall and the border included, since the loop asks
+     `free` about all four: about eight steps a cell. The frame is the grid,
+     each free cell numbered: `visited` is the cells' paint, the thread one
+     line in mark from the start to the cell the walk is on, and the arrays
+     go under the grid, a cell per square — not under the listing, where
+     twelve cells cost the slide its scale floor. `dfs` and `dfs-iterative`
+     walk a grid; the second draws its stack beside it, and its thread ends
+     at the cell it marked last, never at a copy it pops only to discard.
+     `bfs` walks a grid too: its queue beside it, each reached cell's
+     distance in its corner when it keeps `dist`.
+     **`exit`** (a cell) makes the last frame say whether `visited` reached
+     it and, with `prev`, draw the way back from it; **`programLinesAtEnd`**
+     lights, on that frame, the program lines that use the answer.
+   - Each other walk is added with the slide that first uses it (ADR-0083's
+     rule).
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**, a Drive PDF (an evaluation's pauta) in **6h**. A

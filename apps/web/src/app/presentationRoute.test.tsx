@@ -121,6 +121,15 @@ describe('PresentationPage viewer', () => {
     expect(counter).toHaveTextContent(/^2 \//);
   });
 
+  it('moves with PageDown/PageUp, which most clickers send', async () => {
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    fireEvent.keyDown(window, { key: 'PageDown' });
+    expect(counter).toHaveTextContent(/^2 \//);
+    fireEvent.keyDown(window, { key: 'PageUp' });
+    expect(counter).toHaveTextContent(/^1 \//);
+  });
+
   it('advances with Space and jumps with Home/End', async () => {
     await renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();
@@ -207,6 +216,22 @@ describe('PresentationPage viewer', () => {
     // Out of fullscreen the button ENTERS it, so the name is the destination.
     expect(screen.getByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
     restore();
+  });
+
+  it('does not keep the keyboard on the fullscreen control after a click (#357)', async () => {
+    // A clicker's next press must reach the slide, not the button: the walk
+    // on the slide takes it, or nothing does (here the cover, with no walk).
+    const restore = withFullscreenSupport();
+    try {
+      await renderAt(`/d/${firstId}/present`);
+      await findCounter();
+      const button = screen.getByRole('button', { name: 'Pantalla completa' });
+      button.focus();
+      fireEvent.click(button);
+      expect(document.activeElement).not.toBe(button);
+    } finally {
+      restore();
+    }
   });
 
   it('hides the fullscreen control where the platform has no fullscreen', async () => {
@@ -470,6 +495,27 @@ describe('presentation while the reader is typing in a slide', () => {
     // Same positive control the <input> case above carries: without a key that
     // still moves the deck once the editable is gone, a listener that no-op'd
     // outright would satisfy the assertion above.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
+  it('leaves a key a widget on the slide already handled to that widget', async () => {
+    // A focused <StepShow> walks its steps with ArrowRight and prevents the
+    // default (#357 review round 4): the deck must not also change slide.
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    const widget = document.createElement('div');
+    widget.addEventListener('keydown', (event) => event.preventDefault());
+    document.body.append(widget);
+
+    try {
+      fireEvent.keyDown(widget, { key: 'ArrowRight' });
+      expect(counter).toHaveTextContent(/^1 \//);
+    } finally {
+      widget.remove();
+    }
+
+    // Positive control: a key nobody handled still moves the deck.
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(counter).toHaveTextContent(/^2 \//);
   });

@@ -23,6 +23,7 @@ import {
   LazyFibIterSteps,
   LazyFibMemoSteps,
   LazyFibTabSteps,
+  LazyGraphWalk,
   LazyMermaid,
   LazyPredictOutput,
   LazySortStepper,
@@ -38,6 +39,7 @@ import {
   Question,
   Questions,
   RecursionTree,
+  FloodFill,
   DivideCombineTree,
   DecisionTreeSort,
   SectionBreak,
@@ -170,6 +172,9 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Same exemption and the same lightness: an SVG of rects, a per-layer hue
+  // through useResolvedTheme, and a timer (#357, the paint bucket by layers).
+  FloodFill,
   // Same shape family as RecursionTree — SVG-free chips with pseudo-element
   // connector lines, no CodeMirror, no runtime seam. Each chip has two rows
   // (call args on top, return value on bottom). Two recipes: `max` (binary
@@ -246,6 +251,9 @@ export const mdxComponents = {
   FibTabSteps: LazyFibTabSteps,
   // Lazy for the same reason as FibMemoSteps.
   FibIterSteps: LazyFibIterSteps,
+  // Lazy for the same reason as FibMemoSteps: a walk over a graph played by
+  // <StepShow> (ADR-0092).
+  GraphWalk: LazyGraphWalk,
   // Not lazy at the wrapper level, but the component internally
   // Suspense-loads KaTeX (~260 kB) via `React.lazy`. So the entry chunk
   // pays for the Math shell (Suspense + a few lines of JSX); only pages

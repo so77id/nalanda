@@ -92,7 +92,16 @@ can drive it.
    single source of truth. This is the concrete seam for ADR-0008 live
    sessions: sync-follow = driving route + query from `location` events;
    detaching = navigating freely. Viewer chrome is POC-style (fixed overlay,
-   keyboard `p`/`←`/`→`/`Space`/`Home`/`End`/`Esc`, fullscreen via
+   keyboard `p`/`←`/`→`/`Space`/`Home`/`End`/`Esc` — and, since #357,
+   `PageDown`/`PageUp`, which most clickers send; a key a focused widget
+   already handled (`defaultPrevented`) is that widget's: a `<StepShow>` on a
+   slide steps with the arrows, the page keys and `Space` while it has the
+   keyboard, and leaves the key to the deck at either end of its walk. It can
+   take the keyboard when the slide arrives, so a clicker runs a walk and
+   moves on; that is one switch, `WALK_TAKES_KEYS_ON_ARRIVAL`
+   (`presentation/walkKeys.ts`), off since 2026-11-12 by the professor's
+   call — the deck moves on the first press, and a walk takes the keys once
+   one of its own controls is used — fullscreen via
    `requestFullscreen`, minimal framer-motion fade); the footer carries the
    slide counter, the fullscreen toggle and — since #103 — a visible exit
    control (§5.3).

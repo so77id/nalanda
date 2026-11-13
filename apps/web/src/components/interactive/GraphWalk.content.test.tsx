@@ -1,0 +1,221 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+
+import { GraphWalk, type GraphWalkProps } from './GraphWalk';
+
+// StepShow keeps every frame laid out and shows the current one (#363): what
+// the reader sees is what is not inside a reserved frame.
+function visible(sel: string): HTMLElement | null {
+  return (
+    ([...document.querySelectorAll(sel)] as HTMLElement[]).find(
+      (el) => !el.closest('[data-stepshow-frame="reserved"]'),
+    ) ?? null
+  );
+}
+function byTestId(id: string): HTMLElement {
+  const el = visible(`[data-testid="${id}"]`);
+  if (el === null) throw new Error(`no visible ${id}`);
+  return el;
+}
+
+// `<GraphWalk>` is registered lazily, so the document-render test never mounts
+// it (apps/web/CLAUDE.md, the fourth class): every combination the document
+// mounts is pinned here, with the real course files, and walked to its end.
+const CODE = 'asset:courses/sample-course/27-grafos-recorridos.code/';
+
+// The power network: 0 the plant; 1, 2, 3 and 6 poles; 4, 5 and 7 houses.
+const NET = {
+  nodes: [
+    { v: 0, x: 0, y: 1 },
+    { v: 1, x: 2, y: 1 },
+    { v: 2, x: 4, y: 0 },
+    { v: 3, x: 4, y: 2 },
+    { v: 4, x: 6, y: 0 },
+    { v: 5, x: 6, y: 2 },
+    { v: 6, x: 8, y: 2 },
+    { v: 7, x: 8, y: 0 },
+  ],
+  edges: [
+    [0, 1],
+    [1, 2],
+    [1, 3],
+    [2, 3],
+    [2, 4],
+    [3, 5],
+    [6, 7],
+  ] as [number, number][],
+  cols: 9,
+  rows: 3,
+  label: 'Una red eléctrica.',
+};
+
+// The friends: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena; Carla-Diego is read
+// third, so that both depth-first searches give a chain of four.
+const FRIENDS = {
+  nodes: [
+    { v: 0, x: 1, y: 1 },
+    { v: 1, x: 3, y: 0 },
+    { v: 2, x: 3, y: 2 },
+    { v: 3, x: 5, y: 1 },
+    { v: 4, x: 7, y: 2 },
+  ],
+  edges: [
+    [0, 1],
+    [0, 2],
+    [2, 3],
+    [1, 2],
+    [1, 3],
+    [3, 4],
+  ] as [number, number][],
+  cols: 8,
+  rows: 3,
+  label: 'Una red de amigos.',
+  caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
+};
+
+const CASES: [string, GraphWalkProps, string][] = [
+  [
+    'La búsqueda con pila en la red eléctrica',
+    {
+      ...NET,
+      beside: true,
+      algorithm: 'dfs-iterative',
+      paths: false,
+      codeSrc: `${CODE}TemplateStack.java`,
+      codeRange: '4-22',
+      lines: {
+        pushStart: [5, 6, 7],
+        pop: [8, 9],
+        skip: [10, 11],
+        mark: [13, 14],
+        look: [15, 16],
+        push: 17,
+        end: 8,
+      },
+    },
+    'end',
+  ],
+  [
+    '¿Se llega a la salida?',
+    {
+      beside: true,
+      ratio: '55/45',
+      algorithm: 'dfs-iterative',
+      paths: false,
+      grid: ['...#', '...#', '#...'],
+      exit: 11,
+      codeSrc: `${CODE}MazeReach.java`,
+      codeRange: '16-39',
+      lines: {
+        pushStart: [19, 20],
+        pop: [21, 22],
+        skip: [23, 24],
+        mark: 26,
+        look: [29, 30, 31, 32, 33],
+        push: 34,
+        end: [21, 38],
+      },
+      program: 'boolean[] visited = dfs(grid, 0);\nSystem.out.println(visited[11]);',
+      programLines: [1],
+      programLinesAtEnd: [2],
+      label: 'El laberinto.',
+    },
+    'end',
+  ],
+  [
+    'La búsqueda que deja el hilo',
+    {
+      beside: true,
+      exit: 11,
+      algorithm: 'dfs-iterative',
+      grid: ['...#', '...#', '#...'],
+      codeSrc: `${CODE}MazeExit.java`,
+      codeRange: '19-46',
+      lines: {
+        pushStart: [25, 26],
+        pop: [27, 28],
+        skip: [29, 30],
+        mark: 32,
+        look: [33, 34, 35, 36, 37],
+        prev: [38, 39],
+        push: 40,
+        end: [27, 45],
+      },
+      label: 'El laberinto.',
+    },
+    'end',
+  ],
+  [
+    'La búsqueda en anchura en el laberinto',
+    {
+      beside: true,
+      ratio: '50/50',
+      algorithm: 'bfs',
+      dist: false,
+      grid: ['...#', '...#', '#...'],
+      exit: 11,
+      codeSrc: `${CODE}MazeShortest.java`,
+      codeRange: '21-47',
+      lines: {
+        markStart: [26, 27, 28, 29],
+        enqueueStart: 30,
+        dequeue: [31, 32, 33],
+        look: [34, 35, 36, 37, 38],
+        mark: [39, 40],
+        prev: 41,
+        enqueue: 42,
+        end: [31, 46],
+      },
+      label: 'El laberinto.',
+    },
+    'end',
+  ],
+  [
+    'La búsqueda que cuenta los saltos',
+    {
+      ...FRIENDS,
+      beside: true,
+      ratio: '50/50',
+      algorithm: 'bfs',
+      paths: false,
+      arraysAt: 'drawing',
+      codeSrc: `${CODE}FriendDistance.java`,
+      codeRange: '7-28',
+      lines: {
+        markStart: [12, 13],
+        distStart: 14,
+        enqueueStart: 15,
+        dequeue: [16, 17],
+        look: [18, 19],
+        mark: 20,
+        dist: [21, 22],
+        enqueue: 23,
+        end: [16, 27],
+      },
+    },
+    'end',
+  ],
+];
+
+describe('the combinations 27-grafos-recorridos mounts', () => {
+  it.each(CASES)('%s', (_slide, props, lastEvent) => {
+    const { container } = render(<GraphWalk {...props} />);
+    expect(container.querySelector('[data-authoring-error]')).toBeNull();
+    // The listing came from the real file: its header names the range.
+    if (props.codeSrc) expect(screen.getAllByText(/líneas \d+–\d+ de/).length).toBeGreaterThan(0);
+    // StepShow lays every frame out from the first step (#363; jsdom has no
+    // IntersectionObserver, so none is held back): one render paints the whole
+    // walk, and a frame that broke halfway would break it here. Clicking to
+    // the end re-laid every frame on each click and neared the 5 s timeout on
+    // CI. Every frame is there, and the walk's last one ends as the slide does.
+    const frames = [...document.querySelectorAll('[data-testid="graph-walk-frame"]')];
+    for (const stack of screen.getAllByTestId('stepshow-frames')) {
+      expect(stack.querySelectorAll(':scope > [data-stepshow-frame]')).toHaveLength(frames.length);
+    }
+    expect(frames.length).toBeGreaterThan(2);
+    expect(frames.at(-1)).toHaveAttribute('data-event', lastEvent);
+    // The legend under the frame names what the numbers stand for.
+    if (props.caption) expect(byTestId('graph-walk-caption')).toHaveTextContent(props.caption);
+    expect(container.querySelector('[data-authoring-error]')).toBeNull();
+  });
+});

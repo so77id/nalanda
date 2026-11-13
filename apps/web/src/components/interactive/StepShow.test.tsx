@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ModeProvider } from '../../presentation';
+import { ModeProvider, WALK_TAKES_KEYS_ON_ARRIVAL } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
 
@@ -314,6 +314,151 @@ describe('StepShow', () => {
 
     fireEvent.keyDown(group, { key: 'ArrowLeft' });
     expect(highlightedLines(container)).toEqual([1]);
+  });
+
+  it('leaves the arrows to the deck at the ends of the walk (#357 review round 5)', () => {
+    render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    const group = screen.getByRole('group');
+    // fireEvent returns false when the handler prevented the default.
+    expect(fireEvent.keyDown(group, { key: 'ArrowLeft' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: 'ArrowRight' })).toBe(false);
+    expect(fireEvent.keyDown(group, { key: 'ArrowRight' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: 'PageUp' })).toBe(false);
+  });
+
+  it('steps with Space and PageDown on the focused group', () => {
+    const { container } = render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    const group = screen.getByRole('group');
+    fireEvent.keyDown(group, { key: ' ' });
+    expect(highlightedLines(container)).toEqual([2]);
+    fireEvent.keyDown(group, { key: 'PageUp' });
+    expect(highlightedLines(container)).toEqual([1]);
+    fireEvent.keyDown(group, { key: 'PageDown' });
+    expect(highlightedLines(container)).toEqual([2]);
+  });
+
+  it('leaves Space on one of its controls to that control, not to the deck', () => {
+    render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    const heard: string[] = [];
+    const listener = (event: KeyboardEvent) => heard.push(event.key);
+    window.addEventListener('keydown', listener);
+    try {
+      fireEvent.keyDown(screen.getByRole('button', { name: /adelante/i }), { key: ' ' });
+      expect(heard).toEqual([]);
+      // Positive control: a key the walk does not own still reaches window.
+      fireEvent.keyDown(screen.getByRole('group'), { key: 'Home' });
+      expect(heard).toEqual(['Home']);
+    } finally {
+      window.removeEventListener('keydown', listener);
+    }
+  });
+
+  it('keeps the page keys and Space for the page in the book', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+        <Step lines={[2]}>
+          <span>b</span>
+        </Step>
+      </StepShow>,
+    );
+    const group = screen.getByRole('group');
+    expect(fireEvent.keyDown(group, { key: 'PageDown' })).toBe(true);
+    expect(fireEvent.keyDown(group, { key: ' ' })).toBe(true);
+  });
+
+  it('gives the keyboard back to the walk after one of its controls acts, on a slide', () => {
+    render(
+      <ModeProvider mode="presentation">
+        <StepShow code={CODE} language="java">
+          <Step lines={[1]}>
+            <span>a</span>
+          </Step>
+          <Step lines={[2]}>
+            <span>b</span>
+          </Step>
+        </StepShow>
+      </ModeProvider>,
+    );
+    const forward = screen.getByRole('button', { name: /adelante/i });
+    forward.focus();
+    fireEvent.click(forward);
+    expect(document.activeElement).toBe(screen.getByRole('group'));
+    // The speed selector too (#357 review round 9).
+    const speed = screen.getByRole('combobox', { name: /velocidad/i });
+    speed.focus();
+    fireEvent.change(speed, { target: { value: 'fast' } });
+    expect(document.activeElement).toBe(screen.getByRole('group'));
+  });
+
+  it('takes the keyboard on arrival on a slide only while WALK_TAKES_KEYS_ON_ARRIVAL is on', () => {
+    // A deck control had it (#357 round 6): the walk takes it from there when
+    // the switch is on, and leaves it alone when it is off (2026-11-12).
+    const fullscreen = document.createElement('button');
+    document.body.append(fullscreen);
+    fullscreen.focus();
+    try {
+      render(
+        <ModeProvider mode="presentation">
+          <StepShow code={CODE} language="java">
+            <Step lines={[1]}>
+              <span>a</span>
+            </Step>
+          </StepShow>
+        </ModeProvider>,
+      );
+      expect(document.activeElement).toBe(
+        WALK_TAKES_KEYS_ON_ARRIVAL ? screen.getByRole('group') : fullscreen,
+      );
+    } finally {
+      fullscreen.remove();
+    }
+  });
+
+  it('never takes the keyboard in the book', () => {
+    render(
+      <StepShow code={CODE} language="java">
+        <Step lines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+    expect(document.activeElement).toBe(document.body);
   });
 
   it('passes the raw source to the listing, blank lines and all', () => {
