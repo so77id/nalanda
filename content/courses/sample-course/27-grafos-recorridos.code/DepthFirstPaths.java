@@ -4,20 +4,20 @@ import java.util.List;
 import java.util.Stack;
 
 public class DepthFirstPaths {
-    private final boolean[] marked;
+    private final boolean[] visited;
     private final int[] prev;
 
     public DepthFirstPaths(Graph g, int s) {
-        marked = new boolean[g.V()];
+        visited = new boolean[g.V()];
         prev = new int[g.V()];
         Arrays.fill(prev, -1);
         dfs(g, s);
     }
 
     private void dfs(Graph g, int v) {
-        marked[v] = true;
+        visited[v] = true;
         for (int w : g.adj(v)) {
-            if (!marked[w]) {
+            if (!visited[w]) {
                 prev[w] = v;
                 dfs(g, w);
             }
@@ -25,7 +25,7 @@ public class DepthFirstPaths {
     }
 
     public boolean hasPathTo(int t) {
-        return marked[t];
+        return visited[t];
     }
 
     public List<Integer> pathTo(int t) {

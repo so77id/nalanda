@@ -6,12 +6,12 @@ import java.util.Queue;
 import java.util.Stack;
 
 public class BreadthFirstPaths {
-    private final boolean[] marked;
+    private final boolean[] visited;
     private final int[] dist;
     private final int[] prev;
 
     public BreadthFirstPaths(Graph g, int s) {
-        marked = new boolean[g.V()];
+        visited = new boolean[g.V()];
         dist = new int[g.V()];
         prev = new int[g.V()];
         Arrays.fill(dist, -1);
@@ -21,14 +21,14 @@ public class BreadthFirstPaths {
 
     private void bfs(Graph g, int s) {
         Queue<Integer> queue = new LinkedList<>();
-        marked[s] = true;
+        visited[s] = true;
         dist[s] = 0;
         queue.add(s);
         while (!queue.isEmpty()) {
             int v = queue.remove();
             for (int w : g.adj(v)) {
-                if (!marked[w]) {
-                    marked[w] = true;
+                if (!visited[w]) {
+                    visited[w] = true;
                     dist[w] = dist[v] + 1;
                     prev[w] = v;
                     queue.add(w);
@@ -38,7 +38,7 @@ public class BreadthFirstPaths {
     }
 
     public boolean hasPathTo(int t) {
-        return marked[t];
+        return visited[t];
     }
 
     public int distTo(int t) {

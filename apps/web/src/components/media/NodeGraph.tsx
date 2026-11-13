@@ -12,8 +12,12 @@ import {
 
 export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
 
-/** What a tone says: `mark` look here, `flag` this is wrong, `keep` this is done. */
-export type NodeGraphTone = 'mark' | 'flag' | 'keep';
+/**
+ * What a tone says: `mark` look here, `flag` this is wrong, `keep` this is
+ * done; `group-1` to `group-3` only which group a node belongs to (the pieces
+ * of a graph, #357), with no status.
+ */
+export type NodeGraphTone = 'mark' | 'flag' | 'keep' | 'group-1' | 'group-2' | 'group-3';
 
 export interface NodeGraphProps {
   nodes: NodeGraphNode[];
@@ -59,12 +63,18 @@ const FILL: Record<Paint, string> = {
   mark: 'var(--color-mark-soft)',
   flag: 'var(--color-flag-soft)',
   keep: 'var(--color-keep-soft)',
+  'group-1': 'var(--color-group-1-soft)',
+  'group-2': 'var(--color-group-2-soft)',
+  'group-3': 'var(--color-group-3-soft)',
 };
 const STROKE: Record<Paint, string> = {
   idle: 'var(--color-rule-strong)',
   mark: 'var(--color-mark)',
   flag: 'var(--color-flag)',
   keep: 'var(--color-keep)',
+  'group-1': 'var(--color-group-1)',
+  'group-2': 'var(--color-group-2)',
+  'group-3': 'var(--color-group-3)',
 };
 
 /**

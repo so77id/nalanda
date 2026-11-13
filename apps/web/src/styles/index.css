@@ -60,6 +60,18 @@
   --color-flag-soft: var(--nl-flag-soft);
   --color-mark-soft: var(--nl-mark-soft);
   --color-accent-soft: var(--nl-accent-soft);
+
+  /* Groups: which group a thing belongs to, and nothing else — no status, no
+     "look here". A figure that sorts elements into groups (the connected
+     components of a graph, #357) paints each group in one of these, with its
+     soft ground; the hues stay clear of keep, flag, mark, accent and focus so
+     a group never reads as one of those meanings. */
+  --color-group-1: var(--nl-group-1);
+  --color-group-2: var(--nl-group-2);
+  --color-group-3: var(--nl-group-3);
+  --color-group-1-soft: var(--nl-group-1-soft);
+  --color-group-2-soft: var(--nl-group-2-soft);
+  --color-group-3-soft: var(--nl-group-3-soft);
   --color-on-keep: var(--nl-on-keep);
 
   /* Label on a filled `bg-accent` button. Used by <Benchmark> and
@@ -129,6 +141,12 @@
   --nl-mark-soft: #fdf0d9;
   --nl-plate: #ffffff;
   --nl-accent-soft: #ffe1d1;
+  --nl-group-1: #1f5aa8;
+  --nl-group-2: #6f3aa8;
+  --nl-group-3: #a8306a;
+  --nl-group-1-soft: #e3ecf8;
+  --nl-group-2-soft: #efe6f8;
+  --nl-group-3-soft: #f9e3ee;
   --nl-on-keep: #fef9f7;
   /* Identical to `--nl-on-keep` today: same class of label, same
      invert-with-theme shape. A split into its own value is a design
@@ -159,6 +177,12 @@
     /* Identical in every theme, deliberately — see --color-plate. */
     --nl-plate: #ffffff;
     --nl-accent-soft: #241634;
+    --nl-group-1: #7aa8ff;
+    --nl-group-2: #c4a0ff;
+    --nl-group-3: #f48fc0;
+    --nl-group-1-soft: #13223a;
+    --nl-group-2-soft: #231a37;
+    --nl-group-3-soft: #331728;
     --nl-on-keep: #0d1117;
     /* See #247 / the light block. Same value as `--nl-on-keep` today. */
     --nl-on-accent: #0d1117;
@@ -187,6 +211,12 @@
   /* Identical in every theme, deliberately — see --color-plate. */
   --nl-plate: #ffffff;
   --nl-accent-soft: #241634;
+  --nl-group-1: #7aa8ff;
+  --nl-group-2: #c4a0ff;
+  --nl-group-3: #f48fc0;
+  --nl-group-1-soft: #13223a;
+  --nl-group-2-soft: #231a37;
+  --nl-group-3-soft: #331728;
   --nl-on-keep: #0d1117;
   /* See #247 / the light block. Same value as `--nl-on-keep` today. */
   --nl-on-accent: #0d1117;

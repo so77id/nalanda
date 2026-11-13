@@ -11,14 +11,14 @@ public class MazeBreadthFirstPaths {
 
     private final String[] grid;
     private final int cols;
-    private final boolean[] marked;
+    private final boolean[] visited;
     private final int[] dist;
     private final int[] prev;
 
     public MazeBreadthFirstPaths(String[] grid, int s) {
         this.grid = grid;
         cols = grid[0].length();
-        marked = new boolean[grid.length * cols];
+        visited = new boolean[grid.length * cols];
         dist = new int[grid.length * cols];
         prev = new int[grid.length * cols];
         Arrays.fill(dist, -1);
@@ -34,7 +34,7 @@ public class MazeBreadthFirstPaths {
 
     private void bfs(int s) {
         Queue<Integer> queue = new LinkedList<>();
-        marked[s] = true;
+        visited[s] = true;
         dist[s] = 0;
         queue.add(s);
         while (!queue.isEmpty()) {
@@ -43,8 +43,8 @@ public class MazeBreadthFirstPaths {
                 int r = v / cols + DR4[k];
                 int c = v % cols + DC4[k];
                 int w = r * cols + c;
-                if (free(r, c) && !marked[w]) {
-                    marked[w] = true;
+                if (free(r, c) && !visited[w]) {
+                    visited[w] = true;
                     dist[w] = dist[v] + 1;
                     prev[w] = v;
                     queue.add(w);
@@ -59,7 +59,7 @@ public class MazeBreadthFirstPaths {
 
     public List<Integer> pathTo(int t) {
         List<Integer> path = new ArrayList<>();
-        if (!marked[t]) {
+        if (!visited[t]) {
             return path;
         }
         Stack<Integer> back = new Stack<>();

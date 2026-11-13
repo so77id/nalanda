@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ModeProvider } from '../../presentation';
+import { ModeProvider, WALK_TAKES_KEYS_ON_ARRIVAL } from '../../presentation';
 import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
 import { besideColumns } from './stepShowLayout';
@@ -328,7 +328,9 @@ describe('StepShow', () => {
     expect(document.activeElement).toBe(screen.getByRole('group'));
   });
 
-  it('takes the keyboard on a slide even when a deck control had it (#357 round 6)', () => {
+  it('takes the keyboard on arrival on a slide only while WALK_TAKES_KEYS_ON_ARRIVAL is on', () => {
+    // A deck control had it (#357 round 6): the walk takes it from there when
+    // the switch is on, and leaves it alone when it is off (2026-11-12).
     const fullscreen = document.createElement('button');
     document.body.append(fullscreen);
     fullscreen.focus();
@@ -342,14 +344,16 @@ describe('StepShow', () => {
           </StepShow>
         </ModeProvider>,
       );
-      expect(document.activeElement).toBe(screen.getByRole('group'));
+      expect(document.activeElement).toBe(
+        WALK_TAKES_KEYS_ON_ARRIVAL ? screen.getByRole('group') : fullscreen,
+      );
     } finally {
       fullscreen.remove();
     }
   });
 
-  it('takes the keyboard when it arrives on a slide, and not in the book', () => {
-    const { unmount } = render(
+  it('never takes the keyboard in the book', () => {
+    render(
       <StepShow code={CODE} language="java">
         <Step lines={[1]}>
           <span>a</span>
@@ -357,17 +361,6 @@ describe('StepShow', () => {
       </StepShow>,
     );
     expect(document.activeElement).toBe(document.body);
-    unmount();
-    render(
-      <ModeProvider mode="presentation">
-        <StepShow code={CODE} language="java">
-          <Step lines={[1]}>
-            <span>a</span>
-          </Step>
-        </StepShow>
-      </ModeProvider>,
-    );
-    expect(document.activeElement).toBe(screen.getByRole('group'));
   });
 
   it('passes the raw source to the listing, blank lines and all', () => {
@@ -489,6 +482,26 @@ describe('StepShow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /adelante/i }));
     expect([lit(0), lit(1)]).toEqual([[2], [8]]);
+  });
+
+  it('keys a program and a method that share a name apart, as two quotes of one file do', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <StepShow
+        code={CODE}
+        program={'f(1);'}
+        codeName="F.java"
+        programName="F.java"
+        language="java"
+      >
+        <Step lines={[7]} programLines={[1]}>
+          <span>a</span>
+        </Step>
+      </StepShow>,
+    );
+    expect(screen.getAllByTestId('stepshow-listing')).toHaveLength(2);
+    expect(spy.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
+    spy.mockRestore();
   });
 
   it('reads a beside ratio as the two columns, and falls back on a malformed one', () => {
