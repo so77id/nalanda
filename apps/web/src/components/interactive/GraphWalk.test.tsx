@@ -474,9 +474,65 @@ describe('GraphWalk over a grid', () => {
     expect(screen.getByText('dfs(11) marca la celda 11, en (2, 3).')).toBeInTheDocument();
   });
 
-  it('tells the author a maze is walked by a depth-first search only, for now', () => {
-    render(maze({ algorithm: 'bfs' }));
+  it('tells the author a maze is walked by a search only: dfs, dfs-iterative or bfs', () => {
+    render(maze({ algorithm: 'kahn' }));
     expect(screen.getByText(/todavía no recorre una grilla/)).toBeInTheDocument();
+  });
+
+  it('walks a maze breadth first beside its queue, keeping prev and no dist (#357 arc II)', async () => {
+    render(
+      maze({
+        grid: ['...#', '...#', '#...'],
+        algorithm: 'bfs',
+        dist: false,
+        exit: 11,
+        lines: {
+          markStart: 1,
+          enqueueStart: 2,
+          dequeue: 3,
+          look: 4,
+          mark: 5,
+          prev: 6,
+          enqueue: 7,
+          end: 3,
+        },
+      }),
+    );
+    expect(screen.getByTestId('graph-walk-queue')).toBeInTheDocument();
+    expect(document.querySelector('[data-cell="prev[0]"]')).not.toBeNull();
+    expect(document.querySelector('[data-cell="dist[0]"]')).toBeNull();
+    expect(document.querySelector('[data-dist]')).toBeNull();
+    const user = userEvent.setup();
+    const next = screen.getByRole('button', { name: /adelante/i });
+    while (next.getAttribute('aria-disabled') !== 'true') {
+      await user.click(next);
+    }
+    // The way back from the exit is the shortest: five steps, not seven.
+    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0,4,5,9,10,11');
+    expect(screen.getByText(/por un camino más corto\.$/)).toBeInTheDocument();
+  });
+
+  it("writes each reached cell's distance when the walk keeps dist", () => {
+    render(
+      maze({
+        grid: ['...#', '...#', '#...'],
+        algorithm: 'bfs',
+        lines: {
+          markStart: 1,
+          distStart: 2,
+          enqueueStart: 3,
+          dequeue: 4,
+          look: 5,
+          mark: 6,
+          dist: 7,
+          prev: 8,
+          enqueue: 9,
+          end: 4,
+        },
+      }),
+    );
+    expect(screen.getByText('Marca el origen 0.')).toBeInTheDocument();
+    expect(document.querySelector('[data-cell="dist[0]"]')).not.toBeNull();
   });
 
   it('walks a maze with a stack of its own, beside its stack (#357 review round 4)', async () => {
@@ -674,6 +730,24 @@ describe('GraphWalk, breadth first', () => {
     expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[0]');
     await forward(1);
     expect(screen.getByRole('img', { name: 'Cola, del frente al final: 0.' })).toBeInTheDocument();
+  });
+
+  it('draws the arrays under the graph instead, with arraysAt="drawing" (#357 review)', () => {
+    render(
+      <GraphWalk
+        algorithm="bfs"
+        nodes={DIAMOND}
+        edges={DIAMOND_EDGES}
+        cols={3}
+        rows={3}
+        code={BFS}
+        lines={BFS_LINES}
+        label="Un rombo."
+        arraysAt="drawing"
+      />,
+    );
+    expect(screen.queryByTestId('stepshow-under')).toBeNull();
+    expect(frame().querySelector('[data-cell="dist[0]"]')).not.toBeNull();
   });
 
   it('writes each vertex its distance as it enqueues it, and keeps it beside the vertex', async () => {

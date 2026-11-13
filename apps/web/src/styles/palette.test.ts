@@ -73,6 +73,9 @@ const TEXT_TOKENS = [
   'group-1',
   'group-2',
   'group-3',
+  'group-4',
+  'group-5',
+  'group-6',
 ] as const;
 
 /** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
@@ -153,6 +156,9 @@ const PAIRS = [
   ['group-1', 'group-1-soft'],
   ['group-2', 'group-2-soft'],
   ['group-3', 'group-3-soft'],
+  ['group-4', 'group-4-soft'],
+  ['group-5', 'group-5-soft'],
+  ['group-6', 'group-6-soft'],
 ] as const;
 
 const THEMES = [

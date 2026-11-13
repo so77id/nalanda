@@ -408,3 +408,15 @@ in both themes. `<NodeGraph>` takes them as tones (`group-1` to `group-3`).
 Three is what the course needs today; a fourth group is a fourth token, added
 the same way.
 
+**Three more, the same day the class's breadth-first arc was rebuilt
+(2026-11-13):** `group-4` to `group-6` — olive, slate and sky — so the six
+layers of a breadth-first search over the class's maze each take a colour of
+their own, none repeated (Miguel: «usa colores diferentes, no repitas»). The
+hues left free by the status tokens are few, so slate is the neutral among
+them and sky sits apart from `group-1`'s blue by lightness and from `focus` by
+hue. Same tests, same rule: a text token, 4.5:1 on every surface and on its own
+`-soft` ground, in both themes. `<NodeGraph>` takes all six as tones too —
+which is also what makes Tailwind emit the three new variables, since it
+emits a theme variable only when the app's code uses it, and the class's
+document is not scanned.
+

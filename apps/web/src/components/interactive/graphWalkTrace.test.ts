@@ -4,6 +4,7 @@ import {
   traceBfs,
   traceDfs,
   traceDfsStack,
+  traceGridBfs,
   traceGridDfs,
   traceGridDfsStack,
   traceKahn,
@@ -392,6 +393,45 @@ describe('traceBfs, marking on enqueue (the breadth-first search)', () => {
   it('never reaches a vertex with no path from the start, whose dist stays −1', () => {
     const last = traceBfs(adjacencyOf(3, [[0, 1]]), 0, 'push').at(-1)!;
     expect(last.dist).toEqual([0, 1, -1]);
+  });
+});
+
+describe('traceBfs and traceGridBfs, keeping only what the listing keeps (#357 arc II)', () => {
+  const MAZE = ['...#', '...#', '#...'];
+
+  it('walks the maze by layers, and its prev gives the shortest way out', () => {
+    const frames = traceGridBfs(MAZE, 0, { dist: false }, 11);
+    const last = frames.at(-1)!;
+    // Run on a JDK 21 against MazeShortest.java: the cells in the order they leave the queue.
+    expect(last.order).toEqual([0, 4, 1, 5, 2, 9, 6, 10, 11]);
+    const way = [];
+    for (let x = 11; x !== -1; x = last.prev[x]) way.push(x);
+    expect(way.reverse()).toEqual([0, 4, 5, 9, 10, 11]);
+    expect(last.dist).toBeNull();
+    expect(frames.some((f) => f.event === 'dist' || f.event === 'distStart')).toBe(false);
+    expect(last.text).toMatch(
+      /visited\[11\], la celda \(2, 3\), es true: se llega a la salida\. Siguiendo prev desde ella se vuelve a la entrada por un camino más corto\.$/,
+    );
+  });
+
+  it('looks in all four directions of a cell, the border and a wall included', () => {
+    const looks = traceGridBfs(MAZE, 0).filter((f) => f.event === 'look' && f.v === 2);
+    expect(looks.map((f) => f.blocked)).toEqual([true, false, false, true]);
+  });
+
+  it('keeps dist and no prev on a graph, for «¿a cuántos saltos?»', () => {
+    const adj = adjacencyOf(5, [
+      [0, 1],
+      [0, 2],
+      [2, 3],
+      [1, 2],
+      [1, 3],
+      [3, 4],
+    ]);
+    const frames = traceBfs(adj, 0, 'push', { prev: false });
+    expect(frames.some((f) => f.event === 'prev')).toBe(false);
+    expect(frames.at(-1)!.dist).toEqual([0, 1, 1, 2, 3]);
+    expect(frames.at(-1)!.prev).toEqual([-1, -1, -1, -1, -1]);
   });
 });
 

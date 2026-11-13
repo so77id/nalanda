@@ -36,10 +36,10 @@ export const nodeGraphCatalogEntry: CatalogEntry = {
     },
     {
       name: 'tones',
-      type: "Record<label, 'mark' | 'flag' | 'keep' | 'group-1' | 'group-2' | 'group-3'>",
+      type: "Record<label, 'mark' | 'flag' | 'keep' | 'group-1' … 'group-6'>",
       default: '{}',
       description:
-        'A tone on a vertex, keyed by label: look here, wrong, done — or, with group-1 to group-3, only which group it belongs to (the pieces of a graph, #357).',
+        'A tone on a vertex, keyed by label: look here, wrong, done — or, with group-1 to group-6, only which group it belongs to (the pieces of a graph, the layers of a breadth-first search, #357).',
     },
     {
       name: 'markEdges',

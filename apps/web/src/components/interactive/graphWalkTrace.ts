@@ -286,6 +286,50 @@ export function traceGridDfsStack(
 ): WalkFrame[] {
   const { V, C, probesOf } = gridWalk(grid, start);
   const frames = walkStack(V, start, 'pop', paths, probesOf);
+  return answerExit(
+    frames,
+    V,
+    C,
+    exit,
+    paths ? ' Siguiendo prev desde ella, el hilo vuelve a la entrada.' : '',
+  );
+}
+
+/**
+ * The breadth-first search over a maze, as `MazeShortest.java` reads (#357
+ * arc II): `traceBfs`'s frames, marking on enqueue, with one `look` per
+ * direction as the depth-first walks over a grid have them. `keep` says which
+ * of `dist` and `prev` the listing keeps; given the `exit`, the last frame
+ * answers whether it was reached, and with `prev` that the way back from it is
+ * a shortest one.
+ */
+export function traceGridBfs(
+  grid: readonly string[],
+  start: number,
+  keep: BfsKeeps = {},
+  exit?: number,
+): WalkFrame[] {
+  const { V, C, probesOf } = gridWalk(grid, start);
+  const frames = walkQueue(V, start, 'push', keep, probesOf);
+  return answerExit(
+    frames,
+    V,
+    C,
+    exit,
+    keep.prev === false
+      ? ''
+      : ' Siguiendo prev desde ella se vuelve a la entrada por un camino más corto.',
+  );
+}
+
+/** The last frame, given the `exit` cell: whether `visited` reached it, and `more` if it did. */
+function answerExit(
+  frames: WalkFrame[],
+  V: number,
+  C: number,
+  exit: number | undefined,
+  more: string,
+): WalkFrame[] {
   if (exit === undefined || !isVertex(V, exit)) return frames;
   const last = frames[frames.length - 1];
   const reached = last.marked[exit];
@@ -294,7 +338,7 @@ export function traceGridDfsStack(
     ...last,
     text:
       `${last.text} visited[${exit}], la celda ${where}, es ${reached}: ${reached ? 'se llega' : 'no se llega'} a la salida.` +
-      (paths && reached ? ' Siguiendo prev desde ella, el hilo vuelve a la entrada.' : ''),
+      (reached ? more : ''),
   };
   return frames;
 }
@@ -625,18 +669,45 @@ export function traceBfs(
   adj: readonly (readonly number[])[],
   start: number,
   markOn: MarkOn,
+  keep: BfsKeeps = {},
 ): WalkFrame[] {
   const V = adj.length;
   if (!isVertex(V, start)) {
     throw new RangeError(`start ${start} is not a vertex of 0..${V - 1}`);
   }
+  return walkQueue(V, start, markOn, keep, (v) =>
+    adj[v].map((w) => ({ w, blocked: false, cell: null, text: (seen) => lookText(v, w, seen) })),
+  );
+}
+
+/**
+ * Which of `dist` and `prev` a breadth-first listing keeps; both by default.
+ * The maze asks only «¿por dónde?» and keeps `prev`; the friends ask «¿a
+ * cuántos saltos?» and keep `dist` (#357 arc II). Marking on dequeue keeps
+ * neither, whatever this says.
+ */
+export interface BfsKeeps {
+  dist?: boolean;
+  prev?: boolean;
+}
+
+/** The walk with a queue, over whatever `probesOf` says `v` looks at. */
+function walkQueue(
+  V: number,
+  start: number,
+  markOn: MarkOn,
+  keep: BfsKeeps,
+  probesOf: (v: number) => Probe[],
+): WalkFrame[] {
   const onPush = markOn === 'push';
-  const r = new Recorder(V, onPush);
+  const keepDist = onPush && keep.dist !== false;
+  const keepPrev = onPush && keep.prev !== false;
+  const r = new Recorder(V, keepDist);
   const { marked, prev, order } = r;
   const dist = r.dist;
   const queue = r.stack;
 
-  if (onPush && dist !== null) {
+  if (onPush) {
     marked[start] = true;
     r.record({
       event: 'markStart',
@@ -645,6 +716,8 @@ export function traceBfs(
       wrote: { array: 'visited', index: start },
       text: `Marca el origen ${start}.`,
     });
+  }
+  if (dist !== null) {
     dist[start] = 0;
     r.record({
       event: 'distStart',
@@ -675,7 +748,12 @@ export function traceBfs(
         text: `Marca ${v}.`,
       });
     }
-    for (const w of adj[v]) {
+    for (const probe of probesOf(v)) {
+      const { w, blocked, cell } = probe;
+      if (blocked || w === null) {
+        r.record({ event: 'look', v, w, seen: null, blocked: true, cell, text: probe.text(false) });
+        continue;
+      }
       const seen = marked[w];
       const queued = !seen && queue.includes(w);
       r.record({
@@ -683,14 +761,13 @@ export function traceBfs(
         v,
         w,
         seen,
-        text: seen
-          ? `Mira el vecino ${w} de ${v}: ya está marcado, lo salta.`
-          : queued
-            ? `Mira el vecino ${w} de ${v}: no está marcado, aunque ya está en la cola.`
-            : `Mira el vecino ${w} de ${v}: no está marcado.`,
+        cell,
+        text: queued
+          ? probe.text(false).replace(/\.$/, ', aunque ya está en la cola.')
+          : probe.text(seen),
       });
       if (seen) continue;
-      if (onPush && dist !== null) {
+      if (onPush) {
         marked[w] = true;
         r.record({
           event: 'mark',
@@ -699,6 +776,8 @@ export function traceBfs(
           wrote: { array: 'visited', index: w },
           text: `Marca ${w} al encolarlo.`,
         });
+      }
+      if (dist !== null) {
         dist[w] = dist[v] + 1;
         r.record({
           event: 'dist',
@@ -707,6 +786,8 @@ export function traceBfs(
           wrote: { array: 'dist', index: w },
           text: `dist[${w}] = dist[${v}] + 1 = ${dist[w]}.`,
         });
+      }
+      if (keepPrev) {
         prev[w] = v;
         r.record({
           event: 'prev',

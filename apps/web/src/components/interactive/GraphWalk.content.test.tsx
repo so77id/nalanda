@@ -86,23 +86,6 @@ const MALLA = {
     '0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación',
 };
 
-const ON_POP = `private void bfs(Graph g, int s) {
-    Queue<Integer> queue = new LinkedList<>();
-    queue.add(s);
-    while (!queue.isEmpty()) {
-        int v = queue.remove();
-        if (marked[v]) {
-            continue;
-        }
-        marked[v] = true;
-        for (int w : g.adj(v)) {
-            if (!marked[w]) {
-                queue.add(w);
-            }
-        }
-    }
-}`;
-
 const KAHN_LINES = {
   inDegrees: [11, 12],
   check: [13, 14],
@@ -187,43 +170,51 @@ const CASES: [string, GraphWalkProps, string][] = [
     'end',
   ],
   [
-    'Marcar al sacar de la cola',
+    'La búsqueda en anchura en el laberinto',
     {
-      ...FRIENDS,
       beside: true,
-      algorithm: 'bfs-mark-on-pop',
-      code: ON_POP,
+      ratio: '50/50',
+      algorithm: 'bfs',
+      dist: false,
+      grid: ['...#', '...#', '#...'],
+      exit: 11,
+      codeSrc: `${CODE}MazeShortest.java`,
+      codeRange: '21-47',
       lines: {
-        enqueueStart: [2, 3],
-        dequeue: [4, 5],
-        skip: [6, 7],
-        mark: 9,
-        look: [10, 11],
-        enqueue: 12,
-        end: 4,
+        markStart: [26, 27, 28, 29],
+        enqueueStart: 30,
+        dequeue: [31, 32, 33],
+        look: [34, 35, 36, 37, 38],
+        mark: [39, 40],
+        prev: 41,
+        enqueue: 42,
+        end: [31, 46],
       },
+      label: 'El laberinto.',
     },
     'end',
   ],
   [
-    'El código de la búsqueda en anchura',
+    'La búsqueda que cuenta los saltos',
     {
       ...FRIENDS,
       beside: true,
+      ratio: '50/50',
       algorithm: 'bfs',
-      codeSrc: `${CODE}BreadthFirstPaths.java`,
-      codeRange: '22-38',
+      paths: false,
+      arraysAt: 'drawing',
+      codeSrc: `${CODE}FriendDistance.java`,
+      codeRange: '7-28',
       lines: {
-        markStart: [23, 24],
-        distStart: 25,
-        enqueueStart: 26,
-        dequeue: [27, 28],
-        look: [29, 30],
-        mark: 31,
-        dist: 32,
-        prev: 33,
-        enqueue: 34,
-        end: 27,
+        markStart: [12, 13],
+        distStart: 14,
+        enqueueStart: 15,
+        dequeue: [16, 17],
+        look: [18, 19],
+        mark: 20,
+        dist: [21, 22],
+        enqueue: 23,
+        end: [16, 27],
       },
     },
     'end',

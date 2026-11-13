@@ -33,6 +33,7 @@ import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
+import { floodFillCatalogEntry } from './interactive/FloodFill.catalog';
 import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { sortStepperCatalogEntry } from './interactive/SortStepper.catalog';
 import { sequenceStepperCatalogEntry } from './interactive/SequenceStepper.catalog';
@@ -90,6 +91,7 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
+  floodFillCatalogEntry,
   divideCombineTreeCatalogEntry,
   sortStepperCatalogEntry,
   sequenceStepperCatalogEntry,

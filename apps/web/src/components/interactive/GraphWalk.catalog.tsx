@@ -9,7 +9,8 @@ const DFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/DepthFirs
 const ITER_SRC =
   'asset:courses/sample-course/27-grafos-recorridos.code/IterativeDepthFirstPaths.java';
 const MAZE_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/MazeExit.java';
-const BFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/BreadthFirstPaths.java';
+const BFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/FriendDistance.java';
+const MAZE_BFS_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/MazeShortest.java';
 const KAHN_SRC = 'asset:courses/sample-course/27-grafos-recorridos.code/Topological.java';
 
 // Kahn's walk is the constructor of Topological, from 10.
@@ -36,17 +37,29 @@ const MALLA = [
 ];
 
 // The breadth-first search's bfs starts at 22.
+// FriendDistance's bfs, 7-28, keeps dist and no prev («¿a cuántos saltos?»).
 const BFS_LINES = {
-  markStart: 24,
-  distStart: 25,
-  enqueueStart: [23, 26],
-  dequeue: [27, 28],
-  look: [29, 30],
-  mark: 31,
-  dist: 32,
-  prev: 33,
-  enqueue: 34,
-  end: 27,
+  markStart: [12, 13],
+  distStart: 14,
+  enqueueStart: 15,
+  dequeue: [16, 17],
+  look: [18, 19],
+  mark: 20,
+  dist: [21, 22],
+  enqueue: 23,
+  end: [16, 27],
+};
+
+// MazeShortest's bfs, 21-47, keeps prev and no dist («¿por dónde?»).
+const MAZE_BFS_LINES = {
+  markStart: [26, 27, 28, 29],
+  enqueueStart: 30,
+  dequeue: [31, 32, 33],
+  look: [34, 35, 36, 37, 38],
+  mark: [39, 40],
+  prev: 41,
+  enqueue: 42,
+  end: [31, 46],
 };
 
 // The tempting breadth-first search marks on dequeue: written inline.
@@ -188,7 +201,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
   name: 'GraphWalk',
   family: 'interactive',
   description:
-    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as visited edges — beside the call stack, with the `visited` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. Both also walk a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `visited` the cells’ paint, the thread one line in mark from the entrance to the cell marked last, and the program’s arrays under the grid, a cell per square. Given the `exit`, the last frame says whether the walk reached it and draws the way back from it along `prev`; `programLinesAtEnd` lights where the program uses the answer. Kahn’s topological order (`kahn`, over a directed graph) draws its queue of sources, `inDegree` and `order` under the listing, and the line it builds under the graph, each arc a bow pointing right; a cycle leaves its vertices off the line, in red. The breadth-first search marks on enqueue and keeps `dist`, each vertex carrying its distance beside it and the queue drawn front first; its tempting version marks on dequeue and paints red a vertex enqueued while it is already in the queue.',
+    'A walk over a graph, simulated and played by `<StepShow>` (ADR-0092). The frames come from a pure trace (`graphWalkTrace.ts`), so they cannot disagree with the algorithm; the listing is a file kept beside the document and quoted by range (ADR-0091) — or, for code that lives only on its slide, written inline — and `lines` says which of the file’s lines each event lights. Each frame draws the graph — the running call in mark, the finished ones in keep, the thread of calls in progress as visited edges — beside the call stack, with the `visited` and `prev` arrays under the listing. Three walks so far (#357): the recursive depth-first search; the iterative one, which keeps a stack of its own and marks on pop, drawn beside that stack; and the tempting version that marks on push, which paints red the neighbour it skips without having walked to it. The recursive and the iterative are never paired line by line: they do not take the same steps. Both also walk a maze given as `grid`, over its implicit graph: the frame is then the grid itself, `visited` the cells’ paint, the thread one line in mark from the entrance to the cell marked last, and the program’s arrays under the grid, a cell per square. Given the `exit`, the last frame says whether the walk reached it and draws the way back from it along `prev`; `programLinesAtEnd` lights where the program uses the answer. Kahn’s topological order (`kahn`, over a directed graph) draws its queue of sources, `inDegree` and `order` under the listing, and the line it builds under the graph, each arc a bow pointing right; a cycle leaves its vertices off the line, in red. The breadth-first search marks on enqueue, each vertex carrying its distance beside it and the queue drawn front first; it keeps `dist`, `prev` or both (`dist={false}`, `paths={false}`), and walks a maze too, the way back from its exit a shortest one. Its tempting version marks on dequeue and paints red a vertex enqueued while it is already in the queue.',
   whenToUse:
     'When a slide walks a traversal over a small graph step by step and the frames would otherwise be written by hand — fifteen to thirty `<Step>`s, each a `<NodeGraph>` and its arrays, where one copied wrong is caught by nobody. ' +
     'NOT for a single picture of a graph (`<NodeGraph>`), nor for a walk whose lesson is a structure the trace does not draw.',
@@ -209,7 +222,7 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'grid',
       type: 'string[]',
       description:
-        'A maze instead of a graph: its rows, all of one length, `.` a free cell and `#` a wall. The cell in row r and column c is the vertex r · C + c, its neighbours computed up, down, left, right (`DR4`/`DC4`); every direction is a `look`, a wall and the border included. `dfs`, and `dfs-iterative`, which draws its own stack beside the grid. The arrays go under the grid, a cell per square, walls included.',
+        'A maze instead of a graph: its rows, all of one length, `.` a free cell and `#` a wall. The cell in row r and column c is the vertex r · C + c, its neighbours computed up, down, left, right (`DR4`/`DC4`); every direction is a `look`, a wall and the border included. `dfs`; `dfs-iterative`, which draws its own stack beside the grid; and `bfs`, its queue beside the grid and, when it keeps `dist`, each reached cell’s distance in its corner. The arrays go under the grid, a cell per square, walls included.',
     },
     {
       name: 'edges',
@@ -230,7 +243,13 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'paths',
       type: 'boolean',
       description:
-        'Whether a depth-first walk keeps `prev`, the way back. Default true; false walks a search that only marks — no `prev` event, no `prev` row — for a slide that has not met the thread yet.',
+        'Whether the walk keeps `prev`, the way back. Default true; false walks a search that keeps no `prev` — no `prev` event, no `prev` row — for a slide that has not met the thread yet, or a breadth-first search that asks how far and not by where.',
+    },
+    {
+      name: 'dist',
+      type: 'boolean',
+      description:
+        'Whether a breadth-first walk keeps `dist`. Default true; false walks one that keeps only `visited` and `prev` — no `dist` event, no `dist` row — as the maze, whose question is the way.',
     },
     {
       name: 'start',
@@ -266,6 +285,12 @@ export const graphWalkCatalogEntry: CatalogEntry = {
       name: 'programLines',
       type: 'number[]',
       description: 'The program’s lines lit in every frame: the call the walk is inside.',
+    },
+    {
+      name: 'arraysAt',
+      type: "'listing' | 'drawing'",
+      description:
+        'Where a graph’s arrays go: under the listing (the default) or under the drawing, beside the graph they describe. A maze’s always go under its grid.',
     },
     {
       name: 'programLinesAtEnd',
@@ -455,22 +480,24 @@ int[] prev = dfs(grid, 0);\`}
       ),
     },
     {
-      title: 'BFS on five vertices: each vertex enqueued once, with its distance',
+      title: 'BFS on five vertices: each vertex enqueued once, with its distance and no prev',
       code: `<GraphWalk
   algorithm="bfs"
+  paths={false}
   nodes={FIVE}
   edges={[[0, 1], [0, 2], [1, 3], [2, 3], [3, 4]]}
   cols={7}
   rows={3}
-  codeSrc="./27-grafos-recorridos.code/BreadthFirstPaths.java"
-  codeRange="22-38"
-  lines={{ markStart: 24, distStart: 25, enqueueStart: [23, 26], dequeue: [27, 28],
-           look: [29, 30], mark: 31, dist: 32, prev: 33, enqueue: 34, end: 27 }}
+  codeSrc="./27-grafos-recorridos.code/FriendDistance.java"
+  codeRange="7-28"
+  lines={{ markStart: [12, 13], distStart: 14, enqueueStart: 15, dequeue: [16, 17],
+           look: [18, 19], mark: 20, dist: [21, 22], enqueue: 23, end: [16, 27] }}
   label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
 />`,
       render: () => (
         <GraphWalk
           algorithm="bfs"
+          paths={false}
           nodes={FIVE}
           edges={[
             [0, 1],
@@ -482,9 +509,36 @@ int[] prev = dfs(grid, 0);\`}
           cols={7}
           rows={3}
           codeSrc={BFS_SRC}
-          codeRange="22-38"
+          codeRange="7-28"
           lines={BFS_LINES}
           label="Un grafo de cinco vértices: 0 unido a 1 y a 2, 1 y 2 unidos a 3, y 3 unido a 4."
+        />
+      ),
+    },
+    {
+      title:
+        'BFS over a maze, keeping prev and no dist: the way back from the exit is a shortest one',
+      code: `<GraphWalk
+  algorithm="bfs"
+  dist={false}
+  grid={['...#', '...#', '#...']}
+  exit={11}
+  codeSrc="./27-grafos-recorridos.code/MazeShortest.java"
+  codeRange="21-47"
+  lines={{ markStart: [26, 27, 28, 29], enqueueStart: 30, dequeue: [31, 32, 33],
+           look: [34, 35, 36, 37, 38], mark: [39, 40], prev: 41, enqueue: 42, end: [31, 46] }}
+  label="Un laberinto de 3 por 4, con la entrada arriba a la izquierda y la salida abajo a la derecha."
+/>`,
+      render: () => (
+        <GraphWalk
+          algorithm="bfs"
+          dist={false}
+          grid={['...#', '...#', '#...']}
+          exit={11}
+          codeSrc={MAZE_BFS_SRC}
+          codeRange="21-47"
+          lines={MAZE_BFS_LINES}
+          label="Un laberinto de 3 por 4, con la entrada arriba a la izquierda y la salida abajo a la derecha."
         />
       ),
     },

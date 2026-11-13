@@ -13,6 +13,7 @@ import {
   traceDfsStack,
   traceBfs,
   traceKahn,
+  traceGridBfs,
   traceGridDfs,
   traceGridDfsStack,
   type GraphWalkEdge,
@@ -68,17 +69,23 @@ export interface GraphWalkProps {
    * row — for the slide that has not met the thread yet (#357 v2).
    */
   paths?: boolean;
+  /**
+   * Whether a breadth-first walk keeps `dist`. Default true; false walks a
+   * search that keeps only `visited` and `prev` — no `dist` event, no `dist`
+   * row — for the maze, whose question is the way, not how far (#357 arc II).
+   */
+  dist?: boolean;
   /** Arcs instead of edges. */
   directed?: boolean;
   /**
    * A maze instead of `nodes` and `edges`: its rows, `.` a free cell and `#` a
    * wall. The walk runs over its implicit graph — the cell in row r and column
    * c is the vertex r · C + c, its neighbours computed with `DR4`/`DC4` and
-   * `free` — and the drawing is the grid (#357 S5b). `dfs` and `dfs-iterative`.
+   * `free` — and the drawing is the grid (#357 S5b). `dfs`, `dfs-iterative` and `bfs`.
    */
   grid?: string[];
   /**
-   * With `grid`, `dfs-iterative`: the exit cell, as r · C + c. The last frame
+   * With `grid`, `dfs-iterative` or `bfs`: the exit cell, as r · C + c. The last frame
    * then says whether `visited` reached it — the maze's first question.
    */
   exit?: number;
@@ -114,6 +121,13 @@ export interface GraphWalkProps {
    * what the walk left, as the maze's prints `visited[t]` (#357 review).
    */
   programLinesAtEnd?: number[];
+  /**
+   * Where a graph's arrays go: under the listing (the default, #363's place
+   * for what the program holds) or under the drawing, beside the graph they
+   * describe (#357 review, «La búsqueda que cuenta los saltos»). A maze's
+   * always go under its grid.
+   */
+  arraysAt?: 'listing' | 'drawing';
   /** On a slide, the drawing beside the listing (`<StepShow beside>`). */
   beside?: boolean;
   /** With `beside`, the "code/drawing" split. */
@@ -195,7 +209,10 @@ export function GraphWalk(props: GraphWalkProps) {
     );
   }
   const missing = EVENTS[algorithm].filter(
-    (e) => lines[e] === undefined && !(e === 'prev' && props.paths === false),
+    (e) =>
+      lines[e] === undefined &&
+      !(e === 'prev' && props.paths === false) &&
+      !((e === 'dist' || e === 'distStart') && props.dist === false),
   );
   if (missing.length > 0) {
     return (
@@ -232,6 +249,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     rows = 0,
     directed = false,
     paths = true,
+    dist = true,
     grid,
     exit,
     start,
@@ -239,6 +257,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     label,
     programLines,
     programLinesAtEnd,
+    arraysAt = 'listing',
   } = props;
   const V = nodes.length;
   // MDX re-mints inline literals on every render: memoise on a primitive key
@@ -248,6 +267,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
   const frames = useMemo(() => {
     if (gridKey !== undefined) {
       const rows = gridKey.split('\n');
+      if (algorithm === 'bfs') return traceGridBfs(rows, start, { dist, prev: paths }, exit);
       return algorithm === 'dfs-iterative'
         ? traceGridDfsStack(rows, start, paths, exit)
         : traceGridDfs(rows, start);
@@ -256,15 +276,15 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
     const adj = adjacencyOf(V, parsed, directed);
     if (algorithm === 'dfs') return traceDfs(adj, start, paths);
     if (algorithm === 'kahn') return traceKahn(adj);
-    if (algorithm === 'bfs') return traceBfs(adj, start, 'push');
+    if (algorithm === 'bfs') return traceBfs(adj, start, 'push', { dist, prev: paths });
     if (algorithm === 'bfs-mark-on-pop') return traceBfs(adj, start, 'pop');
     return traceDfsStack(adj, start, algorithm === 'dfs-iterative' ? 'pop' : 'push', paths);
-  }, [algorithm, V, edgesKey, gridKey, directed, start, paths, exit]);
+  }, [algorithm, V, edgesKey, gridKey, directed, start, paths, dist, exit]);
   const arrays: ArrayName[] =
     algorithm === 'kahn'
       ? ['inDegree', 'order']
       : algorithm === 'bfs'
-        ? ['visited', 'dist', 'prev']
+        ? (['visited', ...(dist ? ['dist'] : []), ...(paths ? ['prev'] : [])] as ArrayName[])
         : algorithm === 'bfs-mark-on-pop'
           ? ['visited']
           : paths
@@ -308,7 +328,11 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               ? programLinesAtEnd
               : programLines
           }
-          under={gridKey === undefined ? <ArraysPanel frame={frame} rows={arrays} /> : undefined}
+          under={
+            gridKey === undefined && arraysAt === 'listing' ? (
+              <ArraysPanel frame={frame} rows={arrays} />
+            ) : undefined
+          }
         >
           {gridKey !== undefined ? (
             <GridFrame
@@ -316,7 +340,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               grid={gridKey.split('\n')}
               depth={depth}
               label={label}
-              iterative={algorithm === 'dfs-iterative'}
+              bag={algorithm === 'dfs' ? 'calls' : algorithm === 'bfs' ? 'queue' : 'stack'}
               arrays={arrays}
               exit={exit}
             />
@@ -339,6 +363,7 @@ function Body(props: GraphWalkProps & { algorithm: GraphWalkAlgorithm; start: nu
               }
               depth={depth}
               label={label}
+              arrays={arraysAt === 'drawing' ? arrays : undefined}
             />
           )}
           {props.caption ? (
@@ -370,9 +395,22 @@ interface FrameProps {
   bag: 'calls' | 'stack' | 'queue' | 'sources';
   depth: number;
   label: string;
+  /** The program's arrays, when they go under the drawing instead of the listing. */
+  arrays?: ArrayName[];
 }
 
-function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }: FrameProps) {
+function Frame({
+  frame,
+  nodes,
+  edges,
+  cols,
+  rows,
+  directed,
+  bag,
+  depth,
+  label,
+  arrays,
+}: FrameProps) {
   const recursive = bag === 'calls';
   // On a slide the drawing has its own column (`beside`) and the code is set
   // large: the graph takes more of it. Both caps are fixed numbers, never a
@@ -489,6 +527,11 @@ function Frame({ frame, nodes, edges, cols, rows, directed, bag, depth, label }:
           />
         )}
       </div>
+      {arrays ? (
+        <div className="flex w-full justify-center">
+          <ArraysPanel frame={frame} rows={arrays} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -524,10 +567,12 @@ interface GridFrameProps {
   depth: number;
   label: string;
   /**
-   * The walk with a stack of its own: the cells it marked in keep, the last
-   * popped in mark, its thread the way back along `prev`, its stack beside.
+   * What holds the pending cells, drawn beside the grid: the calls in
+   * progress (`dfs`), a stack of its own (`dfs-iterative`) or a queue
+   * (`bfs`). With a stack or a queue, the cells reached are kept, the cell
+   * being expanded is in mark and the thread is the way back along `prev`.
    */
-  iterative: boolean;
+  bag: 'calls' | 'stack' | 'queue';
   /** The program's arrays, drawn under the grid. */
   arrays: ArrayName[];
   /** The exit cell: once the walk ends, the thread is the way back from it. */
@@ -542,7 +587,8 @@ interface GridFrameProps {
  * — as the maze slides draw Teseo's thread; and, on a look, a dashed arrow to
  * the cell asked about. Under them, the program's arrays, `prev` among them.
  */
-function GridFrame({ frame, grid, depth, label, iterative, arrays, exit }: GridFrameProps) {
+function GridFrame({ frame, grid, depth, label, bag, arrays, exit }: GridFrameProps) {
+  const iterative = bag !== 'calls';
   const onSlide = useMode() === 'presentation';
   const R = grid.length;
   const C = grid[0].length;
@@ -558,7 +604,14 @@ function GridFrame({ frame, grid, depth, label, iterative, arrays, exit }: GridF
   // only to be discarded, which drew a way the walk was not on (#357 review).
   const thread = iterative ? threadCells(frame, exit) : frame.stack;
   const onStack = new Set(thread);
-  const done = new Set(iterative ? frame.order : frame.done);
+  // A queue marks on enqueue: every cell it reached is kept, queued or not.
+  const done = new Set(
+    bag === 'queue'
+      ? frame.marked.flatMap((m, v) => (m ? [v] : []))
+      : iterative
+        ? frame.order
+        : frame.done,
+  );
   const stateOf = (r: number, c: number): CellState => {
     const v = r * C + c;
     if (grid[r][c] === '#') return 'wall';
@@ -608,6 +661,20 @@ function GridFrame({ frame, grid, depth, label, iterative, arrays, exit }: GridF
               {r * C + c}
             </text>
           )}
+          {state !== 'wall' && frame.dist !== null && frame.dist[r * C + c] >= 0 ? (
+            // The distance, where the breadth-first walk keeps one: the layers show.
+            <text
+              x={x + GRID_CELL - 5}
+              y={y + GRID_CELL - 6}
+              textAnchor="end"
+              fontSize="14"
+              fontWeight="700"
+              data-dist={r * C + c}
+              style={{ fill: 'var(--color-ink)' }}
+            >
+              {frame.dist[r * C + c]}
+            </text>
+          ) : null}
         </g>,
       );
     }
@@ -699,7 +766,9 @@ function GridFrame({ frame, grid, depth, label, iterative, arrays, exit }: GridF
             {look}
           </svg>
         </div>
-        {iterative ? (
+        {bag === 'queue' ? (
+          <QueuePanel frame={frame} depth={depth} title="cola" />
+        ) : iterative ? (
           <StackPanel
             title="pila"
             items={frame.stack.map(String)}
@@ -1145,8 +1214,8 @@ function gridProblem(
   algorithm: GraphWalkAlgorithm,
   start: number | undefined,
 ): string | null {
-  if (algorithm !== 'dfs' && algorithm !== 'dfs-iterative') {
-    return `algorithm="${algorithm}" todavía no recorre una grilla: con grid, el recorrido es dfs o dfs-iterative.`;
+  if (algorithm !== 'dfs' && algorithm !== 'dfs-iterative' && algorithm !== 'bfs') {
+    return `algorithm="${algorithm}" todavía no recorre una grilla: con grid, el recorrido es dfs, dfs-iterative o bfs.`;
   }
   const lengths = grid.map((row) => row.length);
   if (grid.length === 0 || lengths[0] === 0 || lengths.some((n) => n !== lengths[0])) {

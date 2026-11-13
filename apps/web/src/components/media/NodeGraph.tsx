@@ -14,10 +14,11 @@ export type { NodeGraphEdge, NodeGraphNode } from '../nodeGraphLayout';
 
 /**
  * What a tone says: `mark` look here, `flag` this is wrong, `keep` this is
- * done; `group-1` to `group-3` only which group a node belongs to (the pieces
- * of a graph, #357), with no status.
+ * done; `group-1` to `group-6` only which group a node belongs to (the pieces
+ * of a graph, the layers of a breadth-first search, #357), with no status.
  */
-export type NodeGraphTone = 'mark' | 'flag' | 'keep' | 'group-1' | 'group-2' | 'group-3';
+export type NodeGraphTone =
+  'mark' | 'flag' | 'keep' | 'group-1' | 'group-2' | 'group-3' | 'group-4' | 'group-5' | 'group-6';
 
 export interface NodeGraphProps {
   nodes: NodeGraphNode[];
@@ -66,6 +67,9 @@ const FILL: Record<Paint, string> = {
   'group-1': 'var(--color-group-1-soft)',
   'group-2': 'var(--color-group-2-soft)',
   'group-3': 'var(--color-group-3-soft)',
+  'group-4': 'var(--color-group-4-soft)',
+  'group-5': 'var(--color-group-5-soft)',
+  'group-6': 'var(--color-group-6-soft)',
 };
 const STROKE: Record<Paint, string> = {
   idle: 'var(--color-rule-strong)',
@@ -75,6 +79,9 @@ const STROKE: Record<Paint, string> = {
   'group-1': 'var(--color-group-1)',
   'group-2': 'var(--color-group-2)',
   'group-3': 'var(--color-group-3)',
+  'group-4': 'var(--color-group-4)',
+  'group-5': 'var(--color-group-5)',
+  'group-6': 'var(--color-group-6)',
 };
 
 /**
