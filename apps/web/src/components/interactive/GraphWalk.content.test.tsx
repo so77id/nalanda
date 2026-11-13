@@ -59,44 +59,6 @@ const FRIENDS = {
   caption: '0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena',
 };
 
-// The malla: class 1's, two courses more. 0 Álgebra, 1 Cálculo I, 2 Cálculo
-// II, 3 Métodos Numéricos, 4 Ecuaciones, 5 Programación: the numbers are not
-// an order, so Kahn's walk is seen to reorder them.
-const MALLA = {
-  directed: true,
-  nodes: [
-    { v: 0, x: 0, y: 1 },
-    { v: 1, x: 0, y: 0 },
-    { v: 2, x: 2, y: 0 },
-    { v: 3, x: 4, y: 2 },
-    { v: 4, x: 4, y: 0 },
-    { v: 5, x: 0, y: 2 },
-  ],
-  edges: [
-    [1, 2],
-    [2, 4],
-    [0, 4],
-    [5, 3],
-    [4, 3],
-  ] as [number, number][],
-  cols: 5,
-  rows: 3,
-  label: 'La malla.',
-  caption:
-    '0 Álgebra · 1 Cálculo I · 2 Cálculo II · 3 Métodos Numéricos · 4 Ecuaciones · 5 Programación',
-};
-
-const KAHN_LINES = {
-  inDegrees: [11, 12],
-  check: [13, 14],
-  enqueueStart: [14, 15],
-  dequeue: [18, 19],
-  append: 20,
-  lower: [21, 22],
-  enqueue: [23, 24],
-  end: [18, 28],
-};
-
 const CASES: [string, GraphWalkProps, string][] = [
   [
     'La búsqueda con pila en la red eléctrica',
@@ -216,50 +178,6 @@ const CASES: [string, GraphWalkProps, string][] = [
         enqueue: 23,
         end: [16, 27],
       },
-    },
-    'end',
-  ],
-  [
-    'El código del orden topológico',
-    {
-      ...MALLA,
-      beside: true,
-      algorithm: 'kahn',
-      codeSrc: `${CODE}Topological.java`,
-      codeRange: '11-28',
-      lines: KAHN_LINES,
-    },
-    'end',
-  ],
-  [
-    'Una referencia circular',
-    {
-      beside: true,
-      algorithm: 'kahn',
-      directed: true,
-      ratio: '45/55',
-      // The sheet of the slide before, with D1 = A1 + C1: B1, C1 and D1
-      // read each other in a cycle. 0 A1, 1 B1, 2 C1, 3 D1.
-      nodes: [
-        { v: 0, x: 0, y: 1 },
-        { v: 1, x: 2, y: 0 },
-        { v: 2, x: 4, y: 1 },
-        { v: 3, x: 2, y: 2 },
-      ],
-      edges: [
-        [0, 2],
-        [1, 2],
-        [3, 1],
-        [0, 3],
-        [2, 3],
-      ],
-      cols: 5,
-      rows: 3,
-      codeSrc: `${CODE}Topological.java`,
-      codeRange: '11-28',
-      lines: KAHN_LINES,
-      label: 'Una hoja con una referencia circular.',
-      caption: 'la misma hoja, con D1 = A1 + C1; los números: 0 es A1, 1 es B1, 2 es C1, 3 es D1',
     },
     'end',
   ],
