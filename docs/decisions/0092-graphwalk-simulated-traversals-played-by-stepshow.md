@@ -139,7 +139,22 @@ Three ways to animate the walks were weighed with Miguel in S3.
   (`bfs-mark-on-pop`), the tree's level order copied as is, is a walk too:
   it ends, and paints red a vertex enqueued while it is already in the
   queue. It keeps neither `dist` nor `prev`, so neither is drawn. Planned in
-  S9, built in S10.
+  S9, built in S10. **Arc II's rebuild with Miguel (2026-11-13)** made the
+  search the stack template with a queue, each problem keeping only what it
+  asks: `dist={false}` for the maze, which asks by where (`MazeShortest.java`),
+  `paths={false}` for the friends, who ask at how many hops
+  (`FriendDistance.java`). **It walks a grid too**: its queue beside the
+  grid, each reached cell's distance in its corner when it keeps `dist`, and,
+  given the `exit`, the last frame says it was reached and that the way back
+  along `prev` is a shortest one. The tempting version left the class: a grid
+  has no two neighbours in one layer, so on the maze marking on dequeue still
+  finds a shortest way, and the slide argues the point on a triangle instead.
+  **`arraysAt="drawing"`** puts a graph's arrays under the drawing instead of
+  the listing (the friends' «La búsqueda que cuenta los saltos», Miguel's
+  review): beside the graph they describe, and off a listing that already
+  fills its column. The paint bucket and the fire are not `<GraphWalk>`'s:
+  `<FloodFill>` shows a fill layer by layer, and the fire's walk is a
+  `<StepShow>` of its still frames, one step per cell out of the queue.
 - **Kahn's topological order** (`kahn`, over a directed graph, as
   `Topological.java` reads): one frame for `inDegrees(g)`, one per vertex the
   first loop asks about, one per assignment after (`dequeue`, `append`,
@@ -173,14 +188,16 @@ Three ways to animate the walks were weighed with Miguel in S3.
   walks here, the priority queue being one more bag.
 - The catalog entry quotes the course's files
   (`27-grafos-recorridos.code/DepthFirstPaths.java`,
-  `IterativeDepthFirstPaths.java`, `MazeExit.java`,
-  `BreadthFirstPaths.java` and `Topological.java`), as `<SourceFile>`'s
+  `IterativeDepthFirstPaths.java`, `MazeExit.java`, `FriendDistance.java`,
+  `MazeShortest.java` and `Topological.java`), as `<SourceFile>`'s
   quotes class 2's: when the class's code changes, the entry's ranges and
   `lines` move with it. The trace was checked against those files run on a
   JDK 21 (S5a, S5b, S10, S15): the same order, `prev` and `dist` on the
   square, on the counterexample, on the maze and on the five-vertex graph,
   and the same order on the six-course malla; `MazeReach` and `MazeExit`
-  again in Miguel's review (2026-11-13), the same path and the same answer.
+  again in Miguel's review (2026-11-13), the same path and the same answer, and
+  `MazeShortest` and `FriendDistance` the same day: the five-step way out and
+  the hops 0, 1, 1, 2, 3.
 - `<GraphWalk>` draws its own arrays and call stack. Class 2 keeps file-local
   figures in the same idiom (`ArrayRows`, `MazeGrid`); promoting them into
   shared components waits until #363 merges, so the two branches do not edit

@@ -50,7 +50,7 @@ was found by looking at a screenshot.
 | `on-keep`                                         | The label on a filled `keep` button                                    | **Inverts** with the theme rather than following it                                                                                                           |
 | `on-accent`                                       | The label on a filled `accent` button                                  | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247)                   |
 | `focus`                                           | The focus ring                                                         | One ring for the whole product                                                                                                                                |
-| `group-1` `group-2` `group-3` and their `-soft`  | Which group a thing belongs to, in a figure: the connected components of a graph (#357) | Categorical, never a status: blue, purple and pink, clear of `keep`, `flag`, `mark`, `accent` and `focus`. Each colour on its own `-soft` ground, held to 4.5:1 |
+| `group-1` to `group-6` and their `-soft`  | Which group a thing belongs to, in a figure: the connected components of a graph, the layers of a breadth-first search (#357) | Categorical, never a status: blue, purple, pink, olive, slate and sky, clear of `keep`, `flag`, `mark`, `accent` and `focus`. Each colour on its own `-soft` ground, held to 4.5:1 |
 
 ## The pairing table
 
@@ -209,6 +209,13 @@ The two invariants that keep this honest, and the guard:
   saturation border), and the S7 browser check confirms the whole tree
   against the live tokens. Contrast measurements land here when the check
   runs against the shipped build.
+
+`<FloodFill>` (#357) takes the same exemption for an ordered palette: each
+layer of a flood fill gets its own hue, spread from red to violet over however
+many layers the fill has (`layerHue` in `floodFillLayers.ts`), in the same
+low-saturation fill and stronger border per theme. The same invariants hold:
+every painted pixel prints its layer, the layers come from a pure function the
+suite pins (`data-layer`), and the browser check looks at both themes.
 
 **A static figure served through `<img>` is the fifth exemption** (#277). A
 drawn asset under `content/` is loaded through `<img src>`, so it sees neither

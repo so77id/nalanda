@@ -22,7 +22,7 @@ Muchas preguntas sobre un grafo no se responden mirando un vértice y sus
 vecinos: hay que **recorrer** el grafo, de vecino en vecino, hasta llegar a todo
 lo que se alcanza. El orden en que se recorre decide qué pregunta responde.
 
-{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side, or also a corner with `ways={8}`. `land` reads the grid as a map: '#' is land, the free cells, and '.' is water, drawn sunk. `tones` paints a free cell, keyed by its vertex: mark, keep or flag. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its distance, in the breadth-first search. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. `probe` (a vertex) draws an arrow from its centre toward each of its four sides, in the order of DR4 and DC4: solid in keep when the cell it reaches is free, dashed in flag when it falls off the grid or on a wall; the margin grows on a border the probe sits on, so the arrow that leaves the grid is drawn whole. `probeSeen` draws only the first directions, that many, and `probeAsk` (a k) draws that one in mark, solid, its verdict still to come: a walk over the four directions, one at a time. File-local: only the arc of the depth-first search draws a maze. */}
+{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side, or also a corner with `ways={8}`. `land` reads the grid as a map: '#' is land, the free cells, and '.' is water, drawn sunk. `tones` paints a free cell, keyed by its vertex: mark, keep or flag, or group-1 to group-6 for cells that go together, as the layers of a breadth-first search. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its distance, in the breadth-first search. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. `probe` (a vertex) draws an arrow from its centre toward each of its four sides, in the order of DR4 and DC4: solid in keep when the cell it reaches is free, dashed in flag when it falls off the grid or on a wall; the margin grows on a border the probe sits on, so the arrow that leaves the grid is drawn whole. `probeSeen` draws only the first directions, that many, and `probeAsk` (a k) draws that one in mark, solid, its verdict still to come: a walk over the four directions, one at a time. File-local: only the arc of the depth-first search draws a maze. */}
 
 export function Maze({ grid, numbers = false, ends, ways = false, land = false, tones = {}, notes = {}, thread = [], probe, probeSeen, probeAsk, caption, label }) {
   const cell = 40;
@@ -40,8 +40,8 @@ export function Maze({ grid, numbers = false, ends, ways = false, land = false, 
   const width = Math.max(gridW + 2 * side, caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - gridW) / 2;
   const height = top + rows * cell + bottom + (caption ? 34 : pad);
-  const fill = { mark: 'var(--color-mark-soft)', keep: 'var(--color-keep-soft)', flag: 'var(--color-flag-soft)' };
-  const stroke = { mark: 'var(--color-mark)', keep: 'var(--color-keep)', flag: 'var(--color-flag)' };
+  const fill = { mark: 'var(--color-mark-soft)', keep: 'var(--color-keep-soft)', flag: 'var(--color-flag-soft)', 'group-1': 'var(--color-group-1-soft)', 'group-2': 'var(--color-group-2-soft)', 'group-3': 'var(--color-group-3-soft)', 'group-4': 'var(--color-group-4-soft)', 'group-5': 'var(--color-group-5-soft)', 'group-6': 'var(--color-group-6-soft)' };
+  const stroke = { mark: 'var(--color-mark)', keep: 'var(--color-keep)', flag: 'var(--color-flag)', 'group-1': 'var(--color-group-1)', 'group-2': 'var(--color-group-2)', 'group-3': 'var(--color-group-3)', 'group-4': 'var(--color-group-4)', 'group-5': 'var(--color-group-5)', 'group-6': 'var(--color-group-6)' };
   const at = (v) => [left + (v % cols) * cell + cell / 2, top + Math.floor(v / cols) * cell + cell / 2];
   const open = land ? '#' : '.';
   const free = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c] === open;
@@ -305,6 +305,49 @@ export function Compass({ caption, label }) {
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.5)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
       {out}
       {caption ? <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
+    </svg>
+  );
+}
+
+{/* QueueTimeline — a queue over time, one row per vertex taken from its front: the vertex taken out, then the queue as that step leaves it, front first. Each vertex is painted in its group's colour (`groups`, keyed by vertex: 0 for group-1 and so on), so a breadth-first search shows its layers leaving in order, never more than two at once. File-local. */}
+
+export function QueueTimeline({ rows, groups, caption, label }) {
+  const chip = 30;
+  const gap = 4;
+  const pad = 10;
+  const outW = 56;
+  const arrowW = 30;
+  const head = 22;
+  const rowH = chip + 8;
+  const widest = Math.max(1, ...rows.map((r) => r.queue.length));
+  const width = Math.max(pad * 2 + outW + arrowW + widest * (chip + gap) + 70, caption ? caption.length * 6.6 + 24 : 0);
+  const height = head + rows.length * rowH + (caption ? 30 : pad);
+  const paint = (v) => {
+    const g = (groups[v] ?? 0) + 1;
+    return { fill: `var(--color-group-${g}-soft)`, stroke: `var(--color-group-${g})` };
+  };
+  const chipAt = (x, y, v, key) => (
+    <g key={key}>
+      <rect x={x} y={y} width={chip} height={chip} rx="5" style={paint(v)} strokeWidth="2" />
+      <text x={x + chip / 2} y={y + chip / 2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="var(--font-mono, monospace)" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+    </g>
+  );
+  const out = [];
+  out.push(<text key="h1" x={pad + outW / 2} y={14} textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>sale</text>);
+  out.push(<text key="h2" x={pad + outW + arrowW} y={14} fontSize="11" style={{ fill: 'var(--color-ink-soft)' }}>la cola, del frente al final</text>);
+  rows.forEach((row, i) => {
+    const y = head + i * rowH;
+    out.push(chipAt(pad + (outW - chip) / 2, y, row.out, `o${i}`));
+    out.push(<text key={`a${i}`} x={pad + outW + arrowW / 2 - 4} y={y + chip / 2 + 5} textAnchor="middle" fontSize="14" style={{ fill: 'var(--color-ink-soft)' }}>→</text>);
+    if (row.queue.length === 0) {
+      out.push(<text key={`e${i}`} x={pad + outW + arrowW} y={y + chip / 2 + 5} fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>vacía</text>);
+    }
+    row.queue.forEach((v, j) => out.push(chipAt(pad + outW + arrowW + j * (chip + gap), y, v, `q${i},${j}`)));
+  });
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.5)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
+      {out}
+      {caption ? <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
     </svg>
   );
 }
@@ -3182,372 +3225,1213 @@ más corto: en este laberinto da un rodeo, y hay otro con menos pasos.
 
 ## Búsqueda en anchura
 
-{/* Problem 1 · the friends of class 2. */}
+{/* Problem 1 · the maze, its shortest way out. */}
 
-<Slide title="La distancia entre dos personas">
+<Slide title="La salida más corta de un laberinto">
 
-En una red de amigos, cada persona es un vértice y cada amistad una arista.
-Para pedirle algo a alguien se pasa por amigos: se le pide a un amigo, que se
-lo pide a otro, y así.
+La búsqueda en profundidad encontró una salida de 7 pasos, y hay una de 5. La
+pregunta ahora es otra: **¿con cuántos pasos, como mínimo, se sale?**, y por
+qué camino.
 
-¿Cuántas amistades, como mínimo, separan a dos personas? Es la **distancia**
-entre dos vértices: la menor cantidad de aristas de un camino que los une.
-Calcularla es un problema con nombre: el **camino más corto** en un grafo sin
-pesos.
+La menor cantidad de pasos entre dos celdas es su **distancia**: la menor
+cantidad de aristas de un camino que las une. Encontrar un camino con esa
+cantidad de aristas es un problema con nombre: el **camino más corto** en un
+grafo sin pesos.
 
-**Entrada.** El número de personas, hasta $$10^5$$; las amistades, como una
-lista de aristas entre personas numeradas; y las dos personas.
+**Entrada.** La grilla, y la fila y la columna de la celda de entrada y de la de
+salida.
 
-**Salida.** Cuántas amistades las separan, y la cadena de personas.
+**Salida.** Un camino más corto, como pares $$(r, c)$$ de la entrada a la
+salida. Sus pasos son los pares menos uno.
 
-<Pair>
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena. Destacadas Ana, 0, y Elena, 4."
+<Maze
+  grid={["...#", "...#", "#..."]}
+  numbers
+  ends={[0, 11]}
+  caption="¿con cuántos pasos, como mínimo, se sale?"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8."
 />
-<Pair stack>
-<OutputBox head="entrada: personas, amistades" lines={["5", "6", "0 1", "0 2", "2 3", "1 2", "1 3", "3 4"]} rows={8} label="La entrada, línea por línea: 5 personas; 6 amistades: 0 1, 0 2, 2 3, 1 2, 1 3 y 3 4." />
-<OutputBox head="y las dos personas" lines={["0 4"]} rows={1} label="Al final de la entrada, las dos personas: 0 y 4." />
-</Pair>
-</Pair>
 
 </Slide>
 
-<Slide title="El camino de la búsqueda en profundidad">
+<Slide title="Por capas">
 
-`DepthFirstPaths` es la búsqueda recursiva con `prev`: anota desde qué vértice
-se llegó a cada uno. La versión con pila lo anota al apilar.
+Para salir con la menor cantidad de pasos, la búsqueda tiene que avanzar **por
+capas**: primero todas las celdas a un paso de la entrada, después todas las que
+están a dos, y así. Cuando llega a la salida por primera vez, ya pasó por todas
+las celdas más cercanas, así que ningún camino tiene menos pasos: lo habría
+encontrado antes.
 
-Las dos dan una cadena de amigos, pero ninguna busca la más corta: cada una
-sigue un vecino tan hondo como puede, sin mirar si hay un atajo.
-
-<SourceFile src="./27-grafos-recorridos.code/DepthFirstPaths.java" range="17-25" />
-
-<PresentationWide fraction={0.95}>
-<Pair>
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '2 Carla'], ['2 Carla', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
-  caption="la recursiva: 4 amistades"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena que da la búsqueda recursiva desde Ana: Ana, Beto, Carla, Diego, Elena, cuatro amistades."
-/>
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  markEdges={[['0 Ana', '2 Carla'], ['2 Carla', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
-  caption="con pila: 4 amistades"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena que da la búsqueda con pila desde Ana: Ana, Carla, Beto, Diego, Elena, cuatro amistades."
-/>
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
-  caption="otra cadena: 3 amistades"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada otra cadena: Ana, Beto, Diego, Elena, tres amistades."
-/>
-</Pair>
-</PresentationWide>
-
-</Slide>
-
-<Slide title="El recorrido por niveles de un árbol">
-
-Ya conocemos otro recorrido de árboles: por niveles. Visita la raíz, después
-sus hijos, después sus nietos. Usa una cola: saca un nodo del frente y encola
-sus hijos al final, así que un nivel entero sale antes que el siguiente.
-
-En un grafo, los niveles son las **capas** de distancia: el origen, sus
-vecinos, los vecinos nuevos de esos, y así. Recorrer por capas visita los
-vértices en orden de distancia.
+La búsqueda en profundidad no hace eso: sigue un pasillo tan hondo como puede
+antes de volver, y puede llegar a la salida por el camino largo. Recorrer por
+capas es avanzar **a lo ancho**, una capa entera antes de la siguiente. Por eso
+se llama **búsqueda en anchura**, en inglés _breadth-first search_ (BFS).
 
 <Pair>
-<NodeGraph
-  cols={5}
-  rows={3}
-  nodes={[{ v: 0, x: 2, y: 0 }, { v: 1, x: 1, y: 1 }, { v: 2, x: 3, y: 1 }, { v: 3, x: 0, y: 2 }, { v: 4, x: 2, y: 2 }, { v: 5, x: 4, y: 2 }]}
-  edges={[[0, 1], [0, 2], [1, 3], [1, 4], [2, 5]]}
-  caption="por niveles: 0; después 1, 2; después 3, 4, 5"
-  label="Un árbol con raíz 0 en el nivel 0, sus hijos 1 y 2 en el nivel 1, y sus nietos 3, 4 y 5 en el nivel 2."
+<Maze
+  grid={["...#", "...#", "#..."]}
+  numbers
+  ends={[0, 11]}
+  thread={[0, 1, 2, 6, 5, 9, 10, 11]}
+  notes={{ 0: '1', 1: '2', 2: '3', 6: '4', 5: '5', 4: '6', 9: '7', 10: '8', 11: '9' }}
+  caption="en profundidad: el orden en que marca; llega en 7 pasos"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. En la esquina de abajo de cada celda, el orden en que la marca la búsqueda en profundidad con pila: 0 primero, después 1, 2, 6, 5, 4, 9, 10 y 11. El hilo va de la entrada por 1, 2, 6, 5, 9 y 10 hasta la salida: siete pasos."
 />
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark' }}
-  notes={{ '0 Ana': '0', '1 Beto': '1', '2 Carla': '1', '3 Diego': '2', '4 Elena': '3' }}
-  caption="por capas desde Ana; al lado, la capa"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Junto a cada persona, su capa desde Ana: Ana 0; Beto y Carla 1; Diego 2; Elena 3."
+<Maze
+  grid={["...#", "...#", "#..."]}
+  numbers
+  ends={[0, 11]}
+  tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+  notes={{ 0: '0', 1: '1', 4: '1', 2: '2', 5: '2', 6: '3', 9: '3', 10: '4', 11: '5' }}
+  caption="en anchura: cada capa de un color; la salida, en la 5"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Cada capa de un color, y en la esquina de abajo de cada celda su número: cuántos pasos la separan de la entrada. La entrada 0; 1 y 4 a uno; 2 y 5 a dos; 6 y 9 a tres; 10 a cuatro; y la salida, 11, a cinco."
 />
 </Pair>
 
 </Slide>
 
-<Slide title="Marcar al sacar de la cola">
+<Slide title="Una cola entrega las capas">
 
-Copiado tal cual a un grafo, con la marca de la búsqueda en profundidad, el
-recorrido por niveles marca cada vértice al sacarlo de la cola. Termina y
-visita por capas, pero si dos vértices miran a uno que todavía no sale, ese
-vértice entra dos veces a la cola.
+¿Cómo se recorre por capas? Con una **cola**, como el recorrido por niveles de
+un árbol.
 
-La cola puede llegar a tener una entrada por arista, en vez de una por vértice.
-Y no gana nada: la primera vez que se ve un vértice ya es desde la capa más
-cercana.
+La cola saca primero lo que entró primero. Al sacar una celda, sus vecinas
+nuevas están una capa más lejos, y entran al final, detrás de las que ya
+esperaban. Así, en la cola nunca hay más de dos capas, una detrás de la otra, y
+**las celdas salen en orden de capa**: todas las de una capa antes que
+cualquiera de la siguiente.
 
-<GraphWalk
-  beside
-  algorithm="bfs-mark-on-pop"
-  title="marcar al sacar de la cola, desde 0 Ana"
-  nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 0 }, { v: 2, x: 3, y: 2 }, { v: 3, x: 5, y: 1 }, { v: 4, x: 7, y: 2 }]}
-  edges={[[0, 1], [0, 2], [2, 3], [1, 2], [1, 3], [3, 4]]}
-  cols={8}
-  rows={3}
-  code={`private void bfs(Graph g, int s) {
-      Queue<Integer> queue = new LinkedList<>();
-      queue.add(s);
-      while (!queue.isEmpty()) {
-          int v = queue.remove();
-          if (visited[v]) {
-              continue;
-          }
-          visited[v] = true;
-          for (int w : g.adj(v)) {
-              if (!visited[w]) {
-                  queue.add(w);
-              }
-          }
-      }
-  }`}
-  lines={{ enqueueStart: [2, 3], dequeue: [4, 5], skip: [6, 7], mark: 9, look: [10, 11], enqueue: 12, end: 4 }}
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena."
-  caption="0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena"
+Una pila haría lo contrario: saca lo último que entró, la vecina más nueva, y eso
+lleva en profundidad.
+
+<Pair>
+<Maze
+  grid={["...#", "...#", "#..."]}
+  numbers
+  ends={[0, 11]}
+  tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+  notes={{ 0: '0', 1: '1', 4: '1', 2: '2', 5: '2', 6: '3', 9: '3', 10: '4', 11: '5' }}
+  caption="cada capa de un color"
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Cada capa de un color, y en la esquina de abajo de cada celda su número: la entrada 0; 1 y 4 a uno; 2 y 5 a dos; 6 y 9 a tres; 10 a cuatro; y la salida, 11, a cinco."
 />
+<QueueTimeline
+  rows={[{"out": 0, "queue": [4, 1]}, {"out": 4, "queue": [1, 5]}, {"out": 1, "queue": [5, 2]}, {"out": 5, "queue": [2, 9, 6]}, {"out": 2, "queue": [9, 6]}, {"out": 9, "queue": [6, 10]}, {"out": 6, "queue": [10]}, {"out": 10, "queue": [11]}, {"out": 11, "queue": []}]}
+  groups={{"0": 0, "1": 1, "4": 1, "2": 2, "5": 2, "6": 3, "9": 3, "10": 4, "11": 5}}
+  caption="los colores salen en orden, y nunca hay más de dos a la vez"
+  label="La cola de la búsqueda en anchura desde la entrada, una fila por celda que sale: sale 0 y quedan 4 y 1; sale 4 y quedan 1 y 5; sale 1 y quedan 5 y 2; sale 5 y quedan 2, 9 y 6; sale 2 y quedan 9 y 6; sale 9 y quedan 6 y 10; sale 6 y queda 10; sale 10 y queda 11; sale 11 y queda vacía. Cada celda con el color de su capa."
+/>
+</Pair>
 
 </Slide>
 
 <Slide title="La búsqueda en anchura">
 
-La regla marca al encolar:
+La búsqueda en anchura es la plantilla con pila, con una cola en lugar de la
+pila. `visited`, `prev` y `path` se usan igual:
 
-1. **Marcar el origen, con `dist` 0, y encolarlo.**
-2. **Mientras la cola no esté vacía, sacar el vértice del frente.**
-3. **Por cada vecino sin marcar: marcarlo, anotar en `dist` su distancia (la
-   del vértice más uno), anotar en `prev` desde qué vértice se llegó, y
-   encolarlo.**
+1. **Marcar el origen y encolarlo.**
+2. **Mientras la cola tenga celdas, sacar la del frente.**
+3. **Por cada vecina sin marcar: marcarla, anotar su `prev` y encolarla.**
 
-Cada vértice entra a la cola una sola vez, y recibe la distancia de su capa. La
-búsqueda avanza capa por capa, a lo ancho: por eso se llama **búsqueda en
-anchura**, en inglés _breadth-first search_ (BFS). Aquí `visited[w]` pasa a
-`true` al encolar `w`, antes de que salga de la cola: queda marcado apenas se
-ve.
-
-<NodeGraph
-  cols={7}
-  rows={3}
-  nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
-  edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  markEdges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark' }}
-  notes={{ '0 Ana': '0', '1 Beto': '1', '2 Carla': '1', '3 Diego': '2', '4 Elena': '3' }}
-  caption="al lado de cada persona, su distancia desde Ana"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Junto a cada persona, la distancia que le da la búsqueda en anchura desde Ana. Marcadas las amistades por las que llega a cada una: Ana-Beto, Ana-Carla, Beto-Diego y Diego-Elena."
-/>
+Un solo detalle cambia: se marca al encolar, no al sacar. Así cada celda entra
+una sola vez a la cola.
 
 </Slide>
 
-<Slide title="Por qué la distancia es la mínima">
+<Slide title="La búsqueda en anchura en el laberinto">
 
-La búsqueda en anchura mantiene una invariante: **en la cola hay primero
-vértices con `dist` $$d$$ y detrás vértices con `dist` $$d + 1$$, nunca otros
-valores.** Al sacar uno con `dist` $$d$$, sus vecinos nuevos reciben $$d + 1$$
-y van al final. Por eso los vértices salen de la cola en orden de `dist`.
-
-Que `dist` es la distancia se prueba por inducción en la distancia:
-
-- **Base.** El origen recibe `dist` 0, que es su distancia.
-- **Paso.** Se supone que los vértices más cercanos al origen que `w` ya tienen
-  su distancia en `dist`. `w` se ve por primera vez desde `v` y recibe
-  `dist[v] + 1`. Si hubiera un camino más corto hasta `w`, en uno mínimo el
-  vértice anterior a `w` estaría más cerca que `w` y a menos de `dist[v]`
-  aristas del origen: su `dist` sería menor que el de `v`. Habría salido antes
-  que `v` de la cola y, al salir, habría visto a `w`. Nadie lo vio antes, así
-  que no hay camino más corto.
-
-<Pair>
-<ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["1 Beto", "2 Carla"] }, { name: 'dist', head: ["", ""], cells: [1, 1] }]}
-  cols={3}
-  caption="después de sacar a 0 Ana"
-  label="La cola después de sacar a Ana, del frente al final: Beto y Carla, los dos con dist 1."
-/>
-<ArrayRows
-  rows={[{ name: 'cola', head: ["frente", ""], cells: ["2 Carla", "3 Diego"] }, { name: 'dist', head: ["", ""], cells: [1, 2] }]}
-  cols={3}
-  caption="después de sacar a 1 Beto"
-  label="La cola después de sacar a Beto: Carla, con dist 1, y detrás Diego, con dist 2."
-/>
-<ArrayRows
-  rows={[{ name: 'cola', head: ["frente"], cells: ["3 Diego"] }, { name: 'dist', head: [""], cells: [2] }]}
-  cols={3}
-  caption="después de sacar a 2 Carla"
-  label="La cola después de sacar a Carla: solo Diego, con dist 2."
-/>
-</Pair>
-
-</Slide>
-
-<Slide title="El código de la búsqueda en anchura">
-
-La clase `BreadthFirstPaths` tiene `visited`, `prev` y un arreglo más, `dist`.
-El constructor deja `dist` y `prev` en −1 y llama a `bfs(g, s)`: la regla
-escrita en Java, con una `LinkedList` como cola.
+Es la `dfs` de «La búsqueda que deja el hilo» con una cola: los comentarios
+marcan lo nuevo.
 
 <GraphWalk
   beside
+  ratio="50/50"
   algorithm="bfs"
-  ratio="45/55"
-  title="new BreadthFirstPaths(g, 0) en la red de amigos"
-  nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 0 }, { v: 2, x: 3, y: 2 }, { v: 3, x: 5, y: 1 }, { v: 4, x: 7, y: 2 }]}
-  edges={[[0, 1], [0, 2], [2, 3], [1, 2], [1, 3], [3, 4]]}
-  cols={8}
-  rows={3}
-  program={`Graph g = new AdjListGraph(5);
-  Graphs.readEdges(in, g);
-  BreadthFirstPaths paths = new BreadthFirstPaths(g, 0);`}
-  programLines={[3]}
-  codeSrc="./27-grafos-recorridos.code/BreadthFirstPaths.java"
-  codeRange="22-38"
-  lines={{ markStart: [23, 24], distStart: 25, enqueueStart: 26, dequeue: [27, 28], look: [29, 30], mark: 31, dist: 32, prev: 33, enqueue: 34, end: 27 }}
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena."
-  caption="0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena · al lado, la distancia"
+  dist={false}
+  title="bfs(grid, 0) en el laberinto"
+  grid={["...#", "...#", "#..."]}
+  exit={11}
+  program={`int s = r0 * cols + c0, t = rn * cols + cn;
+  int[] prev = bfs(grid, s);`}
+  programLines={[2]}
+  codeSrc="./27-grafos-recorridos.code/MazeShortest.java"
+  codeRange="21-47"
+  lines={{ markStart: [26, 27, 28, 29], enqueueStart: 30, dequeue: [31, 32, 33], look: [34, 35, 36, 37, 38], mark: [39, 40], prev: 41, enqueue: 42, end: [31, 46] }}
+  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8."
 />
+
+</Slide>
+
+<Slide title="El camino más corto a la salida">
+
+El mismo `path` de «El camino a la salida», sin cambiarle nada, sigue ahora el
+`prev` de la búsqueda en anchura. Cada `prev` está en la capa anterior, así que
+el hilo baja una capa por paso, y el camino tiene tantos pasos como la capa de
+la salida: el mínimo.
+
+<StepShow
+  language="java"
+  beside
+  ratio="55/45"
+  title="el camino más corto de (0, 0) a (2, 3)"
+  program={`int s = r0 * cols + c0, t = rn * cols + cn;
+  int[] prev = bfs(grid, s);
+  for (int[] p : path(prev, s, t, cols)) {
+      System.out.print("(" + p[0] + ", " + p[1] + ") ");
+  }`}
+  codeSrc="./27-grafos-recorridos.code/MazeShortest.java"
+  codeRange="49-65"
+>
+  <Step lines={[49, 50, 51]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>path crea la lista path, vacía.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: nada todavía. path crea la lista path, vacía."
+    />
+    <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[52]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>t = 11 no es la entrada, y prev[11] = 10 no es −1: se llega.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: nada todavía. t = 11 no es la entrada, y prev[11] = 10 no es −1: se llega."
+    />
+    <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[55]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>back es una pila: el hilo da el camino al revés, y la pila lo da vuelta.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: nada todavía. back es una pila: el hilo da el camino al revés, y la pila lo da vuelta."
+    />
+    <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = 11, la salida: lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'mark' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 11. x = 11, la salida: lo apila."
+    />
+    <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = prev[11] = 10: lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'mark', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 10. x = prev[11] = 10: lo apila."
+    />
+    <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 11]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = prev[10] = 9: lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10, 9]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'mark', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 9. x = prev[10] = 9: lo apila."
+    />
+    <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 10]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = prev[9] = 5: lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10, 9, 5]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'mark', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 5. x = prev[9] = 5: lo apila."
+    />
+    <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 9]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = prev[5] = 4: lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10, 9, 5, 4]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'mark', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 4. x = prev[5] = 4: lo apila."
+    />
+    <Calls items={["11", "10", "9", "5", "4"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 5]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56, 57]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>x = prev[4] = 0: la entrada; lo apila.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10, 9, 5, 4, 0]}
+      tones={{ 0: 'mark', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 0. x = prev[4] = 0: la entrada; lo apila."
+    />
+    <Calls items={["11", "10", "9", "5", "4", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4, 0." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 4]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[56]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>prev[0] es −1: el hilo llegó a la entrada, y el ciclo termina.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[11, 10, 9, 5, 4, 0]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el hilo, de la salida hacia atrás"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el hilo de la salida hacia atrás, hasta 0. prev[0] es −1: el hilo llegó a la entrada, y el ciclo termina."
+    />
+    <Calls items={["11", "10", "9", "5", "4", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4, 0." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 0 del tope de back: la fila es 0 / 4 = 0 y la columna, 0 % 4 = 0. Agrega el par (0, 0) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0]}
+      tones={{ 0: 'mark', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 0. Saca 0 del tope de back: la fila es 0 / 4 = 0 y la columna, 0 % 4 = 0. Agrega el par (0, 0) a path."
+    />
+    <Calls items={["11", "10", "9", "5", "4"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)"] }]} cols={8} cell={58} mark={[[0, 0]]} label="path: (0, 0)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 4 del tope de back: la fila es 4 / 4 = 1 y la columna, 4 % 4 = 0. Agrega el par (1, 0) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'mark', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 4. Saca 4 del tope de back: la fila es 4 / 4 = 1 y la columna, 4 % 4 = 0. Agrega el par (1, 0) a path."
+    />
+    <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)"] }]} cols={8} cell={58} mark={[[0, 1]]} label="path: (0, 0), (1, 0)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 5 del tope de back: la fila es 5 / 4 = 1 y la columna, 5 % 4 = 1. Agrega el par (1, 1) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4, 5]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'mark', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 5. Saca 5 del tope de back: la fila es 5 / 4 = 1 y la columna, 5 % 4 = 1. Agrega el par (1, 1) a path."
+    />
+    <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)"] }]} cols={8} cell={58} mark={[[0, 2]]} label="path: (0, 0), (1, 0), (1, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 9 del tope de back: la fila es 9 / 4 = 2 y la columna, 9 % 4 = 1. Agrega el par (2, 1) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4, 5, 9]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'mark', 10: 'group-5', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 9. Saca 9 del tope de back: la fila es 9 / 4 = 2 y la columna, 9 % 4 = 1. Agrega el par (2, 1) a path."
+    />
+    <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)"] }]} cols={8} cell={58} mark={[[0, 3]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 10 del tope de back: la fila es 10 / 4 = 2 y la columna, 10 % 4 = 2. Agrega el par (2, 2) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4, 5, 9, 10]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'mark', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 10. Saca 10 del tope de back: la fila es 10 / 4 = 2 y la columna, 10 % 4 = 2. Agrega el par (2, 2) a path."
+    />
+    <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)"] }]} cols={8} cell={58} mark={[[0, 4]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[59, 60, 61, 62]} programLines={[3]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Saca 11 del tope de back: la fila es 11 / 4 = 2 y la columna, 11 % 4 = 3. Agrega el par (2, 3) a path.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4, 5, 9, 10, 11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'mark' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 11. Saca 11 del tope de back: la fila es 11 / 4 = 2 y la columna, 11 % 4 = 3. Agrega el par (2, 3) a path."
+    />
+    <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    </Pair>
+  </Step>
+  <Step lines={[64]} programLines={[3, 4]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>path devuelve los pares de la entrada a la salida, y el programa los imprime: ese es el camino.</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
+    <Maze
+      grid={["...#", "...#", "#..."]}
+      numbers
+      ends={[0, 11]}
+      thread={[0, 4, 5, 9, 10, 11]}
+      tones={{ 0: 'group-1', 1: 'group-2', 4: 'group-2', 2: 'group-3', 5: 'group-3', 6: 'group-4', 9: 'group-4', 10: 'group-5', 11: 'group-6' }}
+      caption="el camino, de la entrada en adelante"
+      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Dibujado: el camino armado, de la entrada a 11. path devuelve los pares de la entrada a la salida, y el programa los imprime: ese es el camino."
+    />
+    <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
+    </div>
+    <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <OutputBox head="salida" lines={["(0, 0) (1, 0) (1, 1) (2, 1) (2, 2) (2, 3)"]} rows={1} fresh label="Lo impreso: (0, 0) (1, 0) (1, 1) (2, 1) (2, 2) (2, 3)." />
+    </Pair>
+  </Step>
+</StepShow>
 
 </Slide>
 
 <Slide title="El costo de la búsqueda en anchura">
 
 Cada vértice alcanzado entra a la cola una sola vez, y sus vecinos se leen una
-sola vez, al sacarlo. Es el mismo trabajo que hace la búsqueda en profundidad:
+sola vez, al sacarlo. Es el mismo trabajo que hace la búsqueda en profundidad;
+cambia lo que guarda la bolsa:
 
-- **Tiempo con las listas, $$\Theta(V + E)$$.**
-- **Tiempo con la matriz, $$\Theta(V^2)$$**: cada `adj(v)` recorre una fila
-  de $$V$$ casillas.
-- **Memoria, $$\Theta(V)$$**: `visited`, `dist`, `prev` y la cola, que nunca
-  tiene más de $$V$$ vértices.
+| | la búsqueda en profundidad | la búsqueda en anchura |
+| --- | --- | --- |
+| tiempo, con listas | $$\Theta(V + E)$$ | $$\Theta(V + E)$$ |
+| tiempo, con matriz | $$\Theta(V^2)$$ | $$\Theta(V^2)$$ |
+| tiempo, en el laberinto | $$\Theta(R \cdot C)$$ | $$\Theta(R \cdot C)$$ |
+| lo que guarda la bolsa | el `Stack`: hasta $$E + 1$$ vértices | la `Queue`: hasta $$V$$, cada uno una vez |
 
 La distancia que calcula cuenta aristas. Es la respuesta cuando las aristas no
-tienen peso, o cuando todas pesan lo mismo.
+tienen peso, o cuando todas pesan lo mismo. Si pesan distinto, como los minutos
+que toma cada calle, la búsqueda en anchura no alcanza: el camino con menos
+aristas puede ser el que más pesa. El camino más corto con pesos tiene sus
+propios algoritmos: el de **Dijkstra**, cuando ningún peso es negativo, y el de
+**Bellman‑Ford**, cuando alguno puede serlo.
 
 </Slide>
 
-<Slide title="Una cadena más corta de amigos">
+{/* Problem 2 · the friends of class 2, at how many hops. */}
 
-Al terminar, `distTo(t)` es la distancia de `s` a `t`, y `pathTo(t)` arma la
-cadena siguiendo `prev` desde `t` hasta `s`.
+<Slide title="La distancia entre dos personas">
 
-Cada `prev[w]` apunta a un vértice de la capa anterior, así que el camino
-avanza una capa por paso: tiene exactamente `distTo(t)` amistades, y es una
-cadena más corta. El programa lee las amistades y las dos personas, y escribe
-la distancia y la cadena.
+En una red de amigos, cada persona es un vértice y cada amistad una arista.
+Para pedirle algo a alguien se pasa por amigos: se le pide a un amigo, que se
+lo pide a otro, y así. Cada amistad de la cadena es un **salto**.
 
-<PresentationWide fraction={0.95}>
-<Split ratio="60/40">
+¿A cuántos saltos, como mínimo, está cada persona de una? Es el mismo problema
+con nombre, el camino más corto sin pesos, ahora sobre un `Graph` y hacia todos
+los vértices a la vez.
 
-<SourceFile src="./27-grafos-recorridos.code/FriendDistance.java" range="5-14" />
+**Entrada.** El número de personas; las amistades, como una lista de aristas
+entre personas numeradas; y la persona de origen.
 
-<Pair stack>
+**Salida.** Los saltos hasta cada persona, o −1 si ninguna cadena llega.
+
+<Pair>
 <NodeGraph
   cols={7}
   rows={3}
   nodes={[{ v: '0 Ana', x: 1, y: 1 }, { v: '1 Beto', x: 2.5, y: 0 }, { v: '2 Carla', x: 2.5, y: 2 }, { v: '3 Diego', x: 4, y: 1 }, { v: '4 Elena', x: 5.5, y: 2 }]}
   edges={[['0 Ana', '1 Beto'], ['0 Ana', '2 Carla'], ['2 Carla', '3 Diego'], ['1 Beto', '2 Carla'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  markEdges={[['0 Ana', '1 Beto'], ['1 Beto', '3 Diego'], ['3 Diego', '4 Elena']]}
-  tones={{ '0 Ana': 'mark', '4 Elena': 'mark' }}
-  caption="de Ana a Elena: 3 amistades, por Beto y Diego"
-  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Marcada la cadena más corta de Ana a Elena: Ana, Beto, Diego, Elena, tres amistades."
+  tones={{ '0 Ana': 'group-1', '1 Beto': 'group-2', '2 Carla': 'group-2', '3 Diego': 'group-3', '4 Elena': 'group-4' }}
+  notes={{ '0 Ana': '0', '1 Beto': '1', '2 Carla': '1', '3 Diego': '2', '4 Elena': '3' }}
+  caption="al lado de cada persona, sus saltos desde Ana"
+  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena. Al lado de cada una, sus saltos desde Ana, y cada capa de un color: Ana a 0; Beto y Carla a 1; Diego a 2; Elena a 3."
 />
-<OutputBox head="salida, de 0 a 4" lines={["3", "[0, 1, 3, 4]"]} rows={2} label="Con las amistades de la red y las personas 0 y 4, el programa imprime 3 y la cadena 0, 1, 3, 4: Ana, Beto, Diego, Elena." />
-</Pair>
-
-</Split>
-</PresentationWide>
-
-</Slide>
-
-{/* Problem 2 · the same maze. */}
-
-<Slide title="Los pasos mínimos para salir del laberinto">
-
-`MazeBreadthFirstPaths` es `BreadthFirstPaths` sobre la grilla: calcula los
-vecinos de cada celda con `DR4`, `DC4` y `free`, y marca, anota `dist` y `prev`
-y encola igual.
-
-Cada celda recibe la menor cantidad de pasos desde la entrada, escrita abajo en
-el dibujo, y `pathTo` de la salida da un camino con esa cantidad de pasos.
-Cuesta $$\Theta(R \cdot C)$$ de tiempo y de memoria, como la búsqueda en
-profundidad.
-
-<PresentationWide fraction={0.95}>
-<Split ratio="60/40">
-
-<SourceFile src="./27-grafos-recorridos.code/MazeBreadthFirstPaths.java" range="35-54" />
-
+<Pair>
 <Pair stack>
-<Maze
-  grid={["...#", "...#", "#..."]}
-  numbers
-  ends={[0, 11]}
-  thread={[0, 1, 2, 6, 5, 9, 10, 11]}
-  caption="la búsqueda en profundidad: 7 pasos"
-  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. El camino de la búsqueda en profundidad: 0, 1, 2, 6, 5, 9, 10, 11, siete pasos."
-/>
-<Maze
-  grid={["...#", "...#", "#..."]}
-  numbers
-  ends={[0, 11]}
-  thread={[0, 4, 5, 9, 10, 11]}
-  notes={{ 0: '0', 1: '1', 4: '1', 2: '2', 5: '2', 6: '3', 9: '3', 10: '4', 11: '5' }}
-  caption="la búsqueda en anchura: 5 pasos"
-  label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. En la esquina de abajo de cada celda, su distancia desde la entrada. Marcado el camino más corto: 0, 4, 5, 9, 10, 11, cinco pasos."
-/>
+<OutputBox head="entrada: personas, amistades" lines={["5", "6", "0 1", "0 2", "2 3", "1 2", "1 3", "3 4"]} rows={8} label="La entrada, línea por línea: 5 personas; 6 amistades: 0 1, 0 2, 2 3, 1 2, 1 3 y 3 4." />
+<OutputBox head="y el origen" lines={["0"]} rows={1} label="Al final de la entrada, la persona de origen: 0." />
 </Pair>
-
-</Split>
-</PresentationWide>
+<OutputBox head="salida: saltos" lines={["0: 0", "1: 1", "2: 1", "3: 2", "4: 3"]} rows={5} label="La salida, una línea por persona con sus saltos desde Ana: 0 a 0, 1 a 1, 2 a 1, 3 a 2 y 4 a 3." />
+</Pair>
+</Pair>
 
 </Slide>
 
-<Slide title="Una bolsa de pendientes">
+<Slide title="La búsqueda que cuenta los saltos">
 
-La búsqueda en profundidad con una pila y la búsqueda en anchura son el mismo
-ciclo: sacar un vértice de una **bolsa** de pendientes y meter en ella sus
-vecinos sin marcar. Cambian solo dos cosas: la bolsa y el momento de marcar.
+<GraphWalk
+  beside
+  algorithm="bfs"
+  paths={false}
+  ratio="50/50"
+  title="bfs(g, 0) en la red de amigos"
+  arraysAt="drawing"
+  nodes={[{ v: 0, x: 1, y: 1 }, { v: 1, x: 3, y: 0 }, { v: 2, x: 3, y: 2 }, { v: 3, x: 5, y: 1 }, { v: 4, x: 7, y: 2 }]}
+  edges={[[0, 1], [0, 2], [2, 3], [1, 2], [1, 3], [3, 4]]}
+  cols={8}
+  rows={3}
+  program={`Graph g = new AdjListGraph(5);
+  Graphs.readEdges(in, g);
+  int[] dist = bfs(g, 0);`}
+  programLines={[3]}
+  codeSrc="./27-grafos-recorridos.code/FriendDistance.java"
+  codeRange="7-28"
+  lines={{ markStart: [12, 13], distStart: 14, enqueueStart: 15, dequeue: [16, 17], look: [18, 19], mark: 20, dist: [21, 22], enqueue: 23, end: [16, 27] }}
+  label="Una red de amigos: Ana con Beto y con Carla, Carla con Diego, Beto con Carla y con Diego, y Diego con Elena. Las personas se numeran: 0 Ana, 1 Beto, 2 Carla, 3 Diego, 4 Elena."
+  caption="0 Ana · 1 Beto · 2 Carla · 3 Diego · 4 Elena · al lado, los saltos"
+/>
 
-| | con una pila | con una cola |
-| --- | --- | --- |
-| la bolsa | `Stack<Integer> stack` | `Queue<Integer> queue` |
-| meter | `stack.push(w)` | `queue.add(w)` |
-| sacar | `stack.pop()`, el último que entró | `queue.remove()`, el primero |
-| marcar | al sacar: `if (visited[v]) continue;` y después `visited[v] = true` | al meter: `visited[w] = true` antes de `queue.add(w)` |
+</Slide>
 
-- **La pila marca al sacar:** la copia que sale primero es la del vecino más
-  reciente, y eso la lleva en profundidad.
-- **La cola marca al meter:** la primera copia que entra es la primera que
-  sale.
+<Slide title="Los seis grados de separación">
+
+¿Cuántos saltos separan a dos personas cualesquiera del mundo? Si cada persona
+es un vértice y cada amistad una arista, la pregunta es la distancia entre dos
+vértices de una red de miles de millones.
+
+En 1929, el escritor húngaro Frigyes Karinthy publicó un cuento, «Cadenas», en el
+que un personaje propone una apuesta: que elijan a cualquier persona del planeta,
+y él llega a ella pasando por no más de cinco conocidos, uno tras otro. Cinco
+personas en medio son seis saltos: de ahí viene la idea de los **seis grados de
+separación**.
+
+<NodeGraph
+  cols={13}
+  rows={1}
+  nodes={[{ v: 'tú', x: 0, y: 0 }, { v: '1', x: 2, y: 0 }, { v: '2', x: 4, y: 0 }, { v: '3', x: 6, y: 0 }, { v: '4', x: 8, y: 0 }, { v: '5', x: 10, y: 0 }, { v: 'otra persona', x: 12, y: 0 }]}
+  edges={[['tú', '1'], ['1', '2'], ['2', '3'], ['3', '4'], ['4', '5'], ['5', 'otra persona']]}
+  tones={{ tú: 'mark', 'otra persona': 'mark' }}
+  caption="cinco personas en medio: seis saltos"
+  label="Una cadena de seis saltos: tú, cinco personas en medio, y otra persona cualquiera del planeta."
+/>
+
+</Slide>
+
+<Slide title="Las cartas de Milgram">
+
+La apuesta se puso a prueba a fines de los años sesenta. El psicólogo Stanley
+Milgram eligió a un destinatario, un corredor de bolsa de Boston, y le entregó
+una carta a cada una de 296 personas de Nebraska y de Boston, con una regla: si
+conocían al destinatario, se la mandaban a él; si no, a un conocido suyo que
+tuviera más posibilidades de conocerlo. Cada persona anotaba su nombre en la
+carta antes de pasarla.
+
+Según el informe que Milgram publicó con Jeffrey Travers en 1969, llegaron 64
+cartas, y por el camino pasaron en promedio por 5,2 personas: unos seis saltos,
+como en la apuesta.
+
+En 2016, Facebook midió lo mismo en su red de amistades: entre sus 1590 millones
+de usuarios, la distancia promedio fue de 4,57 saltos. Medirla exactamente pide
+una búsqueda en anchura desde cada persona, $${V}$$ búsquedas,
+$${\Theta(V \cdot (V + E))}$$: demasiado para una red de ese tamaño, así que
+Facebook la estimó.
+
+<NodeGraph
+  cols={13}
+  rows={1}
+  nodes={[{ v: 'Nebraska', x: 0, y: 0 }, { v: '1', x: 2.2, y: 0 }, { v: '2', x: 4.2, y: 0 }, { v: '3', x: 6.2, y: 0 }, { v: '4', x: 8.2, y: 0 }, { v: '5', x: 10.2, y: 0 }, { v: 'Boston', x: 12.4, y: 0 }]}
+  edges={[['Nebraska', '1'], ['1', '2'], ['2', '3'], ['3', '4'], ['4', '5'], ['5', 'Boston']]}
+  tones={{ Nebraska: 'mark', Boston: 'mark' }}
+  caption="una carta pasa de conocido en conocido: 5,2 personas en medio, en promedio"
+  label="Una carta que sale de Nebraska y pasa de mano en mano, de conocido en conocido, hasta el destinatario en Boston: cinco personas en medio."
+/>
+
+</Slide>
+
+<Slide title="El camino más corto en otros contextos">
+
+La pregunta de los pasos mínimos aparece en muchos lugares, siempre con la
+misma respuesta: una búsqueda en anchura desde el origen.
+
+| contexto | vértices | aristas | la pregunta |
+| --- | --- | --- | --- |
+| el número de Erdős | matemáticos | artículos escritos juntos | ¿a cuántos artículos de Paul Erdős está alguien? |
+| el número de Bacon | actores | películas en las que actuaron juntos | ¿a cuántas películas de Kevin Bacon está alguien? |
+| la escalera de palabras | palabras | cambiar una letra | ¿con cuántos cambios se pasa de una palabra a otra? |
+| el caballo de ajedrez | casillas | un salto de caballo | ¿cuántos saltos necesita para llegar a otra casilla? |
+| el candado de la clase anterior | combinaciones | un giro de una rueda | ¿cuántos giros, como mínimo, para abrirlo? |
+| una red de computadores | routers | cables | ¿por cuántos routers pasa, como mínimo, un mensaje? |
+
+</Slide>
+
+<Slide title="La pintura que se expande">
+
+La búsqueda en anchura sirve también para ver cómo se expande algo. El balde de
+un programa de dibujo, como Paint, llena un espacio cerrado: se toca un píxel, y
+el color se extiende a los píxeles vecinos del mismo color hasta chocar con las
+líneas.
+
+Las primeras implementaciones del balde eran recursivas, de a un píxel: pintarlo
+y llamarse con sus cuatro vecinos, como en «El balde de pintura». Muy pronto se
+pasó a métodos que llenan fila por fila, más rápidos: Alvy Ray Smith publicó uno
+en 1979, y los programas de hoy usan descendientes de esos métodos. Con una cola
+en lugar de la recursión, la pintura avanza por capas, y se ve así: cada número
+es la distancia al píxel que se tocó, y cada capa tiene su color.
+
+<FloodFill
+  grid={["................", ".......##.......", "......#..#......", ".....#....#.....", "....#......#....", "...#........#...", "..############..", "..#..........#..", "..#.####.....#..", "..#.#..#.###.#..", "..#.####.#.#.#..", "..#......#.#.#..", "################"]}
+  label="Una casa dibujada con líneas negras sobre fondo blanco: el techo en triángulo, una pieza con una ventana a la izquierda y una puerta a la derecha, y el suelo abajo."
+  caption="toca la pieza, el techo o el cielo"
+/>
+
+</Slide>
+
+{/* Problem 3 · a fire with several foci. */}
+
+<Slide title="Un incendio en un terreno">
+
+Un terreno se quema a partir de varios focos. En cada turno, el fuego pasa a
+todas las celdas que están al lado de una que se quema; las rocas y el río no se
+queman. ¿Cuántos turnos tarda en quemarse todo el terreno?
+
+Es la pintura que se expande, pero empezando en varios lugares a la vez: en cada
+turno, el fuego avanza una capa desde todos los focos. Como el terreno está
+conectado, al final todo se quema; lo que queremos saber es **cuándo**: el turno
+en que se quema la última celda, que es el de la última capa.
+
+**Entrada.** El terreno, conectado; la cantidad de focos, y la fila y la columna
+de cada uno.
+
+**Salida.** Cuántos turnos tarda en quemarse todo.
+
+<Maze
+  grid={["..............", "....##........", "....##....#...", "..........#...", "..........#...", ".....##...#...", "..........#...", ".............."]}
+  tones={{ 44: 'flag', 54: 'flag', 105: 'flag' }}
+  caption="tres focos: ¿en cuántos turnos se quema todo?"
+  label="Un terreno de 8 filas y 14 columnas, todo conectado: dos rocas y un río corto que no se queman, y el resto, pasto. Tres focos, en rojo: en la fila 3, columna 2; en la fila 3, columna 12; y en la fila 7, columna 7."
+/>
+
+</Slide>
+
+<Slide title="Todos los focos a la vez">
+
+Con un solo foco, el incendio es la pintura que se expande: una búsqueda en
+anchura desde el foco, y la respuesta es la capa de la última celda.
+
+Con varios focos, el fuego avanza desde todos al mismo tiempo, y para eso basta
+un cambio: antes de empezar, **todos los focos entran a la cola**, como la capa
+0. Después la cola entrega las celdas a un paso de algún foco, luego las que
+están a dos, y así: cada celda se quema en el turno de su distancia al foco más
+cercano.
+
+Y como la cola saca las celdas en orden de turno, **la última que sale es la
+última que se quema**: su turno es la respuesta.
+
+Cuesta $${\Theta(R \cdot C)}$$, sin importar cuántos focos haya: cada celda
+entra a la cola una sola vez.
+
+<FloodFill
+  mode="fire"
+  grid={["..............", "....##........", "....##....#...", "..........#...", "..........#...", ".....##...#...", "..........#...", ".............."]}
+  foci={[[3, 2], [3, 12], [7, 7]]}
+  label="Un terreno de 8 filas y 14 columnas, todo conectado: dos rocas y un río corto que no se queman, y el resto, pasto."
+  caption="los focos de la entrada; quita o pon focos antes de encender"
+/>
+
+</Slide>
+
+<Slide title="El incendio, turno por turno">
+
+<StepShow
+  language="java"
+  beside
+  ratio="55/45"
+  title="turns(terrain, fires) con dos focos"
+  program={`// fires: la celda 0 y la 34
+System.out.println(turns(terrain, fires));`}
+  codeSrc="./27-grafos-recorridos.code/Fire.java"
+  codeRange="17-44"
+>
+  <Step lines={[21, 22, 23, 24, 25, 26]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Antes del ciclo, los dos focos, 0 y 34, entran a la cola, en el turno 0.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'mark', 34: 'mark' }}
+      notes={{ 0: '0', 34: '0' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["0", "34"] }]} cols={8} label="La cola, del frente al final: 0, 34." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 0, del turno 0: last = 0. Entran 7 y 1, con dist 1.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'mark', 7: 'mark', 34: 'mark' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["34", "7", "1"] }]} cols={8} label="La cola, del frente al final: 34, 7, 1." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 34, del turno 0: last = 0. Entran 27 y 33, con dist 1.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'mark', 7: 'mark', 27: 'mark', 33: 'mark', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["7", "1", "27", "33"] }]} cols={8} label="La cola, del frente al final: 7, 1, 27, 33." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 7, del turno 1: last = 1. Entran 14 y 8, con dist 2.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'mark', 7: 'flag', 8: 'mark', 14: 'mark', 27: 'mark', 33: 'mark', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["1", "27", "33", "14", "8"] }]} cols={8} label="La cola, del frente al final: 1, 27, 33, 14, 8." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 1, del turno 1: last = 1. Entran 2, con dist 2.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'mark', 7: 'flag', 8: 'mark', 14: 'mark', 27: 'mark', 33: 'mark', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["27", "33", "14", "8", "2"] }]} cols={8} label="La cola, del frente al final: 27, 33, 14, 8, 2." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 27, del turno 1: last = 1. Entran 20 y 26, con dist 2.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'mark', 7: 'flag', 8: 'mark', 14: 'mark', 20: 'mark', 26: 'mark', 27: 'flag', 33: 'mark', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 20 en el turno 2, 26 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["33", "14", "8", "2", "20", "26"] }]} cols={8} label="La cola, del frente al final: 33, 14, 8, 2, 20, 26." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 33, del turno 1: last = 1. Entran 32, con dist 2.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'mark', 7: 'flag', 8: 'mark', 14: 'mark', 20: 'mark', 26: 'mark', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 20 en el turno 2, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["14", "8", "2", "20", "26", "32"] }]} cols={8} label="La cola, del frente al final: 14, 8, 2, 20, 26, 32." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 14, del turno 2: last = 2. Entran 21 y 15, con dist 3.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'mark', 7: 'flag', 8: 'mark', 14: 'flag', 15: 'mark', 20: 'mark', 21: 'mark', 26: 'mark', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["8", "2", "20", "26", "32", "21", "15"] }]} cols={8} label="La cola, del frente al final: 8, 2, 20, 26, 32, 21, 15." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 8, del turno 2: last = 2. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'mark', 7: 'flag', 8: 'flag', 14: 'flag', 15: 'mark', 20: 'mark', 21: 'mark', 26: 'mark', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["2", "20", "26", "32", "21", "15"] }]} cols={8} label="La cola, del frente al final: 2, 20, 26, 32, 21, 15." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 2, del turno 2: last = 2. Entran 3, con dist 3.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 14: 'flag', 15: 'mark', 20: 'mark', 21: 'mark', 26: 'mark', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["20", "26", "32", "21", "15", "3"] }]} cols={8} label="La cola, del frente al final: 20, 26, 32, 21, 15, 3." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 20, del turno 2: last = 2. Entran 13 y 19, con dist 3.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 13: 'mark', 14: 'flag', 15: 'mark', 19: 'mark', 20: 'flag', 21: 'mark', 26: 'mark', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["26", "32", "21", "15", "3", "13", "19"] }]} cols={8} label="La cola, del frente al final: 26, 32, 21, 15, 3, 13, 19." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 26, del turno 2: last = 2. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 13: 'mark', 14: 'flag', 15: 'mark', 19: 'mark', 20: 'flag', 21: 'mark', 26: 'flag', 27: 'flag', 32: 'mark', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["32", "21", "15", "3", "13", "19"] }]} cols={8} label="La cola, del frente al final: 32, 21, 15, 3, 13, 19." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 32, del turno 2: last = 2. Entran 31, con dist 3.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 13: 'mark', 14: 'flag', 15: 'mark', 19: 'mark', 20: 'flag', 21: 'mark', 26: 'flag', 27: 'flag', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["21", "15", "3", "13", "19", "31"] }]} cols={8} label="La cola, del frente al final: 21, 15, 3, 13, 19, 31." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 21, del turno 3: last = 3. Entran 28 y 22, con dist 4.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 13: 'mark', 14: 'flag', 15: 'mark', 19: 'mark', 20: 'flag', 21: 'flag', 22: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["15", "3", "13", "19", "31", "28", "22"] }]} cols={8} label="La cola, del frente al final: 15, 3, 13, 19, 31, 28, 22." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 15, del turno 3: last = 3. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'mark', 7: 'flag', 8: 'flag', 13: 'mark', 14: 'flag', 15: 'flag', 19: 'mark', 20: 'flag', 21: 'flag', 22: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["3", "13", "19", "31", "28", "22"] }]} cols={8} label="La cola, del frente al final: 3, 13, 19, 31, 28, 22." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 3, del turno 3: last = 3. Entran 10 y 4, con dist 4.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 13: 'mark', 14: 'flag', 15: 'flag', 19: 'mark', 20: 'flag', 21: 'flag', 22: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["13", "19", "31", "28", "22", "10", "4"] }]} cols={8} label="La cola, del frente al final: 13, 19, 31, 28, 22, 10, 4." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 13, del turno 3: last = 3. Entran 6 y 12, con dist 4.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 19: 'mark', 20: 'flag', 21: 'flag', 22: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["19", "31", "28", "22", "10", "4", "6", "12"] }]} cols={8} label="La cola, del frente al final: 19, 31, 28, 22, 10, 4, 6, 12." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 19, del turno 3: last = 3. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 31: 'mark', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["31", "28", "22", "10", "4", "6", "12"] }]} cols={8} label="La cola, del frente al final: 31, 28, 22, 10, 4, 6, 12." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 31, del turno 3: last = 3. Entran 24 y 30, con dist 4.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["28", "22", "10", "4", "6", "12", "24", "30"] }]} cols={8} label="La cola, del frente al final: 28, 22, 10, 4, 6, 12, 24, 30." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 28, del turno 4: last = 4. Entran 29, con dist 5.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["22", "10", "4", "6", "12", "24", "30", "29"] }]} cols={8} label="La cola, del frente al final: 22, 10, 4, 6, 12, 24, 30, 29." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 22, del turno 4: last = 4. Entran 23, con dist 5.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["10", "4", "6", "12", "24", "30", "29", "23"] }]} cols={8} label="La cola, del frente al final: 10, 4, 6, 12, 24, 30, 29, 23." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 10, del turno 4: last = 4. Entran 17 y 11, con dist 5.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["4", "6", "12", "24", "30", "29", "23", "17", "11"] }]} cols={8} label="La cola, del frente al final: 4, 6, 12, 24, 30, 29, 23, 17, 11." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 4, del turno 4: last = 4. Entran 5, con dist 5.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'mark', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["6", "12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 6, 12, 24, 30, 29, 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 6, del turno 4: last = 4. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'mark', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 12, 24, 30, 29, 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 12, del turno 4: last = 4. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'mark', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 24, 30, 29, 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 24, del turno 4: last = 4. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'mark', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 30, 29, 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 30, del turno 4: last = 4. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'mark', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 29, 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 29, del turno 5: last = 5. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'mark', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 23, 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 23, del turno 5: last = 5. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'mark', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'flag', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 17, 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 17, del turno 5: last = 5. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'mark', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'flag', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["11", "5"] }]} cols={8} label="La cola, del frente al final: 11, 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 11, del turno 5: last = 5. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'mark', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'flag', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'flag', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: ["5"] }]} cols={8} label="La cola, del frente al final: 5." />
+    </Pair>
+  </Step>
+  <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 5, del turno 5: last = 5. No le quedan vecinas sin quemar.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'flag', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'flag', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'flag', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={8} label="La cola, del frente al final: vacía." />
+    </Pair>
+  </Step>
+  <Step lines={[43]} programLines={[2]}>
+    <Pair stack>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>La cola quedó vacía. La última celda que salió es del turno 5: turns devuelve 5.</div>
+    <Maze
+      grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
+      numbers
+      tones={{ 0: 'flag', 1: 'flag', 2: 'flag', 3: 'flag', 4: 'flag', 5: 'flag', 6: 'flag', 7: 'flag', 8: 'flag', 10: 'flag', 11: 'flag', 12: 'flag', 13: 'flag', 14: 'flag', 15: 'flag', 17: 'flag', 19: 'flag', 20: 'flag', 21: 'flag', 22: 'flag', 23: 'flag', 24: 'flag', 26: 'flag', 27: 'flag', 28: 'flag', 29: 'flag', 30: 'flag', 31: 'flag', 32: 'flag', 33: 'flag', 34: 'flag' }}
+      notes={{ 0: '0', 34: '0', 7: '1', 1: '1', 27: '1', 33: '1', 14: '2', 8: '2', 2: '2', 20: '2', 26: '2', 32: '2', 21: '3', 15: '3', 3: '3', 13: '3', 19: '3', 31: '3', 28: '4', 22: '4', 10: '4', 4: '4', 6: '4', 12: '4', 24: '4', 30: '4', 29: '5', 23: '5', 17: '5', 11: '5', 5: '5' }}
+      caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
+      label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
+    />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={8} label="La cola, del frente al final: vacía." />
+    </Pair>
+  </Step>
+</StepShow>
 
 </Slide>
 
