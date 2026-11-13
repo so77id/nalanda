@@ -37,7 +37,7 @@ describe('FloodFill', () => {
     ticks(10);
     // The far corner, round the line: seven steps.
     expect(layerOf('0,3')).toBe('7');
-    expect(screen.getByText('Listo: 10 píxeles, el último en el paso 7.')).toBeInTheDocument();
+    expect(screen.getByText('Listo: 10 píxeles, el último en la capa 7.')).toBeInTheDocument();
   });
 
   it('does not paint a line, and Reiniciar clears the paint', () => {

@@ -91,7 +91,8 @@ function Body({ grid, mode = 'paint', label, caption, tick = 500, foci, upTo }: 
   }, [gridKey, given]);
 
   const white = (v: number) => rows[Math.floor(v / C)][v % C] === '.';
-  const unit = mode === 'fire' ? 'turno' : 'paso';
+  // The fire counts turns; the paint, layers, as the slide's prose does.
+  const unit = mode === 'fire' ? 'el turno' : 'la capa';
 
   const touch = (v: number) => {
     if (still || !white(v)) return;
@@ -138,10 +139,10 @@ function Body({ grid, mode = 'paint', label, caption, tick = 500, foci, upTo }: 
         ? 'Toca una o más celdas del terreno para poner los focos, y después «Encender».'
         : `${sources.length === 1 ? 'Un foco' : `${sources.length} focos`}: toca otros, o «Encender».`
     : running
-      ? `${mode === 'fire' ? 'El fuego' : 'La pintura'} va en el ${unit} ${shown} de ${last}.`
+      ? `${mode === 'fire' ? 'El fuego' : 'La pintura'} va en ${unit} ${shown} de ${last}.`
       : mode === 'fire'
         ? `Listo: todo se quemó en ${last} ${last === 1 ? 'turno' : 'turnos'}.`
-        : `Listo: ${painted} píxeles, el último en el ${unit} ${last}.`;
+        : `Listo: ${painted} píxeles, el último en ${unit} ${last}.`;
 
   const paint = (d: number) => {
     const hue = layerHue(d, last + 1);

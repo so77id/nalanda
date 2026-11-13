@@ -19,7 +19,7 @@ public class MazeExit {
     static int[] dfs(String[] grid, int s) {
         int cols = grid[0].length();
         boolean[] visited = new boolean[grid.length * cols];
-        // nuevo: prev, el hilo; −1 donde no se llegó
+        // nuevo: prev, el hilo; −1 en el origen y donde no se llegó
         int[] prev = new int[grid.length * cols];
         Arrays.fill(prev, -1);
         Stack<Integer> stack = new Stack<>();
