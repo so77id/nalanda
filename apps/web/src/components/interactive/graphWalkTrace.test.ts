@@ -410,7 +410,7 @@ describe('traceBfs and traceGridBfs, keeping only what the listing keeps (#357 a
     expect(last.dist).toBeNull();
     expect(frames.some((f) => f.event === 'dist' || f.event === 'distStart')).toBe(false);
     expect(last.text).toMatch(
-      /visited\[11\], la celda \(2, 3\), es true: se llega a la salida\. Siguiendo prev desde ella se vuelve a la entrada por un camino más corto\.$/,
+      /visited\[11\], la celda \(2, 3\), es true: se llega a la salida\. Siguiendo prev, se vuelve por un camino más corto\.$/,
     );
   });
 

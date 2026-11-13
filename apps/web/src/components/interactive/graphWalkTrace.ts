@@ -316,9 +316,7 @@ export function traceGridBfs(
     V,
     C,
     exit,
-    keep.prev === false
-      ? ''
-      : ' Siguiendo prev desde ella se vuelve a la entrada por un camino más corto.',
+    keep.prev === false ? '' : ' Siguiendo prev, se vuelve por un camino más corto.',
   );
 }
 

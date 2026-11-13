@@ -431,7 +431,9 @@ export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label
   const ch = 28;
   const gapY = 10;
   const nameW = Math.max(...rows.map((r) => r.name.length * 8 + 14));
-  const cw = Math.max(cell, ...rows.flatMap((r) => [...(r.cells ?? []), ...(r.head ?? [])].map((t) => String(t).length * 7.6 + 14)));
+  // A boolean cell is as wide as `false`, so an array keeps its width while it is marked.
+  const chars = (t) => (String(t) === 'true' ? 5 : String(t).length);
+  const cw = Math.max(cell, ...rows.flatMap((r) => [...(r.cells ?? []), ...(r.head ?? [])].map((t) => chars(t) * 7.6 + 14)));
   const innerW = nameW + Math.max(cols, ...rows.map((r) => (r.cells ? r.cells.length : r.size ?? 0))) * cw;
   const width = Math.max(innerW + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
   const left = (width - innerW) / 2;
@@ -528,7 +530,7 @@ visitaría justo lo que tiene luz.
   edges={[[0, 1], [1, 2], [1, 3], [2, 4], [3, 5]]}
   markEdges={[[0, 1], [1, 2], [1, 3], [2, 4], [3, 5]]}
   notes={{ 0: '1.º', 1: '2.º', 2: '3.º', 4: '4.º', 3: '5.º', 5: '6.º' }}
-  caption="sin el cable 2-3, la red es un árbol; al lado, el turno de cada vértice en el preorden"
+  caption="sin el cable 2-3, lo que tiene luz es un árbol; al lado, el turno de cada vértice en el preorden"
   label="Un árbol con raíz 0: 0 con hijo 1; 1 con hijos 2 y 3; 2 con hijo 4; 3 con hijo 5. Junto a cada nodo, su lugar en el preorden; el orden es 0, 1, 2, 4, 3, 5."
 />
 
@@ -677,7 +679,7 @@ vuelve sin terminar.
     </div>
     </Pair>
   </Step>
-  <Step lines={[3]} under={<OutputBox head="salida" lines={["0 1 0 1 0 1 0 1 \u2026"]} rows={1} label="Lo impreso hasta ahora: 0 1 0 1 0 1 0 1 …." />}>
+  <Step lines={[3]} under={<OutputBox head="salida" lines={["0 1 0 1 0 1 0 1 \u2026"]} rows={1} label="Lo impreso hasta ahora: 0 1 0 1 0 1 0 1 …" />}>
     <Pair stack>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Otra vez a 1: va y vuelve sin fin, y nunca llega a 2.</div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
@@ -842,7 +844,7 @@ son los ciclos.
     </div>
     </Pair>
   </Step>
-  <Step lines={[10]} under={<OutputBox head="salida" lines={["0 1 2 3 1 0 2 3 \u2026"]} rows={1} label="Lo impreso hasta ahora: 0 1 2 3 1 0 2 3 …." />}>
+  <Step lines={[10]} under={<OutputBox head="salida" lines={["0 1 2 3 1 0 2 3 \u2026"]} rows={1} label="Lo impreso hasta ahora: 0 1 2 3 1 0 2 3 …" />}>
     <Pair stack>
     <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Otra vez a 3: el ciclo se repite sin fin.</div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
@@ -1110,7 +1112,7 @@ lo marcado es lo que tiene luz. Se ve en dos partes:
   edges={[[0, 1], [1, 2], [1, 3], [2, 3], [2, 4], [3, 5], [6, 7]]}
   markEdges={[[0, 1], [1, 2], [2, 4]]}
   tones={{ 0: 'keep', 1: 'keep', 2: 'keep', 3: 'keep', 4: 'keep', 5: 'keep', 6: 'flag', 7: 'flag' }}
-  caption="en verde lo marcado; resaltado, un camino a la casa 4; a 6 y 7 no hay ninguno"
+  caption="lo marcado, y resaltado un camino a la casa 4; a 6 y 7 no hay ninguno"
   label="Una red eléctrica después de una tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 1-2, 1-3, 2-3, 2-4, 3-5 y 6-7. En verde, lo marcado al terminar: 0, 1, 2, 3, 4 y 5. Resaltado, un camino de la central a la casa 4: 0, 1, 2, 4, que la búsqueda marca entero. En rojo, el poste 6 y la casa 7: no hay camino hasta ellos y no se marcan."
 />
 
@@ -1424,7 +1426,7 @@ Los pasos de la plantilla no cambian; cambia quién guarda lo pendiente:
 <Slide title="La búsqueda en profundidad con una pila">
 
 La pila saca primero el último que entró. Por eso la búsqueda resuelve todo lo
-del vértice actual antes que sus hermanos, que esperan en la pila: sigue por un
+del vértice actual antes que sus otros vecinos, que esperan en la pila: sigue por un
 vecino del último marcado y avanza en profundidad.
 
 Dos cosas cambian respecto de la recursiva. Los vecinos salen al revés de su
@@ -1741,8 +1743,8 @@ otros lugares. Cambian los vértices y las aristas; la búsqueda es la misma:
 
 <Slide title="El balde de pintura">
 
-El balde de pintura es una búsqueda en profundidad sobre los píxeles: dos
-píxeles vecinos del mismo color están unidos. `paint` es la plantilla con su
+La versión más simple del balde de pintura es una búsqueda en profundidad
+sobre los píxeles: dos píxeles vecinos del mismo color están unidos. `paint` es la plantilla con su
 guarda arriba: si el píxel cae fuera de la imagen o no es blanco, vuelve; si no,
 lo pinta y se llama con sus cuatro vecinos. Pintar es marcar: un píxel pintado
 ya no es blanco, y nunca se pinta dos veces.
@@ -2028,6 +2030,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       cols={9}
       rows={3}
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
+      notes={{ 0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: ninguno. El programa crea id y llama a components, que crea visited y count = 0."
@@ -2044,7 +2047,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1' }}
-      notes={{ 0: '0' }}
+      notes={{ 0: '0', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0. 0 no está visitado: components llama a dfs(0), que lo marca: id[0] = 0."
     />
@@ -2060,7 +2063,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1' }}
-      notes={{ 0: '0', 1: '0' }}
+      notes={{ 0: '0', 1: '0', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. dfs(0) llama a dfs(1): id[1] = 0."
     />
@@ -2076,7 +2079,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1' }}
-      notes={{ 0: '0', 1: '0' }}
+      notes={{ 0: '0', 1: '0', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. La búsqueda terminó: count = 1."
     />
@@ -2092,7 +2095,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1' }}
-      notes={{ 0: '0', 1: '0' }}
+      notes={{ 0: '0', 1: '0', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. 1 ya está visitado: no empieza nada."
     />
@@ -2108,7 +2111,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2. 2 no está visitado: dfs(2) lo marca: id[2] = 1."
     />
@@ -2124,7 +2127,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '', 5: '', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3. dfs(3): id[3] = 1."
     />
@@ -2140,7 +2143,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 5: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 5: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '', 5: '1', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 5. dfs(5): id[5] = 1."
     />
@@ -2156,7 +2159,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. dfs(4): id[4] = 1."
     />
@@ -2172,7 +2175,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. count = 2."
     />
@@ -2188,7 +2191,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. 3, 4 y 5 ya están visitados."
     />
@@ -2204,7 +2207,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3' }}
-      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2' }}
+      notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2', 7: '' }}
       caption="cada pedazo de un color; al lado, su id"
       label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5, 6. 6 no está visitado: dfs(6) lo marca: id[6] = 2."
     />
@@ -2663,8 +2666,8 @@ laberinto del Minotauro desenrollando el hilo que le dio Ariadna, y sale
 siguiéndolo de vuelta. La búsqueda deja su hilo en un arreglo, `prev`: cada vez
 que llega a una celda `w` desde una celda `v`, anota `prev[w] = v`.
 
-Al terminar, el hilo se sigue desde la salida: de `t` a `prev[t]`, de ahí a su
-`prev`, y así hasta la entrada. Ese es el camino, al revés.
+Al terminar, el hilo se sigue desde la celda de salida, `t`: de `t` a
+`prev[t]`, de ahí a su `prev`, y así hasta la entrada. Ese es el camino, al revés.
 
 <Maze
   grid={["...#", "...#", "#..."]}
@@ -3309,8 +3312,7 @@ copia y ahorra las otras.
 
 <Slide title="La búsqueda en anchura en el laberinto">
 
-Es la búsqueda con pila del laberinto, con una cola en lugar de la pila: los
-comentarios marcan lo nuevo.
+Es la búsqueda con pila, con una cola: los comentarios marcan lo nuevo.
 
 <GraphWalk
   beside
@@ -3805,7 +3807,8 @@ separación**.
 
 <Slide title="Las cartas de Milgram">
 
-La apuesta se puso a prueba a fines de los años sesenta. El psicólogo Stanley
+La apuesta de Karinthy, que bastan cinco personas en medio, se puso a prueba a
+fines de los años sesenta. El psicólogo Stanley
 Milgram eligió a un destinatario, un corredor de bolsa de Boston, y le entregó
 una carta a cada una de 296 personas de Nebraska y de Boston, con una regla: si
 conocían al destinatario, se la mandaban a él; si no, a un conocido suyo que
@@ -3813,8 +3816,7 @@ tuviera más posibilidades de conocerlo. Cada persona anotaba su nombre en la
 carta antes de pasarla.
 
 Según el informe que Milgram publicó con Jeffrey Travers en 1969, llegaron 64
-cartas, y por el camino pasaron en promedio por 5,2 personas: unos seis saltos,
-como en la apuesta.
+cartas, y por el camino pasaron en promedio por 5,2 personas: unos seis saltos.
 
 En 2016, Facebook midió lo mismo en su red de amistades: entre sus 1590 millones
 de usuarios, la distancia promedio fue de 4,57 saltos. Medirla exactamente pide
@@ -3928,14 +3930,11 @@ entra a la cola una sola vez.
 
 <Slide title="El incendio, turno por turno">
 
-En el terreno de la entrada, la cola sacaría más de cien celdas. Sobre un
-terreno más chico, con dos focos, cada paso es una celda que sale de la cola.
-
 <StepShow
   language="java"
   beside
   ratio="55/45"
-  title="turns(terrain, fires) con dos focos"
+  title="turns(terrain, fires) en un terreno más chico, con dos focos"
   program={`// fires: la celda 0 y la 34
 System.out.println(turns(terrain, fires));`}
   codeSrc="./27-grafos-recorridos.code/Fire.java"
@@ -4439,9 +4438,9 @@ herramienta.
 
 | Problema | Pregunta | Situaciones | Herramienta |
 | --- | --- | --- | --- |
-| Alcanzabilidad | ¿Se puede llegar de aquí a allá? | lo que queda sin luz después de un corte · la salida de un laberinto | cualquiera de los dos recorridos |
+| Alcanzabilidad | ¿Se puede llegar de aquí a allá? | lo que queda sin luz después de un corte · la salida de un laberinto · el balde de pintura | cualquiera de los dos recorridos |
 | Componentes conexas | ¿En cuántos pedazos se parte, y cuál es cada uno? | la red partida por dos cortes | una búsqueda en profundidad por pedazo |
-| Camino más corto sin pesos | ¿Con cuántos pasos, como mínimo? | las amistades que separan a dos personas · los pasos para salir de un laberinto | búsqueda en anchura |
+| Camino más corto sin pesos | ¿Con cuántos pasos, como mínimo? | las amistades que separan a dos personas · los pasos para salir de un laberinto · el incendio con varios focos | búsqueda en anchura |
 
 </Slide>
 
