@@ -21,7 +21,7 @@ import {
   type WalkFrame,
 } from './graphWalkTrace';
 import { Step } from './Step';
-import { StepShow } from './StepShow';
+import { StepShow, type BesideRatio } from './StepShow';
 
 export type GraphWalkAlgorithm =
   'dfs' | 'dfs-iterative' | 'dfs-mark-on-push' | 'bfs' | 'bfs-mark-on-pop' | 'kahn';
@@ -131,7 +131,7 @@ export interface GraphWalkProps {
   /** On a slide, the drawing beside the listing (`<StepShow beside>`). */
   beside?: boolean;
   /** With `beside`, the "code/drawing" split. */
-  ratio?: string;
+  ratio?: BesideRatio;
   title?: string;
   /** What the graph is, in Spanish; each frame's drawing adds what it shows. */
   label: string;

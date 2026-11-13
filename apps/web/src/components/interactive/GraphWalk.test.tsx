@@ -4,6 +4,26 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { GraphWalk } from './GraphWalk';
 
+// StepShow keeps every frame laid out and shows the current one (#363): what
+// the reader sees is what is not inside a reserved frame.
+function visible(sel: string): HTMLElement | null {
+  return (
+    ([...document.querySelectorAll(sel)] as HTMLElement[]).find(
+      (el) => !el.closest('[data-stepshow-frame="reserved"]'),
+    ) ?? null
+  );
+}
+function visibleAll(sel: string): HTMLElement[] {
+  return ([...document.querySelectorAll(sel)] as HTMLElement[]).filter(
+    (el) => !el.closest('[data-stepshow-frame="reserved"]'),
+  );
+}
+function byTestId(id: string): HTMLElement {
+  const el = visible(`[data-testid="${id}"]`);
+  if (el === null) throw new Error(`no visible ${id}`);
+  return el;
+}
+
 // The course's files arrive through a Vite glob the suite does not need to
 // exercise (as in StepShow.test.tsx): one made-up file stands in for them,
 // the method at lines 2-10 of an eleven-line class.
@@ -132,7 +152,7 @@ const FAN_EDGES: [number, number][] = [
 ];
 
 function frame(): HTMLElement {
-  return screen.getByTestId('graph-walk-frame');
+  return byTestId('graph-walk-frame');
 }
 
 async function forward(times: number) {
@@ -199,7 +219,7 @@ describe('GraphWalk', () => {
     expect(screen.getByTestId('listing-range').textContent).toBe('líneas 2–10 de 11');
     // StepShow announces the step and its lit lines in a status region.
     const live = () =>
-      Array.from(document.querySelectorAll('[aria-live="polite"]'))
+      Array.from(visibleAll('[aria-live="polite"]'))
         .map((e) => e.textContent)
         .join(' | ');
     expect(live()).toMatch(/Paso 1 de \d+, línea 3\./);
@@ -316,7 +336,7 @@ describe('GraphWalk', () => {
     expect(screen.getByRole('img', { name: 'La pila está vacía.' })).toBeInTheDocument();
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'mark');
-    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'visited[0]');
+    expect(visible('[data-hot]')).toHaveAttribute('data-cell', 'visited[0]');
   });
 
   it('marking on push, paints red the neighbour it skips without having walked to it', async () => {
@@ -342,7 +362,7 @@ describe('GraphWalk', () => {
       await user.click(next);
     }
     expect(frame()).toHaveAttribute('data-w', '1');
-    const node1 = document.querySelector('[data-node][data-value="1"]');
+    const node1 = visible('[data-node][data-value="1"]');
     expect(node1).toHaveAttribute('data-tone', 'flag');
     expect(
       screen.getByText(
@@ -415,7 +435,7 @@ function maze(extra: Record<string, unknown> = {}) {
 }
 
 function cell(rc: string): HTMLElement {
-  return document.querySelector(`[data-cell="${rc}"]`) as HTMLElement;
+  return visible(`[data-cell="${rc}"]`) as HTMLElement;
 }
 
 describe('GraphWalk over a grid', () => {
@@ -429,30 +449,30 @@ describe('GraphWalk over a grid', () => {
     expect(screen.getByRole('img', { name: /Pila de llamadas: dfs\(0\)/ })).toBeInTheDocument();
     // A cell per square, walls included: the program's arrays, under the grid.
     expect(screen.queryByTestId('stepshow-under')).toBeNull();
-    expect(document.querySelector('[data-cell="visited[0]"]')).toHaveTextContent('true');
-    expect(document.querySelector('[data-cell="visited[11]"]')).toHaveTextContent('false');
-    expect(document.querySelector('[data-cell="prev[3]"]')).toHaveTextContent('−1');
-    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0');
+    expect(visible('[data-cell="visited[0]"]')).toHaveTextContent('true');
+    expect(visible('[data-cell="visited[11]"]')).toHaveTextContent('false');
+    expect(visible('[data-cell="prev[3]"]')).toHaveTextContent('−1');
+    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0');
   });
 
   it('looks up, off the grid, then down, and walks there: prev written, then the call', async () => {
     render(maze());
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'look');
-    expect(document.querySelector('[data-look]')).toHaveAttribute('data-look', '-1,0');
-    expect(screen.getByText(/fuera de la grilla, y free es false/)).toBeInTheDocument();
+    expect(visible('[data-look]')).toHaveAttribute('data-look', '-1,0');
+    expect(frame()).toHaveTextContent(/Mira arriba de 0: .* fuera de la grilla, y free es false/);
     await forward(1);
-    expect(document.querySelector('[data-look]')).toHaveAttribute('data-look', '1,0');
+    expect(visible('[data-look]')).toHaveAttribute('data-look', '1,0');
     await forward(1);
     expect(frame()).toHaveAttribute('data-event', 'prev');
-    expect(document.querySelector('[data-cell="prev[4]"]')).toHaveAttribute('data-hot');
-    expect(document.querySelector('[data-cell="prev[4]"]')).toHaveTextContent('0');
+    expect(visible('[data-cell="prev[4]"]')).toHaveAttribute('data-hot');
+    expect(visible('[data-cell="prev[4]"]')).toHaveTextContent('0');
     await forward(2);
     expect(frame()).toHaveAttribute('data-event', 'mark');
     expect(cell('1,0')).toHaveAttribute('data-state', 'running');
     expect(cell('0,0')).toHaveAttribute('data-state', 'open');
     // The thread: one line through every call still in progress.
-    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0,4');
+    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0,4');
   });
 
   it('keeps a cell once its call returns, and the thread goes back with the calls', async () => {
@@ -465,7 +485,7 @@ describe('GraphWalk over a grid', () => {
     await user.click(next);
     expect(cell('2,0')).toHaveAttribute('data-state', 'done');
     expect(cell('1,0')).toHaveAttribute('data-state', 'done');
-    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0');
+    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0');
     expect(cell('0,0')).toHaveAttribute('data-state', 'running');
   });
 
@@ -498,17 +518,17 @@ describe('GraphWalk over a grid', () => {
         },
       }),
     );
-    expect(screen.getByTestId('graph-walk-queue')).toBeInTheDocument();
-    expect(document.querySelector('[data-cell="prev[0]"]')).not.toBeNull();
-    expect(document.querySelector('[data-cell="dist[0]"]')).toBeNull();
-    expect(document.querySelector('[data-dist]')).toBeNull();
+    expect(byTestId('graph-walk-queue')).toBeInTheDocument();
+    expect(visible('[data-cell="prev[0]"]')).not.toBeNull();
+    expect(visible('[data-cell="dist[0]"]')).toBeNull();
+    expect(visible('[data-dist]')).toBeNull();
     const user = userEvent.setup();
     const next = screen.getByRole('button', { name: /adelante/i });
     while (next.getAttribute('aria-disabled') !== 'true') {
       await user.click(next);
     }
     // The way back from the exit is the shortest: five steps, not seven.
-    expect(document.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0,4,5,9,10,11');
+    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0,4,5,9,10,11');
     expect(screen.getByText(/por un camino más corto\.$/)).toBeInTheDocument();
   });
 
@@ -532,7 +552,7 @@ describe('GraphWalk over a grid', () => {
       }),
     );
     expect(screen.getByText('Marca el origen 0.')).toBeInTheDocument();
-    expect(document.querySelector('[data-cell="dist[0]"]')).not.toBeNull();
+    expect(visible('[data-cell="dist[0]"]')).not.toBeNull();
   });
 
   it('walks a maze with a stack of its own, beside its stack (#357 review round 4)', async () => {
@@ -550,7 +570,7 @@ describe('GraphWalk over a grid', () => {
     while (next.getAttribute('aria-disabled') !== 'true') {
       await user.click(next);
     }
-    expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', 'end');
+    expect(byTestId('graph-walk-frame')).toHaveAttribute('data-event', 'end');
   });
 
   it('answers the exit on its last frame, the program lit where it uses visited (#357 review)', async () => {
@@ -572,7 +592,7 @@ describe('GraphWalk over a grid', () => {
         .querySelector('[data-highlight-lines]')!
         .getAttribute('data-highlight-lines');
     expect(program()).toBe('1');
-    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
+    expect(visible('[data-cell="prev[0]"]')).toBeNull();
     const user = userEvent.setup();
     const next = screen.getByRole('button', { name: /adelante/i });
     while (next.getAttribute('aria-disabled') !== 'true') {
@@ -594,7 +614,7 @@ describe('GraphWalk over a grid', () => {
         lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, prev: 6, push: 7, end: 2 },
       }),
     );
-    const thread = () => document.querySelector('[data-thread]')!.getAttribute('data-thread')!;
+    const thread = () => visible('[data-thread]')!.getAttribute('data-thread')!;
     const user = userEvent.setup();
     const next = screen.getByRole('button', { name: /adelante/i });
     let skips = 0;
@@ -725,9 +745,9 @@ describe('GraphWalk, breadth first', () => {
     );
     expect(frame()).toHaveAttribute('data-event', 'markStart');
     expect(screen.getByRole('img', { name: 'La cola está vacía.' })).toBeInTheDocument();
-    expect(document.querySelector('[data-cell="dist[0]"]')).not.toBeNull();
+    expect(visible('[data-cell="dist[0]"]')).not.toBeNull();
     await forward(1);
-    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[0]');
+    expect(visible('[data-hot]')).toHaveAttribute('data-cell', 'dist[0]');
     await forward(1);
     expect(screen.getByRole('img', { name: 'Cola, del frente al final: 0.' })).toBeInTheDocument();
   });
@@ -765,7 +785,7 @@ describe('GraphWalk, breadth first', () => {
     );
     await stepTo(() => frame().dataset['event'] === 'dist' && frame().dataset['w'] === '3');
     expect(screen.getByText('dist[3] = dist[1] + 1 = 2.')).toBeInTheDocument();
-    expect(document.querySelector('[data-hot]')).toHaveAttribute('data-cell', 'dist[3]');
+    expect(visible('[data-hot]')).toHaveAttribute('data-cell', 'dist[3]');
     await stepTo(() => frame().dataset['event'] === 'end');
     expect(
       screen.getByText('La cola quedó vacía: marcó todo lo que se alcanza desde 0.'),
@@ -792,13 +812,10 @@ describe('GraphWalk, breadth first', () => {
         frame().dataset['w'] === '3',
     );
     expect(screen.getByText('Encola 3 por segunda vez: ya estaba en la cola.')).toBeInTheDocument();
-    expect(document.querySelector('[data-node][data-value="3"]')).toHaveAttribute(
-      'data-tone',
-      'flag',
-    );
+    expect(visible('[data-node][data-value="3"]')).toHaveAttribute('data-tone', 'flag');
     // The tempting version keeps neither dist nor prev.
-    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
-    expect(document.querySelector('[data-cell="dist[0]"]')).toBeNull();
+    expect(visible('[data-cell="prev[0]"]')).toBeNull();
+    expect(visible('[data-cell="dist[0]"]')).toBeNull();
   });
 });
 
@@ -857,14 +874,14 @@ describe('GraphWalk, Kahn', () => {
       />,
     );
     expect(frame()).toHaveAttribute('data-event', 'inDegrees');
-    expect(document.querySelector('[data-cell="inDegree[1]"]')).not.toBeNull();
-    expect(document.querySelector('[data-cell="visited[0]"]')).toBeNull();
+    expect(visible('[data-cell="inDegree[1]"]')).not.toBeNull();
+    expect(visible('[data-cell="visited[0]"]')).toBeNull();
     expect(screen.getByRole('img', { name: 'La línea está vacía.' })).toBeInTheDocument();
     await stepTo(() => frame().dataset['event'] === 'end');
     expect(
       screen.getByRole('img', { name: 'La línea, de izquierda a derecha: 0, 1, 2.' }),
     ).toBeInTheDocument();
-    expect(document.querySelectorAll('[data-bow][data-right]')).toHaveLength(2);
+    expect(visibleAll('[data-bow][data-right]')).toHaveLength(2);
   });
 
   it('paints red the vertices a cycle leaves off the line', async () => {
@@ -887,14 +904,8 @@ describe('GraphWalk, Kahn', () => {
     );
     await stepTo(() => frame().dataset['event'] === 'end');
     expect(screen.getByText(/1 de 3 vértices en la línea/)).toBeInTheDocument();
-    expect(document.querySelector('[data-node][data-value="1"]')).toHaveAttribute(
-      'data-tone',
-      'flag',
-    );
-    expect(document.querySelector('[data-node][data-value="2"]')).toHaveAttribute(
-      'data-tone',
-      'flag',
-    );
+    expect(visible('[data-node][data-value="1"]')).toHaveAttribute('data-tone', 'flag');
+    expect(visible('[data-node][data-value="2"]')).toHaveAttribute('data-tone', 'flag');
   });
 
   it('tells the author Kahn orders a directed graph', () => {
@@ -932,9 +943,9 @@ describe('GraphWalk without paths', () => {
         label="Un triángulo."
       />,
     );
-    expect(document.querySelector('[data-authoring-error]')).toBeNull();
-    expect(document.querySelector('[data-cell="visited[0]"]')).not.toBeNull();
-    expect(document.querySelector('[data-cell="prev[0]"]')).toBeNull();
+    expect(visible('[data-authoring-error]')).toBeNull();
+    expect(visible('[data-cell="visited[0]"]')).not.toBeNull();
+    expect(visible('[data-cell="prev[0]"]')).toBeNull();
     await stepTo(() => frame().dataset['event'] === 'return' && frame().dataset['v'] === '0');
     expect(
       screen.getByText('dfs(0) termina: marcó todo lo que se alcanza desde 0.'),
@@ -960,8 +971,8 @@ describe('GraphWalk caption', () => {
         caption="0 Ana · 1 Beto · 2 Carla"
       />,
     );
-    expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
+    expect(byTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
     await forward(2);
-    expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
+    expect(byTestId('graph-walk-caption')).toHaveTextContent('0 Ana · 1 Beto · 2 Carla');
   });
 });

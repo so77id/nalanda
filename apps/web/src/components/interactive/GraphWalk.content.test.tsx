@@ -4,6 +4,26 @@ import { describe, expect, it } from 'vitest';
 
 import { GraphWalk, type GraphWalkProps } from './GraphWalk';
 
+// StepShow keeps every frame laid out and shows the current one (#363): what
+// the reader sees is what is not inside a reserved frame.
+function visible(sel: string): HTMLElement | null {
+  return (
+    ([...document.querySelectorAll(sel)] as HTMLElement[]).find(
+      (el) => !el.closest('[data-stepshow-frame="reserved"]'),
+    ) ?? null
+  );
+}
+function visibleAll(sel: string): HTMLElement[] {
+  return ([...document.querySelectorAll(sel)] as HTMLElement[]).filter(
+    (el) => !el.closest('[data-stepshow-frame="reserved"]'),
+  );
+}
+function byTestId(id: string): HTMLElement {
+  const el = visible(`[data-testid="${id}"]`);
+  if (el === null) throw new Error(`no visible ${id}`);
+  return el;
+}
+
 // `<GraphWalk>` is registered lazily, so the document-render test never mounts
 // it (apps/web/CLAUDE.md, the fourth class): every combination the document
 // mounts is pinned here, with the real course files, and walked to its end.
@@ -194,10 +214,9 @@ describe('the combinations 27-grafos-recorridos mounts', () => {
     while (next.getAttribute('aria-disabled') !== 'true') {
       await user.click(next);
     }
-    expect(screen.getByTestId('graph-walk-frame')).toHaveAttribute('data-event', lastEvent);
+    expect(byTestId('graph-walk-frame')).toHaveAttribute('data-event', lastEvent);
     // The legend under the frame names what the numbers stand for.
-    if (props.caption)
-      expect(screen.getByTestId('graph-walk-caption')).toHaveTextContent(props.caption);
+    if (props.caption) expect(byTestId('graph-walk-caption')).toHaveTextContent(props.caption);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
   });
 });
