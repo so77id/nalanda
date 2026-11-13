@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { GraphWalk, type GraphWalkProps } from './GraphWalk';
@@ -11,11 +10,6 @@ function visible(sel: string): HTMLElement | null {
     ([...document.querySelectorAll(sel)] as HTMLElement[]).find(
       (el) => !el.closest('[data-stepshow-frame="reserved"]'),
     ) ?? null
-  );
-}
-function visibleAll(sel: string): HTMLElement[] {
-  return ([...document.querySelectorAll(sel)] as HTMLElement[]).filter(
-    (el) => !el.closest('[data-stepshow-frame="reserved"]'),
   );
 }
 function byTestId(id: string): HTMLElement {
@@ -204,17 +198,22 @@ const CASES: [string, GraphWalkProps, string][] = [
 ];
 
 describe('the combinations 27-grafos-recorridos mounts', () => {
-  it.each(CASES)('%s', async (_slide, props, lastEvent) => {
+  it.each(CASES)('%s', (_slide, props, lastEvent) => {
     const { container } = render(<GraphWalk {...props} />);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();
     // The listing came from the real file: its header names the range.
     if (props.codeSrc) expect(screen.getAllByText(/líneas \d+–\d+ de/).length).toBeGreaterThan(0);
-    const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: /adelante/i });
-    while (next.getAttribute('aria-disabled') !== 'true') {
-      await user.click(next);
+    // StepShow lays every frame out from the first step (#363; jsdom has no
+    // IntersectionObserver, so none is held back): one render paints the whole
+    // walk, and a frame that broke halfway would break it here. Clicking to
+    // the end re-laid every frame on each click and neared the 5 s timeout on
+    // CI. Every frame is there, and the walk's last one ends as the slide does.
+    const frames = [...document.querySelectorAll('[data-testid="graph-walk-frame"]')];
+    for (const stack of screen.getAllByTestId('stepshow-frames')) {
+      expect(stack.querySelectorAll(':scope > [data-stepshow-frame]')).toHaveLength(frames.length);
     }
-    expect(byTestId('graph-walk-frame')).toHaveAttribute('data-event', lastEvent);
+    expect(frames.length).toBeGreaterThan(2);
+    expect(frames.at(-1)).toHaveAttribute('data-event', lastEvent);
     // The legend under the frame names what the numbers stand for.
     if (props.caption) expect(byTestId('graph-walk-caption')).toHaveTextContent(props.caption);
     expect(container.querySelector('[data-authoring-error]')).toBeNull();

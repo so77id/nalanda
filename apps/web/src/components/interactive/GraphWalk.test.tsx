@@ -155,6 +155,14 @@ function frame(): HTMLElement {
   return byTestId('graph-walk-frame');
 }
 
+// Every frame of the walk, in order: StepShow lays them all out from the first
+// step (#363; jsdom has no IntersectionObserver, so none is held back). A test
+// about how a long walk goes reads them from one render — clicking through it
+// re-lays every frame on each click, which ran past the 5 s timeout on CI.
+function laidFrames(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('[data-testid="graph-walk-frame"]')];
+}
+
 async function forward(times: number) {
   const user = userEvent.setup();
   for (let i = 0; i < times; i++) {
@@ -475,18 +483,18 @@ describe('GraphWalk over a grid', () => {
     expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0,4');
   });
 
-  it('keeps a cell once its call returns, and the thread goes back with the calls', async () => {
+  it('keeps a cell once its call returns, and the thread goes back with the calls', () => {
     render(maze());
-    const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: /adelante/i });
-    while (!(frame().dataset['event'] === 'return' && frame().dataset['v'] === '4')) {
-      await user.click(next);
-    }
-    await user.click(next);
-    expect(cell('2,0')).toHaveAttribute('data-state', 'done');
-    expect(cell('1,0')).toHaveAttribute('data-state', 'done');
-    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0');
-    expect(cell('0,0')).toHaveAttribute('data-state', 'running');
+    const frames = laidFrames();
+    const back = frames.findIndex((f) => f.dataset['event'] === 'return' && f.dataset['v'] === '4');
+    expect(back).toBeGreaterThan(0);
+    // The frame after dfs(4) returns: back in dfs(0).
+    const after = frames[back + 1];
+    const at = (rc: string) => after.querySelector(`[data-cell="${rc}"]`);
+    expect(at('2,0')).toHaveAttribute('data-state', 'done');
+    expect(at('1,0')).toHaveAttribute('data-state', 'done');
+    expect(after.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0');
+    expect(at('0,0')).toHaveAttribute('data-state', 'running');
   });
 
   it('starts from the cell given as r · C + c', () => {
@@ -499,7 +507,7 @@ describe('GraphWalk over a grid', () => {
     expect(screen.getByText(/todavía no recorre una grilla/)).toBeInTheDocument();
   });
 
-  it('walks a maze breadth first beside its queue, keeping prev and no dist (#357 arc II)', async () => {
+  it('walks a maze breadth first beside its queue, keeping prev and no dist (#357 arc II)', () => {
     render(
       maze({
         grid: ['...#', '...#', '#...'],
@@ -522,14 +530,11 @@ describe('GraphWalk over a grid', () => {
     expect(visible('[data-cell="prev[0]"]')).not.toBeNull();
     expect(visible('[data-cell="dist[0]"]')).toBeNull();
     expect(visible('[data-dist]')).toBeNull();
-    const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: /adelante/i });
-    while (next.getAttribute('aria-disabled') !== 'true') {
-      await user.click(next);
-    }
+    const last = laidFrames().at(-1)!;
     // The way back from the exit is the shortest: five steps, not seven.
-    expect(visible('[data-thread]')).toHaveAttribute('data-thread', '0,4,5,9,10,11');
-    expect(screen.getByText(/por un camino más corto\.$/)).toBeInTheDocument();
+    expect(last.querySelector('[data-thread]')).toHaveAttribute('data-thread', '0,4,5,9,10,11');
+    // The frame's first line is its narration.
+    expect(last.firstElementChild).toHaveTextContent(/por un camino más corto\.$/);
   });
 
   it("writes each reached cell's distance when the walk keeps dist", () => {
@@ -555,7 +560,7 @@ describe('GraphWalk over a grid', () => {
     expect(visible('[data-cell="dist[0]"]')).not.toBeNull();
   });
 
-  it('walks a maze with a stack of its own, beside its stack (#357 review round 4)', async () => {
+  it('walks a maze with a stack of its own, beside its stack (#357 review round 4)', () => {
     render(
       maze({
         algorithm: 'dfs-iterative',
@@ -565,22 +570,20 @@ describe('GraphWalk over a grid', () => {
     );
     expect(screen.getByText('Apila el origen 0.')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /^Pila, del fondo al tope: 0\.$/ })).toBeInTheDocument();
-    const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: /adelante/i });
-    while (next.getAttribute('aria-disabled') !== 'true') {
-      await user.click(next);
-    }
-    expect(byTestId('graph-walk-frame')).toHaveAttribute('data-event', 'end');
+    expect(laidFrames().at(-1)).toHaveAttribute('data-event', 'end');
   });
 
   it('answers the exit on its last frame, the program lit where it uses visited (#357 review)', async () => {
+    // The listing lights by the current step, so this walk is clicked to its
+    // end: on a 2 × 2 maze, a handful of frames.
     render(
       maze({
+        grid: ['..', '#.'],
         algorithm: 'dfs-iterative',
         paths: false,
-        exit: 11,
+        exit: 3,
         lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, push: 7, end: 2 },
-        program: 'boolean[] visited = dfs(grid, 0);\nSystem.out.println(visited[11]);',
+        program: 'boolean[] visited = dfs(grid, 0);\nSystem.out.println(visited[3]);',
         programLines: [1],
         programLinesAtEnd: [2],
       }),
@@ -599,13 +602,13 @@ describe('GraphWalk over a grid', () => {
       await user.click(next);
     }
     expect(program()).toBe('2');
-    // The way round the walls, by (1, 2) and (1, 3), reaches the exit.
+    // The way round the wall, by (0, 1), reaches the exit.
     expect(
-      screen.getByText(/visited\[11\], la celda \(2, 3\), es true: se llega a la salida\.$/),
+      screen.getByText(/visited\[3\], la celda \(1, 1\), es true: se llega a la salida\.$/),
     ).toBeInTheDocument();
   });
 
-  it('keeps the thread off the copies it discards, and ends on the way to the exit (#357 review)', async () => {
+  it('keeps the thread off the copies it discards, and ends on the way to the exit (#357 review)', () => {
     render(
       maze({
         grid: ['...#', '...#', '#...'],
@@ -614,20 +617,24 @@ describe('GraphWalk over a grid', () => {
         lines: { pushStart: 1, pop: 2, skip: 3, mark: 4, look: 5, prev: 6, push: 7, end: 2 },
       }),
     );
-    const thread = () => visible('[data-thread]')!.getAttribute('data-thread')!;
-    const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: /adelante/i });
+    // StepShow lays every frame out (#363), in order: read them all from one
+    // render. Clicking through ~40 frames re-laid all of them on each click
+    // and ran past the 5 s timeout on CI.
+    const frames = [...document.querySelectorAll<HTMLElement>('[data-testid="graph-walk-frame"]')];
+    const threadOf = (f: HTMLElement) =>
+      f.querySelector('[data-thread]')!.getAttribute('data-thread')!;
     let skips = 0;
-    while (next.getAttribute('aria-disabled') !== 'true') {
-      await user.click(next);
-      if (frame().dataset['event'] === 'skip') {
+    for (const f of frames) {
+      if (f.dataset['event'] === 'skip') {
         skips++;
         // A copy popped only to be thrown away is not where the walk is.
-        expect(thread().split(',').at(-1)).not.toBe(frame().dataset['v']);
+        expect(threadOf(f).split(',').at(-1)).not.toBe(f.dataset['v']);
       }
     }
     expect(skips).toBeGreaterThan(0);
-    expect(thread()).toBe('0,1,2,6,5,9,10,11');
+    const last = frames.at(-1)!;
+    expect(last).toHaveAttribute('data-event', 'end');
+    expect(threadOf(last)).toBe('0,1,2,6,5,9,10,11');
   });
 
   it('tells the author when the rows differ in length, hold another character, or start on a wall', () => {
