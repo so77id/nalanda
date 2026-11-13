@@ -27,7 +27,7 @@ describe('FloodFill', () => {
 
   it('paints the touched pixel, then one layer per tick, each pixel showing its layer', () => {
     render(<FloodFill grid={GRID} label="Una imagen." tick={100} />);
-    expect(screen.getByText(/Toca un píxel blanco/)).toBeInTheDocument();
+    expect(screen.getByText(/Toca un píxel fuera de las líneas/)).toBeInTheDocument();
     fireEvent.click(cell('0,0'));
     expect(layerOf('0,0')).toBe('0');
     expect(layerOf('0,1')).toBeNull();

@@ -133,9 +133,9 @@ function Body({ grid, mode = 'paint', label, caption, tick = 500, foci, upTo }: 
   const painted = layer.filter((d) => d >= 0 && d <= now).length;
   const status = !lit
     ? mode === 'paint'
-      ? 'Toca un píxel blanco: el balde lo pinta y la pintura se extiende.'
+      ? 'Toca un píxel fuera de las líneas: el balde lo pinta y la pintura se extiende.'
       : sources.length === 0
-        ? 'Toca uno o más píxeles blancos para poner los focos, y después «Encender».'
+        ? 'Toca una o más celdas del terreno para poner los focos, y después «Encender».'
         : `${sources.length === 1 ? 'Un foco' : `${sources.length} focos`}: toca otros, o «Encender».`
     : running
       ? `${mode === 'fire' ? 'El fuego' : 'La pintura'} va en el ${unit} ${shown} de ${last}.`
