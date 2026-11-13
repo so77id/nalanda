@@ -22,7 +22,7 @@ Muchas preguntas sobre un grafo no se responden mirando un vértice y sus
 vecinos: hay que **recorrer** el grafo, de vecino en vecino, hasta llegar a todo
 lo que se alcanza. El orden en que se recorre decide qué pregunta responde.
 
-{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side, or also a corner with `ways={8}`. `land` reads the grid as a map: '#' is land, the free cells, and '.' is water, drawn sunk. `tones` paints a free cell, keyed by its vertex: mark, keep or flag, or group-1 to group-6 for cells that go together, as the layers of a breadth-first search. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its distance, in the breadth-first search. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. `probe` (a vertex) draws an arrow from its centre toward each of its four sides, in the order of DR4 and DC4: solid in keep when the cell it reaches is free, dashed in flag when it falls off the grid or on a wall; the margin grows on a border the probe sits on, so the arrow that leaves the grid is drawn whole. `probeSeen` draws only the first directions, that many, and `probeAsk` (a k) draws that one in mark, solid, its verdict still to come: a walk over the four directions, one at a time. File-local: only the arc of the depth-first search draws a maze. */}
+{/* Maze — a maze as a grid of cells: `grid` is its rows, '#' a wall drawn solid and '.' a free cell. `numbers` writes each free cell's vertex, r · C + c, in its corner. `ends` ([entrance, exit], as vertices) draws an arrow into the entrance from the left and one out of the exit to the right, each named; both cells must sit on those borders. `ways` draws the implicit graph over it: a dot in each free cell and an edge to each free neighbour that shares a side, or also a corner with `ways={8}`. `land` reads the grid as a map: '#' is land, the free cells, and '.' is water, drawn sunk. `tones` paints a free cell, keyed by its vertex: mark, keep or flag, or group-1 to group-6 for cells that go together, as the layers of a breadth-first search. `notes` writes a value in a free cell's lower right corner, keyed by its vertex: its `prev`, its order of marking, its distance or its turn. `thread` is a list of vertices drawn as one line through their centres, in mark, ending in a dot: Teseo's thread. `probe` (a vertex) draws an arrow from its centre toward each of its four sides, in the order of DR4 and DC4: solid in keep when the cell it reaches is free, dashed in flag when it falls off the grid or on a wall; the margin grows on a border the probe sits on, so the arrow that leaves the grid is drawn whole. `probeSeen` draws only the first directions, that many, and `probeAsk` (a k) draws that one in mark, solid, its verdict still to come: a walk over the four directions, one at a time. File-local: both arcs draw mazes, and the fire's terrain is one. */}
 
 export function Maze({ grid, numbers = false, ends, ways = false, land = false, tones = {}, notes = {}, thread = [], probe, probeSeen, probeAsk, caption, label }) {
   const cell = 40;
@@ -377,13 +377,13 @@ export function Calls({ items, depth, flag = [], title = 'pila de llamadas', lab
   );
 }
 
-{/* OutputBox — what a walk has printed or returned so far: a titled box with one row per value, `rows` rows tall whatever it holds, so the frame keeps its size; `fresh` outlines the last row, the one this step wrote. As wide as its header or its longest line, never under 132, so a walk's box keeps its width. File-local. */}
+{/* OutputBox — what a walk has printed or returned so far: a titled box with one row per value, `rows` rows tall whatever it holds, so the frame keeps its size; `fresh` outlines the last row, the one this step wrote. As wide as its header or its longest line, never under 132; `chars` holds it at least that many characters wide, for a walk that prints its longest line only at the end, so the box keeps one width from the first step. File-local. */}
 
-export function OutputBox({ lines = [], rows = 3, head = 'salida', fresh = false, label }) {
+export function OutputBox({ lines = [], rows = 3, head = 'salida', fresh = false, chars = 0, label }) {
   const rowH = 26;
   const pad = 10;
   const headH = 20;
-  const width = Math.max(132, head.length * 8 + pad * 2, pad * 2 + Math.max(0, ...lines.map((l) => String(l).length)) * 9.6 + 16);
+  const width = Math.max(132, head.length * 8 + pad * 2, pad * 2 + Math.max(chars, ...lines.map((l) => String(l).length)) * 9.6 + 16);
   const height = headH + rows * rowH + pad;
   return (
     <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
@@ -468,45 +468,6 @@ export function ArrayRows({ rows, mark = [], cell = 34, cols = 1, caption, label
       {caption ? (
         <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text>
       ) : null}
-    </svg>
-  );
-}
-
-{/* LineOrder — vertices on a line, left to right in `order`, with each arc of `arcs` ([tail, head]) drawn as a bow above from tail to head: the drawing that defines a topological order. A bow that points left breaks the order and is drawn in flag. Vertices are labels, numbers or names. File-local: only the arc of the topological order draws one. */}
-
-export function LineOrder({ order, arcs, caption, label }) {
-  const gap = 56;
-  const r = 15;
-  const pad = 18;
-  const width = Math.max(order.length * gap + 2 * pad, caption ? caption.length * 6.6 + 24 : 0);
-  const left = (width - order.length * gap) / 2 + gap / 2;
-  const y = 84;
-  const height = y + r + (caption ? 40 : 12);
-  const at = new Map(order.map((v, i) => [String(v), left + i * gap]));
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', maxWidth: `${Math.round(width * 1.3)}px`, height: 'auto', display: 'block', margin: '0.4rem auto' }} role="img" aria-label={label}>
-      <line x1={pad} y1={y} x2={width - pad} y2={y} style={{ stroke: 'var(--color-rule)' }} strokeWidth="1.2" strokeDasharray="4 3" />
-      {arcs.map(([u, v]) => {
-        const x1 = at.get(String(u));
-        const x2 = at.get(String(v));
-        const right = x2 > x1;
-        const lift = 16 + Math.abs(x2 - x1) * 0.3;
-        const color = right ? 'var(--color-ink-soft)' : 'var(--color-flag)';
-        const dx = right ? -1 : 1;
-        return (
-          <g key={`${u}-${v}`}>
-            <path d={`M ${x1} ${y - r} Q ${(x1 + x2) / 2} ${y - r - lift} ${x2} ${y - r - 2}`} fill="none" style={{ stroke: color }} strokeWidth={right ? 1.8 : 2.6} />
-            <polygon points={`${x2},${y - r} ${x2 + dx * 8},${y - r - 6} ${x2 + dx * 1},${y - r - 10}`} style={{ fill: color }} />
-          </g>
-        );
-      })}
-      {order.map((v) => (
-        <g key={String(v)}>
-          <circle cx={at.get(String(v))} cy={y} r={r} style={{ fill: 'var(--color-surface)', stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" />
-          <text x={at.get(String(v))} y={y + 5} textAnchor="middle" fontSize="14" fontWeight="700" style={{ fill: 'var(--color-ink)' }}>{v}</text>
-        </g>
-      ))}
-      {caption ? <text x={width / 2} y={height - 12} textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-soft)' }}>{caption}</text> : null}
     </svg>
   );
 }
@@ -1798,13 +1759,13 @@ ya no es blanco, y nunca se pinta dos veces.
 >
   <Step lines={[11]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Se toca el píxel (0, 5): paint lo pinta de rojo.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Se toca el píxel (0, 5): paint lo pinta.</div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'mark' }}
-      caption="en rojo, lo pintado"
-      label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5). Se toca el píxel (0, 5): paint lo pinta de rojo."
+      caption="con color, lo pintado"
+      label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5). Se toca el píxel (0, 5): paint lo pinta."
     />
     <Calls items={["paint(0, 5)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5)." />
     </div>
@@ -1817,7 +1778,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5). paint(-1, 5), llamado hacia arriba: cae fuera de la imagen, y vuelve."
     />
     <Calls items={["paint(0, 5)", "paint(-1, 5)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(-1, 5)." />
@@ -1831,7 +1792,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5). paint(1, 5), llamado hacia abajo desde (0, 5): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5)." />
@@ -1845,7 +1806,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5). paint(2, 5), llamado hacia abajo: es una línea, no es blanco, y vuelve."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(2, 5)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(2, 5)." />
@@ -1859,7 +1820,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4). paint(1, 4), llamado hacia la izquierda desde (1, 5): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 4)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 4)." />
@@ -1873,7 +1834,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4). paint(0, 4), llamado hacia arriba desde (1, 4): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 4)", "paint(0, 4)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 4), paint(0, 4)." />
@@ -1887,7 +1848,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'flag', 14: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6). paint(1, 6), llamado hacia la derecha desde (1, 5): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 6)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 6)." />
@@ -1901,7 +1862,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'flag', 14: 'flag', 6: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6), (0, 6). paint(0, 6), llamado hacia arriba desde (1, 6): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 6)", "paint(0, 6)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 6), paint(0, 6)." />
@@ -1915,7 +1876,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'flag', 14: 'flag', 6: 'flag', 7: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6), (0, 6), (0, 7). paint(0, 7), llamado hacia la derecha desde (0, 6): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 6)", "paint(0, 6)", "paint(0, 7)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 6), paint(0, 6), paint(0, 7)." />
@@ -1929,7 +1890,7 @@ ya no es blanco, y nunca se pinta dos veces.
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'flag', 14: 'flag', 6: 'flag', 7: 'flag', 15: 'mark' }}
-      caption="en rojo, lo pintado"
+      caption="con color, lo pintado"
       label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6), (0, 6), (0, 7), (1, 7). paint(1, 7), llamado hacia abajo desde (0, 7): es blanco, y lo pinta."
     />
     <Calls items={["paint(0, 5)", "paint(1, 5)", "paint(1, 6)", "paint(0, 6)", "paint(0, 7)", "paint(1, 7)"]} depth={7} label="Pila de llamadas, del fondo al tope: paint(0, 5), paint(1, 5), paint(1, 6), paint(0, 6), paint(0, 7), paint(1, 7)." />
@@ -1938,13 +1899,13 @@ ya no es blanco, y nunca se pinta dos veces.
   </Step>
   <Step lines={[16]} programLines={[]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>No quedan píxeles blancos a los que se llegue: la región de arriba a la derecha quedó roja, y las otras dos siguen blancas.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>No quedan píxeles blancos a los que se llegue: la región de arriba a la derecha quedó pintada, y las otras dos siguen sin pintar.</div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '0 1rem', alignItems: 'center' }}>
     <Maze
       grid={["...#....", "...#....", "...#####", "...#....", "...#...."]}
       tones={{ 5: 'flag', 13: 'flag', 12: 'flag', 4: 'flag', 14: 'flag', 6: 'flag', 7: 'flag', 15: 'flag' }}
-      caption="en rojo, lo pintado"
-      label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6), (0, 6), (0, 7), (1, 7). No quedan píxeles blancos a los que se llegue: la región de arriba a la derecha quedó roja, y las otras dos siguen blancas."
+      caption="con color, lo pintado"
+      label="Una imagen de 5 filas y 8 columnas: píxeles blancos y líneas negras en la columna 3 y en la fila 2 desde la columna 4, que la dividen en tres regiones. Pintados de rojo: (0, 5), (1, 5), (1, 4), (0, 4), (1, 6), (0, 6), (0, 7), (1, 7). No quedan píxeles blancos a los que se llegue: la región de arriba a la derecha quedó pintada, y las otras dos siguen sin pintar."
     />
     <Calls items={[]} depth={7} label="Pila de llamadas, del fondo al tope: vacía." />
     </div>
@@ -1998,7 +1959,7 @@ cada uno.
   edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
   tones={{ 0: 'keep', 1: 'keep' }}
   caption="desde la central se marcan 0 y 1; el resto queda sin marcar"
-  label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. En verde, lo que marca una búsqueda desde la central: la central 0 y el poste 1. El resto queda sin marcar."
+  label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. En verde, lo que marca una búsqueda desde la central: la central 0 y el poste 1. El resto queda sin marcar."
 />
 
 </Slide>
@@ -2026,7 +1987,7 @@ La compañía necesita las dos respuestas, así que el código las da juntas.
   tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3', 7: 'group-3' }}
   notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2', 7: '2' }}
   caption="tres pedazos, cada uno de un color; al lado de cada vértice, su número de pedazo"
-  label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Junto a cada vértice, el número de su pedazo: 0 y 1 en el pedazo 0; 2, 3, 4 y 5 en el pedazo 1; 6 y 7 en el pedazo 2."
+  label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Junto a cada vértice, el número de su pedazo: 0 y 1 en el pedazo 0; 2, 3, 4 y 5 en el pedazo 1; 6 y 7 en el pedazo 2."
 />
 
 </Slide>
@@ -2069,7 +2030,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       nodes={[{ v: 0, x: 0, y: 1 }, { v: 1, x: 2, y: 1 }, { v: 2, x: 4, y: 0 }, { v: 3, x: 4, y: 2 }, { v: 4, x: 6, y: 0 }, { v: 5, x: 6, y: 2 }, { v: 6, x: 8, y: 2 }, { v: 7, x: 8, y: 0 }]}
       edges={[[0, 1], [2, 3], [2, 4], [3, 5], [6, 7]]}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: ninguno. El programa crea id y llama a components, que crea visited y count = 0."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: ninguno. El programa crea id y llama a components, que crea visited y count = 0."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["false", "false", "false", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 0, 0, 0, 0, 0, 0], groups: [null, null, null, null, null, null, null, null] }, { name: 'count', head: [''], cells: [0] }]} mark={[]} label="visited e id, por vértice: 0 false 0, 1 false 0, 2 false 0, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 0." />
     </Pair>
@@ -2085,7 +2046,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1' }}
       notes={{ 0: '0' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0. 0 no está visitado: components llama a dfs(0), que lo marca: id[0] = 0."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0. 0 no está visitado: components llama a dfs(0), que lo marca: id[0] = 0."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "false", "false", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 0, 0, 0, 0, 0, 0], groups: [0, null, null, null, null, null, null, null] }, { name: 'count', head: [''], cells: [0] }]} mark={[[0, 0], [1, 0]]} label="visited e id, por vértice: 0 true 0, 1 false 0, 2 false 0, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 0." />
     </Pair>
@@ -2101,7 +2062,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1' }}
       notes={{ 0: '0', 1: '0' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1. dfs(0) llama a dfs(1): id[1] = 0."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. dfs(0) llama a dfs(1): id[1] = 0."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "false", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 0, 0, 0, 0, 0, 0], groups: [0, 0, null, null, null, null, null, null] }, { name: 'count', head: [''], cells: [0] }]} mark={[[0, 1], [1, 1]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 false 0, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 0." />
     </Pair>
@@ -2117,7 +2078,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1' }}
       notes={{ 0: '0', 1: '0' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1. La búsqueda terminó: count = 1."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. La búsqueda terminó: count = 1."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "false", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 0, 0, 0, 0, 0, 0], groups: [0, 0, null, null, null, null, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 false 0, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2133,7 +2094,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1' }}
       notes={{ 0: '0', 1: '0' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1. 1 ya está visitado: no empieza nada."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1. 1 ya está visitado: no empieza nada."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "false", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 0, 0, 0, 0, 0, 0], groups: [0, 0, null, null, null, null, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 false 0, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2149,7 +2110,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2. 2 no está visitado: dfs(2) lo marca: id[2] = 1."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2. 2 no está visitado: dfs(2) lo marca: id[2] = 1."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "false", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 0, 0, 0, 0, 0], groups: [0, 0, 1, null, null, null, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[[0, 2], [1, 2]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 false 0, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2165,7 +2126,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3. dfs(3): id[3] = 1."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3. dfs(3): id[3] = 1."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "false", "false", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 0, 0, 0, 0], groups: [0, 0, 1, 1, null, null, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[[0, 3], [1, 3]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 false 0, 5 false 0, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2181,7 +2142,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 5: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 5: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 5. dfs(5): id[5] = 1."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 5. dfs(5): id[5] = 1."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "false", "true", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 0, 1, 0, 0], groups: [0, 0, 1, 1, null, 1, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[[0, 5], [1, 5]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 false 0, 5 true 1, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2197,7 +2158,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5. dfs(4): id[4] = 1."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. dfs(4): id[4] = 1."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 0, 0], groups: [0, 0, 1, 1, 1, 1, null, null] }, { name: 'count', head: [''], cells: [1] }]} mark={[[0, 4], [1, 4]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 false 0, 7 false 0; count vale 1." />
     </Pair>
@@ -2213,7 +2174,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5. count = 2."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. count = 2."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 0, 0], groups: [0, 0, 1, 1, 1, 1, null, null] }, { name: 'count', head: [''], cells: [2] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 false 0, 7 false 0; count vale 2." />
     </Pair>
@@ -2229,7 +2190,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5. 3, 4 y 5 ya están visitados."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5. 3, 4 y 5 ya están visitados."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "false", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 0, 0], groups: [0, 0, 1, 1, 1, 1, null, null] }, { name: 'count', head: [''], cells: [2] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 false 0, 7 false 0; count vale 2." />
     </Pair>
@@ -2245,7 +2206,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5, 6. 6 no está visitado: dfs(6) lo marca: id[6] = 2."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5, 6. 6 no está visitado: dfs(6) lo marca: id[6] = 2."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "true", "false"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 2, 0], groups: [0, 0, 1, 1, 1, 1, 2, null] }, { name: 'count', head: [''], cells: [2] }]} mark={[[0, 6], [1, 6]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 true 2, 7 false 0; count vale 2." />
     </Pair>
@@ -2261,7 +2222,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3', 7: 'group-3' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2', 7: '2' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. dfs(7): id[7] = 2."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. dfs(7): id[7] = 2."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "true", "true"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 2, 2], groups: [0, 0, 1, 1, 1, 1, 2, 2] }, { name: 'count', head: [''], cells: [2] }]} mark={[[0, 7], [1, 7]]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 true 2, 7 true 2; count vale 2." />
     </Pair>
@@ -2277,7 +2238,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3', 7: 'group-3' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2', 7: '2' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. count = 3."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. count = 3."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "true", "true"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 2, 2], groups: [0, 0, 1, 1, 1, 1, 2, 2] }, { name: 'count', head: [''], cells: [3] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 true 2, 7 true 2; count vale 3." />
     </Pair>
@@ -2293,7 +2254,7 @@ entero, y `dfs` anota en `id` el número del pedazo de cada vértice que marca.
       tones={{ 0: 'group-1', 1: 'group-1', 2: 'group-2', 3: 'group-2', 4: 'group-2', 5: 'group-2', 6: 'group-3', 7: 'group-3' }}
       notes={{ 0: '0', 1: '0', 2: '1', 3: '1', 4: '1', 5: '1', 6: '2', 7: '2' }}
       caption="cada pedazo de un color; al lado, su id"
-      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7; cortados, en rojo punteado, 1-2 y 1-3. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. 7 ya está visitado. components devuelve count = 3, e id dice el pedazo de cada vértice."
+      label="La red eléctrica después de la segunda tormenta: la central 0; los postes 1, 2, 3 y 6; las casas 4, 5 y 7. Los cables que quedan: 0-1, 2-3, 2-4, 3-5 y 6-7. Visitados: 0, 1, 2, 3, 4, 5, 6, 7. 7 ya está visitado. components devuelve count = 3, e id dice el pedazo de cada vértice."
     />
     <ArrayRows rows={[{ name: 'visited', cells: ["true", "true", "true", "true", "true", "true", "true", "true"] }, { name: 'id', cells: [0, 0, 1, 1, 1, 1, 2, 2], groups: [0, 0, 1, 1, 1, 1, 2, 2] }, { name: 'count', head: [''], cells: [3] }]} mark={[]} label="visited e id, por vértice: 0 true 0, 1 true 0, 2 true 1, 3 true 1, 4 true 1, 5 true 1, 6 true 2, 7 true 2; count vale 3." />
     </Pair>
@@ -2337,7 +2298,7 @@ misma respuesta: una búsqueda por pedazo.
 | --- | --- | --- | --- |
 | las islas de un mapa | celdas de tierra | celdas vecinas | ¿cuántas islas hay? |
 | una red social | personas | amistades | ¿cuántos grupos sin contacto entre sí hay? |
-| una red de computadores | computadores | cables | ¿cuántas redes aisladas hay, y cuáles computadores se comunican entre sí? |
+| una red de computadoras | computadoras | cables | ¿cuántas redes aisladas hay, y qué computadoras se comunican entre sí? |
 
 </Slide>
 
@@ -2364,7 +2325,7 @@ entrada hasta la salida.
 <Maze
   grid={["...#", "...#", "#..."]}
   ends={[0, 11]}
-  caption="las celdas libres, en blanco; los muros, en gris"
+  caption="los muros, rellenos; las celdas libres, vacías"
   label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la fila 0 y la salida a la derecha de la fila 2. Libres: las tres primeras celdas de las filas 0 y 1, y las tres últimas de la fila 2; el resto son muros."
 />
 
@@ -2468,7 +2429,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, ninguna flecha todavía. La celda de la fila 0 y la columna 2: r = 0 y c = 2."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, ninguna flecha todavía. La celda de la fila 0 y la columna 2: r = 0 y c = 2."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2489,7 +2450,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, ninguna flecha todavía. k = 0, arriba: la vecina está en (r + DR4[0], c + DC4[0]) = (0 − 1, 2 + 0) = (−1, 2)."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, ninguna flecha todavía. k = 0, arriba: la vecina está en (r + DR4[0], c + DC4[0]) = (0 − 1, 2 + 0) = (−1, 2)."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[[0, 0], [1, 0]]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2509,7 +2470,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 1 direcciones. free(grid, −1, 2): r >= 0 es false, la fila −1 cae fuera de la grilla, y no sigue. Imprime false."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, la flecha de la primera dirección. free(grid, −1, 2): r >= 0 es false, la fila −1 cae fuera de la grilla, y no sigue. Imprime false."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2530,7 +2491,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 1 direcciones. k = 1, abajo: la vecina está en (r + DR4[1], c + DC4[1]) = (0 + 1, 2 + 0) = (1, 2)."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, la flecha de la primera dirección. k = 1, abajo: la vecina está en (r + DR4[1], c + DC4[1]) = (0 + 1, 2 + 0) = (1, 2)."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[[0, 1], [1, 1]]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2550,7 +2511,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 2 direcciones. free(grid, 1, 2): la fila 1 y la columna 2 caen dentro, y grid[1].charAt(2) está libre: es una vecina. Imprime true."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las dos primeras direcciones. free(grid, 1, 2): la fila 1 y la columna 2 caen dentro, y grid[1].charAt(2) está libre: es una vecina. Imprime true."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2571,7 +2532,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 2 direcciones. k = 2, a la izquierda: la vecina está en (r + DR4[2], c + DC4[2]) = (0 + 0, 2 − 1) = (0, 1)."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las dos primeras direcciones. k = 2, a la izquierda: la vecina está en (r + DR4[2], c + DC4[2]) = (0 + 0, 2 − 1) = (0, 1)."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[[0, 2], [1, 2]]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2591,7 +2552,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 3 direcciones. free(grid, 0, 1): la fila 0 y la columna 1 caen dentro, y grid[0].charAt(1) está libre: es una vecina. Imprime true."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las tres primeras direcciones. free(grid, 0, 1): la fila 0 y la columna 1 caen dentro, y grid[0].charAt(1) está libre: es una vecina. Imprime true."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2612,7 +2573,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 3 direcciones. k = 3, a la derecha: la vecina está en (r + DR4[3], c + DC4[3]) = (0 + 0, 2 + 1) = (0, 3)."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las tres primeras direcciones. k = 3, a la derecha: la vecina está en (r + DR4[3], c + DC4[3]) = (0 + 0, 2 + 1) = (0, 3)."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[[0, 3], [1, 3]]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2632,7 +2593,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 4 direcciones. free(grid, 0, 3): la fila 0 y la columna 3 caen dentro, pero grid[0].charAt(3) es un muro. Imprime false."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las cuatro direcciones. free(grid, 0, 3): la fila 0 y la columna 3 caen dentro, pero grid[0].charAt(3) es un muro. Imprime false."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2652,7 +2613,7 @@ final: con una fila o una columna fuera de la grilla, lanzaría una excepción.
       numbers
       tones={{ 2: 'mark' }}
       caption="desde la celda (0, 2)"
-      label="Un laberinto de tres filas y cuatro columnas, con la entrada a la izquierda de la celda 0 y la salida a la derecha de la celda 11. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las primeras 4 direcciones. La celda tiene dos vecinas: abajo, en (1, 2), y a la izquierda, en (0, 1)."
+      label="Un laberinto de tres filas y cuatro columnas. Celdas libres: 0, 1 y 2 en la fila 0; 4, 5 y 6 en la fila 1; 9, 10 y 11 en la fila 2. Muros: 3, 7 y 8. Desde la celda de la fila 0 y la columna 2, las flechas de las cuatro direcciones. La celda tiene dos vecinas: abajo, en (1, 2), y a la izquierda, en (0, 1)."
     />
     <div>
     <ArrayRows rows={[{ name: 'DR4', cells: ['−1', '1', '0', '0'] }, { name: 'DC4', cells: ['0', '0', '−1', '1'] }, { name: 'r', head: [''], cells: ['0'] }, { name: 'c', head: [''], cells: ['2'] }]} mark={[]} label="DR4 vale −1, 1, 0 y 0; DC4 vale 0, 0, −1 y 1; r vale 0 y c vale 2." />
@@ -2772,8 +2733,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[51]} programLines={[3]}>
@@ -2790,8 +2751,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[54]} programLines={[3]}>
@@ -2808,8 +2769,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2828,8 +2789,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2848,8 +2809,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 11]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2868,8 +2829,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 10]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2888,8 +2849,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 9]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2908,8 +2869,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 5]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2928,8 +2889,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 6]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2948,8 +2909,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2", "1"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2, 1." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 2]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55, 56]} programLines={[3]}>
@@ -2968,8 +2929,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2", "1", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2, 1, 0." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 1]]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55]} programLines={[3]}>
@@ -2987,8 +2948,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2", "1", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2, 1, 0." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3007,8 +2968,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2", "1"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2, 1." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)"] }]} cols={8} cell={58} mark={[[0, 0]]} label="path: (0, 0)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)"] }]} cols={8} cell={60} mark={[[0, 0]]} label="path: (0, 0)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3027,8 +2988,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6", "2"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6, 2." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)"] }]} cols={8} cell={58} mark={[[0, 1]]} label="path: (0, 0), (0, 1)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)"] }]} cols={8} cell={60} mark={[[0, 1]]} label="path: (0, 0), (0, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3047,8 +3008,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5", "6"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 6." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)"] }]} cols={8} cell={58} mark={[[0, 2]]} label="path: (0, 0), (0, 1), (0, 2)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)"] }]} cols={8} cell={60} mark={[[0, 2]]} label="path: (0, 0), (0, 1), (0, 2)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3067,8 +3028,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)"] }]} cols={8} cell={58} mark={[[0, 3]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)"] }]} cols={8} cell={60} mark={[[0, 3]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3087,8 +3048,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)"] }]} cols={8} cell={58} mark={[[0, 4]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)"] }]} cols={8} cell={60} mark={[[0, 4]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3107,8 +3068,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)"] }]} cols={8} cell={58} mark={[[0, 5]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)"] }]} cols={8} cell={60} mark={[[0, 5]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3127,8 +3088,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)"] }]} cols={8} cell={58} mark={[[0, 6]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)"] }]} cols={8} cell={60} mark={[[0, 6]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[58, 59, 60, 61]} programLines={[3]}>
@@ -3147,8 +3108,8 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 7]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2), (2, 3)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={60} mark={[[0, 7]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={55} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[63]} programLines={[3, 4]}>
@@ -3166,7 +3127,7 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "5", "6", "2", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 5, 6, 2, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 7]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(0, 1)", "(0, 2)", "(1, 2)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={60} mark={[[0, 7]]} label="path: (0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (2, 1), (2, 2), (2, 3)." />
     <OutputBox head="salida" lines={["(0, 0) (0, 1) (0, 2) (1, 2) (1, 1) (2, 1) (2, 2) (2, 3)"]} rows={1} fresh label="Lo impreso: (0, 0) (0, 1) (0, 2) (1, 2) (1, 1) (2, 1) (2, 2) (2, 3)." />
     </Pair>
   </Step>
@@ -3176,11 +3137,13 @@ convirtiendo cada número de vuelta al par $$(r, c)$$. Si `t` no es la entrada y
 
 <Slide title="El costo en el laberinto">
 
-En el laberinto, los vértices son las celdas: $$V = R \cdot C$$. Cada celda
-tiene a lo más cuatro vecinos, y cada arista la comparten dos celdas, así que
-$$E$$ es a lo más $$2 \cdot R \cdot C$$. La búsqueda marca cada celda una vez y
-prueba sus cuatro direcciones, y cada vecino se calcula con unas pocas
-operaciones, sin leer ninguna lista. `path` da un paso por celda del camino, y
+En el laberinto, los vértices son las celdas libres: a lo más $$R \cdot C$$.
+Cada celda tiene a lo más cuatro vecinos, y cada arista la comparten dos
+celdas, así que $$E$$ es a lo más $$2 \cdot R \cdot C$$. La búsqueda marca cada
+celda libre una vez y prueba sus cuatro direcciones, y cada vecino se calcula
+con unas pocas operaciones, sin leer ninguna lista. Pero `visited` y `prev`
+tienen una casilla por celda, muros incluidos, y se crean enteros al empezar:
+eso ya cuesta $$\Theta(R \cdot C)$$. `path` da un paso por celda del camino, y
 el camino no repite celdas:
 
 | | con listas | en el laberinto |
@@ -3229,7 +3192,7 @@ más corto: en este laberinto da un rodeo, y hay otro con menos pasos.
 
 <Slide title="La salida más corta de un laberinto">
 
-La búsqueda en profundidad encontró una salida de 7 pasos, y hay una de 5. La
+La búsqueda en profundidad encontró una salida, pero no la más corta. La
 pregunta ahora es otra: **¿con cuántos pasos, como mínimo, se sale?**, y por
 qué camino.
 
@@ -3336,12 +3299,18 @@ pila. `visited`, `prev` y `path` se usan igual:
 Un solo detalle cambia: se marca al encolar, no al sacar. Así cada celda entra
 una sola vez a la cola.
 
+La pila no puede hacer lo mismo. De las copias de un vértice en la pila, la
+que sale primero es la última que entró, y es la que sigue en profundidad:
+marcar al apilar se quedaría con la primera. En la cola, la primera copia que
+entra es la primera que sale, así que marcar al encolar se queda con la misma
+copia y ahorra las otras.
+
 </Slide>
 
 <Slide title="La búsqueda en anchura en el laberinto">
 
-Es la `dfs` de «La búsqueda que deja el hilo» con una cola: los comentarios
-marcan lo nuevo.
+Es la búsqueda con pila del laberinto, con una cola en lugar de la pila: los
+comentarios marcan lo nuevo.
 
 <GraphWalk
   beside
@@ -3364,8 +3333,7 @@ marcan lo nuevo.
 
 <Slide title="El camino más corto a la salida">
 
-El mismo `path` de «El camino a la salida», sin cambiarle nada, sigue ahora el
-`prev` de la búsqueda en anchura. Cada `prev` está en la capa anterior, así que
+`path`, sin cambiarle nada, sigue ahora el `prev` de la búsqueda en anchura. Cada `prev` está en la capa anterior, así que
 el hilo baja una capa por paso, y el camino tiene tantos pasos como la capa de
 la salida: el mínimo.
 
@@ -3397,8 +3365,8 @@ la salida: el mínimo.
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[52]} programLines={[3]}>
@@ -3416,8 +3384,8 @@ la salida: el mínimo.
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[55]} programLines={[3]}>
@@ -3435,8 +3403,8 @@ la salida: el mínimo.
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3455,8 +3423,8 @@ la salida: el mínimo.
     <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3475,8 +3443,8 @@ la salida: el mínimo.
     <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 11]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3495,8 +3463,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 10]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3515,8 +3483,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 9]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3535,8 +3503,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5", "4"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 5]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56, 57]} programLines={[3]}>
@@ -3555,8 +3523,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5", "4", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4, 0." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[[0, 4]]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[56]} programLines={[3]}>
@@ -3575,8 +3543,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5", "4", "0"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4, 0." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={58} mark={[]} label="path: vacía." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: [] }]} cols={8} cell={60} mark={[]} label="path: vacía." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3595,8 +3563,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5", "4"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5, 4." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)"] }]} cols={8} cell={58} mark={[[0, 0]]} label="path: (0, 0)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)"] }]} cols={8} cell={60} mark={[[0, 0]]} label="path: (0, 0)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3615,8 +3583,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9", "5"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9, 5." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)"] }]} cols={8} cell={58} mark={[[0, 1]]} label="path: (0, 0), (1, 0)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)"] }]} cols={8} cell={60} mark={[[0, 1]]} label="path: (0, 0), (1, 0)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3635,8 +3603,8 @@ la salida: el mínimo.
     <Calls items={["11", "10", "9"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10, 9." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)"] }]} cols={8} cell={58} mark={[[0, 2]]} label="path: (0, 0), (1, 0), (1, 1)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)"] }]} cols={8} cell={60} mark={[[0, 2]]} label="path: (0, 0), (1, 0), (1, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3655,8 +3623,8 @@ la salida: el mínimo.
     <Calls items={["11", "10"]} depth={8} title="back" label="La pila back, del fondo al tope: 11, 10." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)"] }]} cols={8} cell={58} mark={[[0, 3]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)"] }]} cols={8} cell={60} mark={[[0, 3]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3675,8 +3643,8 @@ la salida: el mínimo.
     <Calls items={["11"]} depth={8} title="back" label="La pila back, del fondo al tope: 11." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)"] }]} cols={8} cell={58} mark={[[0, 4]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)"] }]} cols={8} cell={60} mark={[[0, 4]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[59, 60, 61, 62]} programLines={[3]}>
@@ -3695,8 +3663,8 @@ la salida: el mínimo.
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
-    <OutputBox head="salida" lines={[]} rows={1} label="Lo impreso: nada." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={60} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <OutputBox head="salida" lines={[]} rows={1} chars={41} label="Lo impreso: nada." />
     </Pair>
   </Step>
   <Step lines={[64]} programLines={[3, 4]}>
@@ -3715,7 +3683,7 @@ la salida: el mínimo.
     <Calls items={[]} depth={8} title="back" label="La pila back, del fondo al tope: vacía." />
     </div>
     <ArrayRows rows={[{ name: 'prev', cells: ["−1", "0", "1", "−1", "0", "4", "5", "−1", "−1", "5", "9", "10"] }]} mark={[]} label="prev, por celda: −1, 0, 1, −1, 0, 4, 5, −1, −1, 5, 9, 10." />
-    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={58} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
+    <ArrayRows rows={[{ name: 'path', cells: ["(0, 0)", "(1, 0)", "(1, 1)", "(2, 1)", "(2, 2)", "(2, 3)"] }]} cols={8} cell={60} mark={[[0, 5]]} label="path: (0, 0), (1, 0), (1, 1), (2, 1), (2, 2), (2, 3)." />
     <OutputBox head="salida" lines={["(0, 0) (1, 0) (1, 1) (2, 1) (2, 2) (2, 3)"]} rows={1} fresh label="Lo impreso: (0, 0) (1, 0) (1, 1) (2, 1) (2, 2) (2, 3)." />
     </Pair>
   </Step>
@@ -3727,21 +3695,22 @@ la salida: el mínimo.
 
 Cada vértice alcanzado entra a la cola una sola vez, y sus vecinos se leen una
 sola vez, al sacarlo. Es el mismo trabajo que hace la búsqueda en profundidad;
-cambia lo que guarda la bolsa:
+cambia dónde espera lo pendiente:
 
 | | la búsqueda en profundidad | la búsqueda en anchura |
 | --- | --- | --- |
 | tiempo, con listas | $$\Theta(V + E)$$ | $$\Theta(V + E)$$ |
 | tiempo, con matriz | $$\Theta(V^2)$$ | $$\Theta(V^2)$$ |
 | tiempo, en el laberinto | $$\Theta(R \cdot C)$$ | $$\Theta(R \cdot C)$$ |
-| lo que guarda la bolsa | el `Stack`: hasta $$E + 1$$ vértices | la `Queue`: hasta $$V$$, cada uno una vez |
+| lo pendiente | el `Stack`: hasta $$E + 1$$ vértices | la `Queue`: hasta $$V$$, cada uno una vez |
 
-La distancia que calcula cuenta aristas. Es la respuesta cuando las aristas no
-tienen peso, o cuando todas pesan lo mismo. Si pesan distinto, como los minutos
+El camino que encuentra es el de menos aristas. Es la respuesta cuando las
+aristas no tienen peso, o cuando todas pesan lo mismo. Si pesan distinto, como los minutos
 que toma cada calle, la búsqueda en anchura no alcanza: el camino con menos
 aristas puede ser el que más pesa. El camino más corto con pesos tiene sus
 propios algoritmos: el de **Dijkstra**, cuando ningún peso es negativo, y el de
-**Bellman‑Ford**, cuando alguno puede serlo.
+**Bellman‑Ford**, cuando alguno puede serlo, mientras no haya un ciclo de peso
+negativo.
 
 </Slide>
 
@@ -3825,11 +3794,11 @@ separación**.
 <NodeGraph
   cols={13}
   rows={1}
-  nodes={[{ v: 'tú', x: 0, y: 0 }, { v: '1', x: 2, y: 0 }, { v: '2', x: 4, y: 0 }, { v: '3', x: 6, y: 0 }, { v: '4', x: 8, y: 0 }, { v: '5', x: 10, y: 0 }, { v: 'otra persona', x: 12, y: 0 }]}
-  edges={[['tú', '1'], ['1', '2'], ['2', '3'], ['3', '4'], ['4', '5'], ['5', 'otra persona']]}
-  tones={{ tú: 'mark', 'otra persona': 'mark' }}
+  nodes={[{ v: 'una persona', x: 0, y: 0 }, { v: '1', x: 2, y: 0 }, { v: '2', x: 4, y: 0 }, { v: '3', x: 6, y: 0 }, { v: '4', x: 8, y: 0 }, { v: '5', x: 10, y: 0 }, { v: 'otra persona', x: 12, y: 0 }]}
+  edges={[['una persona', '1'], ['1', '2'], ['2', '3'], ['3', '4'], ['4', '5'], ['5', 'otra persona']]}
+  tones={{ 'una persona': 'mark', 'otra persona': 'mark' }}
   caption="cinco personas en medio: seis saltos"
-  label="Una cadena de seis saltos: tú, cinco personas en medio, y otra persona cualquiera del planeta."
+  label="Una cadena de seis saltos: una persona, cinco personas en medio, y otra persona cualquiera del planeta."
 />
 
 </Slide>
@@ -3872,12 +3841,12 @@ misma respuesta: una búsqueda en anchura desde el origen.
 
 | contexto | vértices | aristas | la pregunta |
 | --- | --- | --- | --- |
-| el número de Erdős | matemáticos | artículos escritos juntos | ¿a cuántos artículos de Paul Erdős está alguien? |
-| el número de Bacon | actores | películas en las que actuaron juntos | ¿a cuántas películas de Kevin Bacon está alguien? |
+| el número de Erdős | matemáticos | artículos escritos juntos | ¿cuántos saltos de coautor separan a alguien de Paul Erdős? |
+| el número de Bacon | actores | películas en las que actuaron juntos | ¿cuántos saltos de película separan a alguien de Kevin Bacon? |
 | la escalera de palabras | palabras | cambiar una letra | ¿con cuántos cambios se pasa de una palabra a otra? |
 | el caballo de ajedrez | casillas | un salto de caballo | ¿cuántos saltos necesita para llegar a otra casilla? |
-| el candado de la clase anterior | combinaciones | un giro de una rueda | ¿cuántos giros, como mínimo, para abrirlo? |
-| una red de computadores | routers | cables | ¿por cuántos routers pasa, como mínimo, un mensaje? |
+| un candado de ruedas con números | combinaciones | un giro de una rueda | ¿cuántos giros, como mínimo, para abrirlo? |
+| una red de computadoras | routers | cables | ¿por cuántos routers pasa, como mínimo, un mensaje? |
 
 </Slide>
 
@@ -3889,7 +3858,7 @@ el color se extiende a los píxeles vecinos del mismo color hasta chocar con las
 líneas.
 
 Las primeras implementaciones del balde eran recursivas, de a un píxel: pintarlo
-y llamarse con sus cuatro vecinos, como en «El balde de pintura». Muy pronto se
+y llamarse con sus cuatro vecinos, una búsqueda en profundidad. Muy pronto se
 pasó a métodos que llenan fila por fila, más rápidos: Alvy Ray Smith publicó uno
 en 1979, y los programas de hoy usan descendientes de esos métodos. Con una cola
 en lugar de la recursión, la pintura avanza por capas, y se ve así: cada número
@@ -3897,8 +3866,8 @@ es la distancia al píxel que se tocó, y cada capa tiene su color.
 
 <FloodFill
   grid={["................", ".......##.......", "......#..#......", ".....#....#.....", "....#......#....", "...#........#...", "..############..", "..#..........#..", "..#.####.....#..", "..#.#..#.###.#..", "..#.####.#.#.#..", "..#......#.#.#..", "################"]}
-  label="Una casa dibujada con líneas negras sobre fondo blanco: el techo en triángulo, una pieza con una ventana a la izquierda y una puerta a la derecha, y el suelo abajo."
-  caption="toca la pieza, el techo o el cielo"
+  label="Una casa dibujada con líneas: el techo en triángulo, una pieza con una ventana a la izquierda y una puerta a la derecha, y el suelo abajo."
+  caption="la pieza, el techo y el cielo se pueden tocar"
 />
 
 </Slide>
@@ -3952,12 +3921,15 @@ entra a la cola una sola vez.
   grid={["..............", "....##........", "....##....#...", "..........#...", "..........#...", ".....##...#...", "..........#...", ".............."]}
   foci={[[3, 2], [3, 12], [7, 7]]}
   label="Un terreno de 8 filas y 14 columnas, todo conectado: dos rocas y un río corto que no se queman, y el resto, pasto."
-  caption="los focos de la entrada; quita o pon focos antes de encender"
+  caption="los focos de la entrada; antes de encender se pueden quitar o agregar"
 />
 
 </Slide>
 
 <Slide title="El incendio, turno por turno">
+
+En el terreno de la entrada, la cola sacaría más de cien celdas. Sobre un
+terreno más chico, con dos focos, cada paso es una celda que sale de la cola.
 
 <StepShow
   language="java"
@@ -3980,7 +3952,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["0", "34"] }]} cols={8} label="La cola, del frente al final: 0, 34." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["0", "34"] }]} cols={9} label="La cola, del frente al final: 0, 34." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -3994,7 +3966,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["34", "7", "1"] }]} cols={8} label="La cola, del frente al final: 34, 7, 1." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["34", "7", "1"] }]} cols={9} label="La cola, del frente al final: 34, 7, 1." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4008,7 +3980,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["7", "1", "27", "33"] }]} cols={8} label="La cola, del frente al final: 7, 1, 27, 33." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["7", "1", "27", "33"] }]} cols={9} label="La cola, del frente al final: 7, 1, 27, 33." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4022,12 +3994,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["1", "27", "33", "14", "8"] }]} cols={8} label="La cola, del frente al final: 1, 27, 33, 14, 8." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["1", "27", "33", "14", "8"] }]} cols={9} label="La cola, del frente al final: 1, 27, 33, 14, 8." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 1, del turno 1: last = 1. Entran 2, con dist 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 1, del turno 1: last = 1. Entra 2, con dist 2.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4036,7 +4008,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["27", "33", "14", "8", "2"] }]} cols={8} label="La cola, del frente al final: 27, 33, 14, 8, 2." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["27", "33", "14", "8", "2"] }]} cols={9} label="La cola, del frente al final: 27, 33, 14, 8, 2." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4050,12 +4022,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 20 en el turno 2, 26 en el turno 2, 27 en el turno 1, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["33", "14", "8", "2", "20", "26"] }]} cols={8} label="La cola, del frente al final: 33, 14, 8, 2, 20, 26." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["33", "14", "8", "2", "20", "26"] }]} cols={9} label="La cola, del frente al final: 33, 14, 8, 2, 20, 26." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 33, del turno 1: last = 1. Entran 32, con dist 2.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 33, del turno 1: last = 1. Entra 32, con dist 2.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4064,7 +4036,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 20 en el turno 2, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["14", "8", "2", "20", "26", "32"] }]} cols={8} label="La cola, del frente al final: 14, 8, 2, 20, 26, 32." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["14", "8", "2", "20", "26", "32"] }]} cols={9} label="La cola, del frente al final: 14, 8, 2, 20, 26, 32." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4078,7 +4050,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["8", "2", "20", "26", "32", "21", "15"] }]} cols={8} label="La cola, del frente al final: 8, 2, 20, 26, 32, 21, 15." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["8", "2", "20", "26", "32", "21", "15"] }]} cols={9} label="La cola, del frente al final: 8, 2, 20, 26, 32, 21, 15." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4092,12 +4064,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["2", "20", "26", "32", "21", "15"] }]} cols={8} label="La cola, del frente al final: 2, 20, 26, 32, 21, 15." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["2", "20", "26", "32", "21", "15"] }]} cols={9} label="La cola, del frente al final: 2, 20, 26, 32, 21, 15." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 2, del turno 2: last = 2. Entran 3, con dist 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 2, del turno 2: last = 2. Entra 3, con dist 3.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4106,7 +4078,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 14 en el turno 2, 15 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["20", "26", "32", "21", "15", "3"] }]} cols={8} label="La cola, del frente al final: 20, 26, 32, 21, 15, 3." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["20", "26", "32", "21", "15", "3"] }]} cols={9} label="La cola, del frente al final: 20, 26, 32, 21, 15, 3." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4120,7 +4092,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["26", "32", "21", "15", "3", "13", "19"] }]} cols={8} label="La cola, del frente al final: 26, 32, 21, 15, 3, 13, 19." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["26", "32", "21", "15", "3", "13", "19"] }]} cols={9} label="La cola, del frente al final: 26, 32, 21, 15, 3, 13, 19." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4134,12 +4106,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["32", "21", "15", "3", "13", "19"] }]} cols={8} label="La cola, del frente al final: 32, 21, 15, 3, 13, 19." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["32", "21", "15", "3", "13", "19"] }]} cols={9} label="La cola, del frente al final: 32, 21, 15, 3, 13, 19." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 32, del turno 2: last = 2. Entran 31, con dist 3.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 32, del turno 2: last = 2. Entra 31, con dist 3.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4148,7 +4120,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 26 en el turno 2, 27 en el turno 1, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["21", "15", "3", "13", "19", "31"] }]} cols={8} label="La cola, del frente al final: 21, 15, 3, 13, 19, 31." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["21", "15", "3", "13", "19", "31"] }]} cols={9} label="La cola, del frente al final: 21, 15, 3, 13, 19, 31." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4162,7 +4134,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["15", "3", "13", "19", "31", "28", "22"] }]} cols={8} label="La cola, del frente al final: 15, 3, 13, 19, 31, 28, 22." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["15", "3", "13", "19", "31", "28", "22"] }]} cols={9} label="La cola, del frente al final: 15, 3, 13, 19, 31, 28, 22." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4176,7 +4148,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 7 en el turno 1, 8 en el turno 2, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["3", "13", "19", "31", "28", "22"] }]} cols={8} label="La cola, del frente al final: 3, 13, 19, 31, 28, 22." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["3", "13", "19", "31", "28", "22"] }]} cols={9} label="La cola, del frente al final: 3, 13, 19, 31, 28, 22." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4190,7 +4162,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["13", "19", "31", "28", "22", "10", "4"] }]} cols={8} label="La cola, del frente al final: 13, 19, 31, 28, 22, 10, 4." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["13", "19", "31", "28", "22", "10", "4"] }]} cols={9} label="La cola, del frente al final: 13, 19, 31, 28, 22, 10, 4." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4204,7 +4176,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["19", "31", "28", "22", "10", "4", "6", "12"] }]} cols={8} label="La cola, del frente al final: 19, 31, 28, 22, 10, 4, 6, 12." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["19", "31", "28", "22", "10", "4", "6", "12"] }]} cols={9} label="La cola, del frente al final: 19, 31, 28, 22, 10, 4, 6, 12." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4218,7 +4190,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["31", "28", "22", "10", "4", "6", "12"] }]} cols={8} label="La cola, del frente al final: 31, 28, 22, 10, 4, 6, 12." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["31", "28", "22", "10", "4", "6", "12"] }]} cols={9} label="La cola, del frente al final: 31, 28, 22, 10, 4, 6, 12." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4232,12 +4204,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["28", "22", "10", "4", "6", "12", "24", "30"] }]} cols={8} label="La cola, del frente al final: 28, 22, 10, 4, 6, 12, 24, 30." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["28", "22", "10", "4", "6", "12", "24", "30"] }]} cols={9} label="La cola, del frente al final: 28, 22, 10, 4, 6, 12, 24, 30." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 28, del turno 4: last = 4. Entran 29, con dist 5.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 28, del turno 4: last = 4. Entra 29, con dist 5.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4246,12 +4218,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["22", "10", "4", "6", "12", "24", "30", "29"] }]} cols={8} label="La cola, del frente al final: 22, 10, 4, 6, 12, 24, 30, 29." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["22", "10", "4", "6", "12", "24", "30", "29"] }]} cols={9} label="La cola, del frente al final: 22, 10, 4, 6, 12, 24, 30, 29." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 22, del turno 4: last = 4. Entran 23, con dist 5.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 22, del turno 4: last = 4. Entra 23, con dist 5.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4260,7 +4232,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["10", "4", "6", "12", "24", "30", "29", "23"] }]} cols={8} label="La cola, del frente al final: 10, 4, 6, 12, 24, 30, 29, 23." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["10", "4", "6", "12", "24", "30", "29", "23"] }]} cols={9} label="La cola, del frente al final: 10, 4, 6, 12, 24, 30, 29, 23." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4274,12 +4246,12 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["4", "6", "12", "24", "30", "29", "23", "17", "11"] }]} cols={8} label="La cola, del frente al final: 4, 6, 12, 24, 30, 29, 23, 17, 11." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["4", "6", "12", "24", "30", "29", "23", "17", "11"] }]} cols={9} label="La cola, del frente al final: 4, 6, 12, 24, 30, 29, 23, 17, 11." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
     <Pair stack>
-    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 4, del turno 4: last = 4. Entran 5, con dist 5.</div>
+    <div style={{ fontSize: '0.9rem', textAlign: 'center', lineHeight: 1.5, minHeight: '3em' }}>Sale 4, del turno 4: last = 4. Entra 5, con dist 5.</div>
     <Maze
       grid={[".......", "..#....", "..#.#..", "....#..", "......."]}
       numbers
@@ -4288,7 +4260,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["6", "12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 6, 12, 24, 30, 29, 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", "", ""], cells: ["6", "12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 6, 12, 24, 30, 29, 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4302,7 +4274,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 12, 24, 30, 29, 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", "", ""], cells: ["12", "24", "30", "29", "23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 12, 24, 30, 29, 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4316,7 +4288,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["24", "30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 24, 30, 29, 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", "", ""], cells: ["24", "30", "29", "23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 24, 30, 29, 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4330,7 +4302,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["30", "29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 30, 29, 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", "", ""], cells: ["30", "29", "23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 30, 29, 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4344,7 +4316,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["29", "23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 29, 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", "", ""], cells: ["29", "23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 29, 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4358,7 +4330,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["23", "17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 23, 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", "", ""], cells: ["23", "17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 23, 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4372,7 +4344,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["17", "11", "5"] }]} cols={8} label="La cola, del frente al final: 17, 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", "", ""], cells: ["17", "11", "5"] }]} cols={9} label="La cola, del frente al final: 17, 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4386,7 +4358,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["11", "5"] }]} cols={8} label="La cola, del frente al final: 11, 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente", ""], cells: ["11", "5"] }]} cols={9} label="La cola, del frente al final: 11, 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4400,7 +4372,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: ["5"] }]} cols={8} label="La cola, del frente al final: 5." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: ["5"] }]} cols={9} label="La cola, del frente al final: 5." />
     </Pair>
   </Step>
   <Step lines={[28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]} programLines={[2]}>
@@ -4414,7 +4386,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={8} label="La cola, del frente al final: vacía." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={9} label="La cola, del frente al final: vacía." />
     </Pair>
   </Step>
   <Step lines={[43]} programLines={[2]}>
@@ -4428,7 +4400,7 @@ System.out.println(turns(terrain, fires));`}
       caption="rojo: ya salió de la cola · amarillo: en la cola · abajo, su turno"
       label="Un terreno de 5 filas y 7 columnas, con celdas numeradas fila por fila, de 0 a 34: unas rocas en la columna 2, filas 1 y 2, y en la columna 4, filas 2 y 3. Dos focos: la celda 0, arriba a la izquierda, y la 34, abajo a la derecha. Quemadas: 0 en el turno 0, 1 en el turno 1, 2 en el turno 2, 3 en el turno 3, 4 en el turno 4, 5 en el turno 5, 6 en el turno 4, 7 en el turno 1, 8 en el turno 2, 10 en el turno 4, 11 en el turno 5, 12 en el turno 4, 13 en el turno 3, 14 en el turno 2, 15 en el turno 3, 17 en el turno 5, 19 en el turno 3, 20 en el turno 2, 21 en el turno 3, 22 en el turno 4, 23 en el turno 5, 24 en el turno 4, 26 en el turno 2, 27 en el turno 1, 28 en el turno 4, 29 en el turno 5, 30 en el turno 4, 31 en el turno 3, 32 en el turno 2, 33 en el turno 1, 34 en el turno 0."
     />
-    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={8} label="La cola, del frente al final: vacía." />
+    <ArrayRows rows={[{ name: 'cola', head: ["frente"], cells: [] }]} cols={9} label="La cola, del frente al final: vacía." />
     </Pair>
   </Step>
 </StepShow>
