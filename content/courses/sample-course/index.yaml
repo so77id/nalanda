@@ -43,10 +43,15 @@ entries:
       - docId: grafos-introduccion
       - docId: grafos-tda-modelado
       - docId: grafos-recorridos
+  - label: Ensayos
+    children:
+      - docId: ensayo-control-4
   - label: Evaluaciones
     children:
       - docId: control-1
       - docId: solemne-1
+      - docId: control-2
+      - docId: control-3
       - docId: control-4
   - label: Recursos
     children:
