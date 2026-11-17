@@ -52,6 +52,7 @@ entries:
       - docId: solemne-1
       - docId: control-2
       - docId: control-3
+      - docId: control-4
   - label: Recursos
     children:
       - docId: encuesta-etc
