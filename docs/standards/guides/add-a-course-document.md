@@ -47,6 +47,8 @@ content/courses/sample-course/
 ├── evaluaciones/              # one document per evaluation, the "Evaluaciones" group of index.yaml
 │   ├── control-1.mdx          # presentation: none     — <PdfEmbed> (pauta) + <SheetEmbed> (notas), §6h
 │   └── solemne-1.mdx          # presentation: none     — the same, with the grades on a Publicar-en-la-web link (§6g, ADR-0087)
+├── ensayos/                   # practice exams, the "Ensayos" group of index.yaml; their pauta is published on purpose, before the control
+│   └── ensayo-control-4.mdx   # presentation: none     — <PdfEmbed> (pauta), §6h
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
